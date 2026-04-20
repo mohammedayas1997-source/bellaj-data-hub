@@ -16,6 +16,9 @@ import ForgotPasswordScreen from "./src/screens/ForgotPasswordScreen";
 import AirtimeScreen from "./src/screens/AirtimeScreen";
 import FundWalletScreen from "./src/screens/FundWalletScreen";
 import ContactScreen from "./src/screens/ContactScreen"; // Added this import
+import SupervisorDashboard from "./src/screens/SupervisorDashboard";
+import AdminControlScreen from "./src/screens/AdminControlScreen";
+import AssignTargetScreen from "./src/screens/AssignTargetScreen";
 
 const Stack = createStackNavigator();
 
@@ -112,6 +115,22 @@ export default function App() {
           name="Profile"
           component={ProfileScreen}
           options={{ title: "My Profile" }}
+        />
+
+        <Stack.Screen
+          name="AdminControl"
+          component={AdminControlScreen}
+          options={{ title: "Admin Panel" }}
+        />
+        <Stack.Screen
+          name="SupervisorDashboard"
+          component={SupervisorDashboard}
+          options={{ title: "Supervisor Panel" }}
+        />
+        <Stack.Screen
+          name="AssignTarget"
+          component={AssignTargetScreen}
+          options={{ title: "Set Target" }}
         />
       </Stack.Navigator>
     </NavigationContainer>

@@ -7,39 +7,66 @@ import {
   StyleSheet,
   Alert,
   StatusBar,
+  ActivityIndicator,
   ScrollView,
 } from "react-native";
 import axios from "axios";
 
 const SignupScreen = ({ navigation }) => {
-  const [fullName, setFullName] = useState("");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [role, setRole] = useState("user"); // Default shi ne Customer (user)
+
+  // Bayanan wuri don Agent kawai
+  const [state, setState] = useState("");
+  const [lga, setLga] = useState("");
+  const [address, setAddress] = useState("");
+
+  const [loading, setLoading] = useState(false);
 
   const handleSignup = async () => {
-    // 1. Check if all fields are filled
-    if (!fullName || !email || !phone || !password || !confirmPassword) {
-      return Alert.alert("Error", "Please fill in all fields.");
+    // Basic Validation
+    if (!name || !email || !phone || !password) {
+      return Alert.alert("Error", "Please fill in all basic fields.");
     }
 
-    // 2. Check if passwords match
-    if (password !== confirmPassword) {
-      return Alert.alert("Error", "Passwords do not match!");
-    }
-
-    try {
-      const response = await axios.post(
-        "https://ayax-data-xpress-server.vercel.app/api/v1/auth/register",
-        { fullName, email, phone, password },
+    // Idan Agent ne, dole ya cika address
+    if (role === "agent" && (!state || !lga || !address)) {
+      return Alert.alert(
+        "Error",
+        "Agents must provide State, LGA, and Address.",
       );
+    }
+
+    setLoading(true);
+    try {
+      const payload = {
+        name,
+        email,
+        phone,
+        password,
+        role,
+        // Wadannan za su tafi ne kawai idan mutum ya zabi Agent
+        ...(role === "agent" && { state, lga, address }),
+      };
+
+      const response = await axios.post(
+        "https://ayax-data-xpress-server.vercel.app/api/v1/auth/signup",
+        payload,
+      );
+
       if (response.data.success) {
         Alert.alert("Success", "Account created successfully! Please login.");
         navigation.navigate("Login");
       }
     } catch (error) {
-      Alert.alert("Error", "Registration failed. Please try again.");
+      const errorMsg =
+        error.response?.data?.message || "Signup failed. Try again.";
+      Alert.alert("Error", errorMsg);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -47,17 +74,49 @@ const SignupScreen = ({ navigation }) => {
     <ScrollView contentContainerStyle={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
 
-      <Text style={styles.title}>Create Account</Text>
-      <Text style={styles.subtitle}>Fill in your details to get started</Text>
+      <View style={styles.headerArea}>
+        <Text style={styles.title}>Create Account</Text>
+        <Text style={styles.subtitle}>Join Ayax Xpress ecosystem today</Text>
+      </View>
 
       <View style={styles.inputContainer}>
+        {/* Role Selection Buttons */}
+        <Text style={styles.label}>Register As:</Text>
+        <View style={styles.roleContainer}>
+          <TouchableOpacity
+            style={[styles.roleBtn, role === "user" && styles.activeRole]}
+            onPress={() => setRole("user")}
+          >
+            <Text
+              style={[
+                styles.roleBtnText,
+                role === "user" && styles.activeRoleText,
+              ]}
+            >
+              Customer
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.roleBtn, role === "agent" && styles.activeRole]}
+            onPress={() => setRole("agent")}
+          >
+            <Text
+              style={[
+                styles.roleBtnText,
+                role === "agent" && styles.activeRoleText,
+              ]}
+            >
+              Agent
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         <Text style={styles.label}>Full Name</Text>
         <View style={styles.inputView}>
           <TextInput
             style={styles.inputText}
             placeholder="John Doe"
-            placeholderTextColor="#cbd5e1"
-            onChangeText={setFullName}
+            onChangeText={setName}
           />
         </View>
 
@@ -65,10 +124,8 @@ const SignupScreen = ({ navigation }) => {
         <View style={styles.inputView}>
           <TextInput
             style={styles.inputText}
-            placeholder="example@mail.com"
-            placeholderTextColor="#cbd5e1"
+            placeholder="john@mail.com"
             keyboardType="email-address"
-            autoCapitalize="none"
             onChangeText={setEmail}
           />
         </View>
@@ -78,11 +135,45 @@ const SignupScreen = ({ navigation }) => {
           <TextInput
             style={styles.inputText}
             placeholder="08012345678"
-            placeholderTextColor="#cbd5e1"
-            keyboardType="numeric"
+            keyboardType="phone-pad"
             onChangeText={setPhone}
           />
         </View>
+
+        {/* Conditional Fields for Agent Only */}
+        {role === "agent" && (
+          <View>
+            <Text style={styles.agentInfoTitle}>Agent Location Details</Text>
+
+            <Text style={styles.label}>State</Text>
+            <View style={styles.inputView}>
+              <TextInput
+                style={styles.inputText}
+                placeholder="e.g. Adamawa"
+                onChangeText={setState}
+              />
+            </View>
+
+            <Text style={styles.label}>LGA</Text>
+            <View style={styles.inputView}>
+              <TextInput
+                style={styles.inputText}
+                placeholder="e.g. Yola South"
+                onChangeText={setLga}
+              />
+            </View>
+
+            <Text style={styles.label}>Full Office/Home Address</Text>
+            <View style={[styles.inputView, { height: 80 }]}>
+              <TextInput
+                style={styles.inputText}
+                placeholder="No 12, Opposite Skyward College..."
+                multiline
+                onChangeText={setAddress}
+              />
+            </View>
+          </View>
+        )}
 
         <Text style={styles.label}>Password</Text>
         <View style={styles.inputView}>
@@ -90,25 +181,21 @@ const SignupScreen = ({ navigation }) => {
             secureTextEntry
             style={styles.inputText}
             placeholder="••••••••"
-            placeholderTextColor="#cbd5e1"
             onChangeText={setPassword}
-          />
-        </View>
-
-        <Text style={styles.label}>Confirm Password</Text>
-        <View style={styles.inputView}>
-          <TextInput
-            secureTextEntry
-            style={styles.inputText}
-            placeholder="••••••••"
-            placeholderTextColor="#cbd5e1"
-            onChangeText={setConfirmPassword}
           />
         </View>
       </View>
 
-      <TouchableOpacity style={styles.signupBtn} onPress={handleSignup}>
-        <Text style={styles.signupText}>CREATE ACCOUNT</Text>
+      <TouchableOpacity
+        style={styles.signupBtn}
+        onPress={handleSignup}
+        disabled={loading}
+      >
+        {loading ? (
+          <ActivityIndicator color="#ffffff" />
+        ) : (
+          <Text style={styles.signupText}>CREATE ACCOUNT</Text>
+        )}
       </TouchableOpacity>
 
       <View style={styles.footer}>
@@ -126,74 +213,70 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     backgroundColor: "#ffffff",
     alignItems: "center",
-    paddingVertical: 50,
+    paddingVertical: 40,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#0f172a",
-    marginBottom: 5,
-  },
-  subtitle: {
-    color: "#64748b",
-    marginBottom: 30,
-    fontSize: 15,
-  },
-  inputContainer: {
-    width: "85%",
-  },
+  headerArea: { alignItems: "center", marginBottom: 30 },
+  title: { fontSize: 28, fontWeight: "bold", color: "#1e3a8a" },
+  subtitle: { color: "#64748b", fontSize: 14, marginTop: 5 },
+  inputContainer: { width: "85%" },
   label: {
     color: "#475569",
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
-    marginBottom: 8,
+    marginBottom: 5,
     marginLeft: 5,
   },
+  roleContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 20,
+  },
+  roleBtn: {
+    flex: 1,
+    height: 45,
+    backgroundColor: "#f1f5f9",
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    marginHorizontal: 5,
+  },
+  activeRole: { backgroundColor: "#1e3a8a" },
+  roleBtnText: { color: "#475569", fontWeight: "bold" },
+  activeRoleText: { color: "#ffffff" },
   inputView: {
     width: "100%",
     backgroundColor: "#f8fafc",
     borderRadius: 12,
-    height: 55,
-    marginBottom: 15,
+    height: 50,
+    marginBottom: 12,
     justifyContent: "center",
-    paddingHorizontal: 20,
-    borderWidth: 1.5,
+    paddingHorizontal: 15,
+    borderWidth: 1,
     borderColor: "#f1f5f9",
   },
-  inputText: {
-    height: 50,
-    color: "#1e293b",
+  inputText: { color: "#1e293b", fontSize: 15 },
+  agentInfoTitle: {
+    color: "#1e3a8a",
+    fontWeight: "bold",
+    marginVertical: 10,
     fontSize: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e2e8f0",
+    paddingBottom: 5,
   },
   signupBtn: {
     width: "85%",
     backgroundColor: "#1e3a8a",
     borderRadius: 12,
-    height: 58,
+    height: 55,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 20,
-    elevation: 4,
   },
-  signupText: {
-    color: "white",
-    fontWeight: "bold",
-    fontSize: 16,
-    letterSpacing: 1,
-  },
-  footer: {
-    flexDirection: "row",
-    marginTop: 30,
-  },
-  footerText: {
-    color: "#64748b",
-    fontSize: 15,
-  },
-  loginLink: {
-    color: "#1e3a8a",
-    fontWeight: "bold",
-    fontSize: 15,
-  },
+  signupText: { color: "white", fontWeight: "bold", fontSize: 16 },
+  footer: { flexDirection: "row", marginTop: 25 },
+  footerText: { color: "#64748b" },
+  loginLink: { color: "#1e3a8a", fontWeight: "bold" },
 });
 
 export default SignupScreen;

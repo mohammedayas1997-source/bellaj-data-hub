@@ -21,16 +21,20 @@ const networks = [
 
 const dataBundles = {
   "01": [
-    { id: "1001", label: "MTN SME 500MB - ₦150", price: 150 },
-    { id: "1002", label: "MTN SME 1GB - ₦280", price: 280 },
-    { id: "1003", label: "MTN SME 2GB - ₦560", price: 560 },
+    { id: "1001", label: "MTN SME 500MB - ₦150", price: 150, agentPrice: 140 },
+    { id: "1002", label: "MTN SME 1GB - ₦280", price: 280, agentPrice: 265 },
+    { id: "1003", label: "MTN SME 2GB - ₦560", price: 560, agentPrice: 530 },
   ],
   "02": [
-    { id: "2001", label: "GLO 1GB - ₦250", price: 250 },
-    { id: "2002", label: "GLO 2.9GB - ₦500", price: 500 },
+    { id: "2001", label: "GLO 1GB - ₦250", price: 250, agentPrice: 235 },
+    { id: "2002", label: "GLO 2.9GB - ₦500", price: 500, agentPrice: 470 },
   ],
-  "04": [{ id: "4001", label: "Airtel 1.5GB - ₦500", price: 500 }],
-  "03": [{ id: "3001", label: "9Mobile 1GB - ₦300", price: 300 }],
+  "04": [
+    { id: "4001", label: "Airtel 1.5GB - ₦500", price: 500, agentPrice: 480 },
+  ],
+  "03": [
+    { id: "3001", label: "9Mobile 1GB - ₦300", price: 300, agentPrice: 285 },
+  ],
 };
 
 const BuyDataScreen = () => {
@@ -38,7 +42,7 @@ const BuyDataScreen = () => {
   const [phone, setPhone] = useState("");
   const [selectedPlan, setSelectedPlan] = useState("");
   const [loading, setLoading] = useState(false);
-  const [userRole, setUserRole] = useState("user");
+  const [userRole, setUserRole] = useState("user"); // Canza wannan zuwa "agent" don ganin farashin agent
 
   const currentPlans = dataBundles[selectedNet] || [];
 
@@ -50,23 +54,18 @@ const BuyDataScreen = () => {
       );
     }
 
-    const dataPlans = [
-      { id: 1, size: "1GB", userPrice: 300, agentPrice: 240 },
-      { id: 2, size: "2GB", userPrice: 600, agentPrice: 480 },
-    ];
-
     const planDetails = currentPlans.find((p) => p.id === selectedPlan);
 
     setLoading(true);
     try {
-      // Mun sauya link din nan ya koma zuwa ainihin API dinka na Vercel
       const response = await axios.post(
         "https://ayax-data-xpress-server.vercel.app/api/v1/vtu/buy-data",
         {
           network: selectedNet,
           planId: selectedPlan,
           phoneNumber: phone,
-          amount: planDetails.price,
+          amount:
+            userRole === "agent" ? planDetails.agentPrice : planDetails.price,
         },
       );
 
@@ -151,14 +150,21 @@ const BuyDataScreen = () => {
             onPress={() => setSelectedPlan(plan.id)}
           >
             <View style={styles.planInfo}>
-              <Text
-                style={[
-                  styles.planLabel,
-                  { color: selectedPlan === plan.id ? "#1e3a8a" : "#334155" },
-                ]}
-              >
-                {plan.label}
-              </Text>
+              <View>
+                <Text
+                  style={[
+                    styles.planLabel,
+                    { color: selectedPlan === plan.id ? "#1e3a8a" : "#334155" },
+                  ]}
+                >
+                  {plan.label}
+                </Text>
+                <Text style={styles.priceSubText}>
+                  Price: ₦{userRole === "agent" ? plan.agentPrice : plan.price}
+                  {userRole === "agent" &&
+                    ` (You save ₦${plan.price - plan.agentPrice})`}
+                </Text>
+              </View>
               {selectedPlan === plan.id && (
                 <Text style={styles.checkIcon}>✓</Text>
               )}
@@ -182,26 +188,6 @@ const BuyDataScreen = () => {
     </ScrollView>
   );
 };
-return (
-  <View style={styles.container}>
-    {dataPlans.map((plan) => (
-      <TouchableOpacity key={plan.id} style={styles.planCard}>
-        <Text style={styles.planSize}>{plan.size}</Text>
-
-        {/* Nan ne logic din yake: */}
-        <Text style={styles.priceText}>
-          Price: ₦{userRole === "agent" ? plan.agentPrice : plan.userPrice}
-        </Text>
-
-        {userRole === "agent" && (
-          <Text style={styles.savingsText}>
-            You save ₦{plan.userPrice - plan.agentPrice}!
-          </Text>
-        )}
-      </TouchableOpacity>
-    ))}
-  </View>
-);
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#ffffff", paddingHorizontal: 20 },
@@ -253,6 +239,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   planLabel: { fontSize: 15, fontWeight: "600" },
+  priceSubText: { fontSize: 13, color: "#64748b", marginTop: 4 },
   checkIcon: { color: "#1e3a8a", fontWeight: "bold" },
   buyBtn: {
     backgroundColor: "#1e3a8a",
