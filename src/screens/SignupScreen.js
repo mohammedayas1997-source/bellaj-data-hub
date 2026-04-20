@@ -9,47 +9,98 @@ import {
   StatusBar,
   ActivityIndicator,
   ScrollView,
+  Image,
 } from "react-native";
 import axios from "axios";
+import * as ImagePicker from "expo-image-picker";
 
 const SignupScreen = ({ navigation }) => {
-  const [name, setName] = useState("");
+  // Sunaye
+  const [firstName, setFirstName] = useState("");
+  const [surname, setSurname] = useState("");
+  const [otherName, setOtherName] = useState("");
+
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("user"); // Default shi ne Customer (user)
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [role, setRole] = useState("user");
 
-  // Bayanan wuri don Agent kawai
+  // Bayanan Agent
   const [state, setState] = useState("");
   const [lga, setLga] = useState("");
   const [address, setAddress] = useState("");
+  const [image, setImage] = useState(null);
 
   const [loading, setLoading] = useState(false);
 
+  // Aikin daukar hoto
+  const pickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5, // Mun rage ingancin kadan don kada file din ya yi nauyi sosai
+      base64: true, // WANNAN SHINE MUHIMMI: Don Admin ya ga hoton
+    });
+
+    if (!result.canceled) {
+      // Muna hada rubutun Base64 din da nau'in hoton (data:image/jpeg;base64,...)
+      const base64Img = `data:image/jpeg;base64,${result.assets[0].base64}`;
+      setImage(base64Img);
+    }
+  };
+
   const handleSignup = async () => {
-    // Basic Validation
-    if (!name || !email || !phone || !password) {
+    // 1. Validation na kowa da kowa
+    if (
+      !firstName ||
+      !surname ||
+      !email ||
+      !phone ||
+      !password ||
+      !confirmPassword
+    ) {
       return Alert.alert("Error", "Please fill in all basic fields.");
     }
 
-    // Idan Agent ne, dole ya cika address
-    if (role === "agent" && (!state || !lga || !address)) {
-      return Alert.alert(
-        "Error",
-        "Agents must provide State, LGA, and Address.",
-      );
+    // 2. Duba Password
+    if (password !== confirmPassword) {
+      return Alert.alert("Error", "Passwords do not match!");
+    }
+
+    if (password.length < 6) {
+      return Alert.alert("Error", "Password must be at least 6 characters.");
+    }
+
+    // 3. Validation na Agent
+    if (role === "agent") {
+      if (!state || !lga || !address) {
+        return Alert.alert(
+          "Error",
+          "Agents must provide State, LGA, and Address.",
+        );
+      }
+      if (!image) {
+        return Alert.alert(
+          "Error",
+          "Please upload an Agent Profile/Office photo.",
+        );
+      }
     }
 
     setLoading(true);
     try {
+      // Shirya data (Payload)
       const payload = {
-        name,
+        firstName,
+        surname,
+        otherName,
         email,
         phone,
         password,
         role,
-        // Wadannan za su tafi ne kawai idan mutum ya zabi Agent
-        ...(role === "agent" && { state, lga, address }),
+        ...(role === "agent" && { state, lga, address, profileImage: image }),
       };
 
       const response = await axios.post(
@@ -58,7 +109,10 @@ const SignupScreen = ({ navigation }) => {
       );
 
       if (response.data.success) {
-        Alert.alert("Success", "Account created successfully! Please login.");
+        Alert.alert(
+          "Success",
+          "Account created successfully! Welcome to Ayax Data Xpress.",
+        );
         navigation.navigate("Login");
       }
     } catch (error) {
@@ -76,11 +130,13 @@ const SignupScreen = ({ navigation }) => {
 
       <View style={styles.headerArea}>
         <Text style={styles.title}>Create Account</Text>
-        <Text style={styles.subtitle}>Join Ayax Xpress ecosystem today</Text>
+        <Text style={styles.subtitle}>
+          Join Ayax Data Xpress ecosystem today
+        </Text>
       </View>
 
       <View style={styles.inputContainer}>
-        {/* Role Selection Buttons */}
+        {/* Role Selection */}
         <Text style={styles.label}>Register As:</Text>
         <View style={styles.roleContainer}>
           <TouchableOpacity
@@ -111,12 +167,36 @@ const SignupScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.label}>Full Name</Text>
+        {/* Names Section */}
+        <View style={styles.row}>
+          <View style={{ flex: 1, marginRight: 5 }}>
+            <Text style={styles.label}>Surname</Text>
+            <View style={styles.inputView}>
+              <TextInput
+                style={styles.inputText}
+                placeholder="Surname"
+                onChangeText={setSurname}
+              />
+            </View>
+          </View>
+          <View style={{ flex: 1, marginLeft: 5 }}>
+            <Text style={styles.label}>First Name</Text>
+            <View style={styles.inputView}>
+              <TextInput
+                style={styles.inputText}
+                placeholder="First Name"
+                onChangeText={setFirstName}
+              />
+            </View>
+          </View>
+        </View>
+
+        <Text style={styles.label}>Other Name (Optional)</Text>
         <View style={styles.inputView}>
           <TextInput
             style={styles.inputText}
-            placeholder="John Doe"
-            onChangeText={setName}
+            placeholder="Other Name"
+            onChangeText={setOtherName}
           />
         </View>
 
@@ -124,7 +204,7 @@ const SignupScreen = ({ navigation }) => {
         <View style={styles.inputView}>
           <TextInput
             style={styles.inputText}
-            placeholder="john@mail.com"
+            placeholder="example@mail.com"
             keyboardType="email-address"
             onChangeText={setEmail}
           />
@@ -140,16 +220,28 @@ const SignupScreen = ({ navigation }) => {
           />
         </View>
 
-        {/* Conditional Fields for Agent Only */}
+        {/* Agent Only Fields */}
         {role === "agent" && (
-          <View>
-            <Text style={styles.agentInfoTitle}>Agent Location Details</Text>
+          <View style={styles.agentSection}>
+            <Text style={styles.agentInfoTitle}>
+              Agent Business Verification
+            </Text>
+
+            <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
+              {image ? (
+                <Image source={{ uri: image }} style={styles.previewImage} />
+              ) : (
+                <Text style={styles.imagePickerText}>
+                  Click to Upload Profile Photo
+                </Text>
+              )}
+            </TouchableOpacity>
 
             <Text style={styles.label}>State</Text>
             <View style={styles.inputView}>
               <TextInput
                 style={styles.inputText}
-                placeholder="e.g. Adamawa"
+                placeholder="e.g. Kano"
                 onChangeText={setState}
               />
             </View>
@@ -158,16 +250,16 @@ const SignupScreen = ({ navigation }) => {
             <View style={styles.inputView}>
               <TextInput
                 style={styles.inputText}
-                placeholder="e.g. Yola South"
+                placeholder="e.g. Tarauni"
                 onChangeText={setLga}
               />
             </View>
 
-            <Text style={styles.label}>Full Office/Home Address</Text>
-            <View style={[styles.inputView, { height: 80 }]}>
+            <Text style={styles.label}>Office Address</Text>
+            <View style={[styles.inputView, { height: 70 }]}>
               <TextInput
                 style={styles.inputText}
-                placeholder="No 12, Opposite Skyward College..."
+                placeholder="Detailed Address"
                 multiline
                 onChangeText={setAddress}
               />
@@ -182,6 +274,16 @@ const SignupScreen = ({ navigation }) => {
             style={styles.inputText}
             placeholder="••••••••"
             onChangeText={setPassword}
+          />
+        </View>
+
+        <Text style={styles.label}>Confirm Password</Text>
+        <View style={styles.inputView}>
+          <TextInput
+            secureTextEntry
+            style={styles.inputText}
+            placeholder="••••••••"
+            onChangeText={setConfirmPassword}
           />
         </View>
       </View>
@@ -215,22 +317,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 40,
   },
-  headerArea: { alignItems: "center", marginBottom: 30 },
-  title: { fontSize: 28, fontWeight: "bold", color: "#1e3a8a" },
-  subtitle: { color: "#64748b", fontSize: 14, marginTop: 5 },
-  inputContainer: { width: "85%" },
+  headerArea: { alignItems: "center", marginBottom: 25 },
+  title: { fontSize: 26, fontWeight: "bold", color: "#1e3a8a" },
+  subtitle: { color: "#64748b", fontSize: 13, marginTop: 5 },
+  inputContainer: { width: "88%" },
+  row: { flexDirection: "row", justifyContent: "space-between" },
   label: {
     color: "#475569",
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600",
-    marginBottom: 5,
-    marginLeft: 5,
+    marginBottom: 4,
+    marginLeft: 4,
   },
-  roleContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 20,
-  },
+  roleContainer: { flexDirection: "row", marginBottom: 15 },
   roleBtn: {
     flex: 1,
     height: 45,
@@ -238,7 +337,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     justifyContent: "center",
     alignItems: "center",
-    marginHorizontal: 5,
+    marginHorizontal: 4,
   },
   activeRole: { backgroundColor: "#1e3a8a" },
   roleBtnText: { color: "#475569", fontWeight: "bold" },
@@ -246,35 +345,54 @@ const styles = StyleSheet.create({
   inputView: {
     width: "100%",
     backgroundColor: "#f8fafc",
-    borderRadius: 12,
-    height: 50,
-    marginBottom: 12,
+    borderRadius: 10,
+    height: 48,
+    marginBottom: 10,
     justifyContent: "center",
-    paddingHorizontal: 15,
+    paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: "#f1f5f9",
+    borderColor: "#e2e8f0",
   },
-  inputText: { color: "#1e293b", fontSize: 15 },
+  inputText: { color: "#1e293b", fontSize: 14 },
+  agentSection: {
+    marginTop: 10,
+    padding: 10,
+    backgroundColor: "#f0f9ff",
+    borderRadius: 15,
+    marginBottom: 15,
+  },
   agentInfoTitle: {
     color: "#1e3a8a",
     fontWeight: "bold",
-    marginVertical: 10,
-    fontSize: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e2e8f0",
-    paddingBottom: 5,
+    marginBottom: 10,
+    fontSize: 15,
   },
+  imagePicker: {
+    width: "100%",
+    height: 120,
+    backgroundColor: "#e2e8f0",
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 10,
+    overflow: "hidden",
+    borderStyle: "dashed",
+    borderWidth: 2,
+    borderColor: "#1e3a8a",
+  },
+  imagePickerText: { color: "#1e3a8a", fontSize: 12, fontWeight: "bold" },
+  previewImage: { width: "100%", height: "100%" },
   signupBtn: {
-    width: "85%",
+    width: "88%",
     backgroundColor: "#1e3a8a",
-    borderRadius: 12,
-    height: 55,
+    borderRadius: 10,
+    height: 52,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 20,
+    marginTop: 15,
   },
   signupText: { color: "white", fontWeight: "bold", fontSize: 16 },
-  footer: { flexDirection: "row", marginTop: 25 },
+  footer: { flexDirection: "row", marginTop: 20 },
   footerText: { color: "#64748b" },
   loginLink: { color: "#1e3a8a", fontWeight: "bold" },
 });
