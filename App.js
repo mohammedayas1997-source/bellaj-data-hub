@@ -15,10 +15,15 @@ import SignupScreen from "./src/screens/SignupScreen";
 import ForgotPasswordScreen from "./src/screens/ForgotPasswordScreen";
 import AirtimeScreen from "./src/screens/AirtimeScreen";
 import FundWalletScreen from "./src/screens/FundWalletScreen";
-import ContactScreen from "./src/screens/ContactScreen"; // Added this import
+import ContactScreen from "./src/screens/ContactScreen";
 import SupervisorDashboard from "./src/screens/SupervisorDashboard";
 import AdminControlScreen from "./src/screens/AdminControlScreen";
 import AssignTargetScreen from "./src/screens/AssignTargetScreen";
+
+// --- SABABBIN IMPORT NA LEADER SYSTEM ---
+import LeaderDashboard from "./src/screens/LeaderDashboard";
+import CreateSupervisorScreen from "./src/screens/CreateSupervisorScreen";
+import ManageAgentsScreen from "./src/screens/ManageAgentsScreen";
 
 const Stack = createStackNavigator();
 
@@ -122,15 +127,35 @@ export default function App() {
           component={AdminControlScreen}
           options={{ title: "Admin Panel" }}
         />
+
         <Stack.Screen
           name="SupervisorDashboard"
           component={SupervisorDashboard}
           options={{ title: "Supervisor Panel" }}
         />
+
         <Stack.Screen
           name="AssignTarget"
           component={AssignTargetScreen}
           options={{ title: "Set Target" }}
+        />
+
+        {/* --- ROUTES NA LEADER SYSTEM --- */}
+        <Stack.Screen
+          name="LeaderDashboard"
+          component={LeaderDashboard}
+          options={{ title: "Leader Control Center" }}
+        />
+
+        <Stack.Screen
+          name="CreateSupervisor"
+          component={CreateSupervisorScreen}
+          options={{ title: "Add New Supervisor" }}
+        />
+        <Stack.Screen
+          name="ManageAgents"
+          component={ManageAgentsScreen}
+          options={{ title: "Manage Agents" }}
         />
       </Stack.Navigator>
     </NavigationContainer>

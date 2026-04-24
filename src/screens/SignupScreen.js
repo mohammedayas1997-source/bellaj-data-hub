@@ -13,20 +13,20 @@ import {
 } from "react-native";
 import axios from "axios";
 import * as ImagePicker from "expo-image-picker";
+import { API_URL } from "../constants";
 
 const SignupScreen = ({ navigation }) => {
-  // Sunaye
+  // User Data States
   const [firstName, setFirstName] = useState("");
   const [surname, setSurname] = useState("");
   const [otherName, setOtherName] = useState("");
-
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [role, setRole] = useState("user");
 
-  // Bayanan Agent
+  // Agent Specific States
   const [state, setState] = useState("");
   const [lga, setLga] = useState("");
   const [address, setAddress] = useState("");
@@ -34,25 +34,24 @@ const SignupScreen = ({ navigation }) => {
 
   const [loading, setLoading] = useState(false);
 
-  // Aikin daukar hoto
+  // Image Picker Logic
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.5, // Mun rage ingancin kadan don kada file din ya yi nauyi sosai
-      base64: true, // WANNAN SHINE MUHIMMI: Don Admin ya ga hoton
+      quality: 0.5,
+      base64: true,
     });
 
     if (!result.canceled) {
-      // Muna hada rubutun Base64 din da nau'in hoton (data:image/jpeg;base64,...)
       const base64Img = `data:image/jpeg;base64,${result.assets[0].base64}`;
       setImage(base64Img);
     }
   };
 
   const handleSignup = async () => {
-    // 1. Validation na kowa da kowa
+    // 1. Basic Validation
     if (
       !firstName ||
       !surname ||
@@ -64,7 +63,6 @@ const SignupScreen = ({ navigation }) => {
       return Alert.alert("Error", "Please fill in all basic fields.");
     }
 
-    // 2. Duba Password
     if (password !== confirmPassword) {
       return Alert.alert("Error", "Passwords do not match!");
     }
@@ -73,7 +71,7 @@ const SignupScreen = ({ navigation }) => {
       return Alert.alert("Error", "Password must be at least 6 characters.");
     }
 
-    // 3. Validation na Agent
+    // 2. Agent Validation
     if (role === "agent") {
       if (!state || !lga || !address) {
         return Alert.alert(
@@ -91,7 +89,7 @@ const SignupScreen = ({ navigation }) => {
 
     setLoading(true);
     try {
-      // Shirya data (Payload)
+      // 3. Prepare Payload (This matches what your Backend expects)
       const payload = {
         firstName,
         surname,
@@ -103,15 +101,14 @@ const SignupScreen = ({ navigation }) => {
         ...(role === "agent" && { state, lga, address, profileImage: image }),
       };
 
-      const response = await axios.post(
-        "https://ayax-data-xpress-server.vercel.app/api/v1/auth/signup",
-        payload,
-      );
+      // 4. API Request to your Vercel Backend
+      // This will trigger the sendMail() function you wrote in your Backend index.js
+      const response = await axios.post(`${API_URL}/auth/register`, payload);
 
-      if (response.data.success) {
+      if (response.data.success || response.status === 201) {
         Alert.alert(
           "Success",
-          "Account created successfully! Welcome to Ayax Data Xpress.",
+          "Account created successfully! A welcome email has been sent to your inbox.",
         );
         navigation.navigate("Login");
       }
@@ -167,7 +164,7 @@ const SignupScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Names Section */}
+        {/* Name Fields */}
         <View style={styles.row}>
           <View style={{ flex: 1, marginRight: 5 }}>
             <Text style={styles.label}>Surname</Text>
@@ -206,6 +203,7 @@ const SignupScreen = ({ navigation }) => {
             style={styles.inputText}
             placeholder="example@mail.com"
             keyboardType="email-address"
+            autoCapitalize="none"
             onChangeText={setEmail}
           />
         </View>
@@ -226,7 +224,6 @@ const SignupScreen = ({ navigation }) => {
             <Text style={styles.agentInfoTitle}>
               Agent Business Verification
             </Text>
-
             <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
               {image ? (
                 <Image source={{ uri: image }} style={styles.previewImage} />
@@ -310,6 +307,7 @@ const SignupScreen = ({ navigation }) => {
   );
 };
 
+// ... Styles stay exactly the same as you provided ...
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
