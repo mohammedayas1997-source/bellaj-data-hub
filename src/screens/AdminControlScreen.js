@@ -8,6 +8,7 @@ import {
   TextInput,
   FlatList,
 } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons"; // Ka tabbatar kana da wannan
 
 const AdminControlScreen = ({ navigation }) => {
   const [search, setSearch] = useState("");
@@ -38,6 +39,7 @@ const AdminControlScreen = ({ navigation }) => {
         <View style={styles.searchBar}>
           <TextInput
             placeholder="Search Agent or Supervisor..."
+            placeholderTextColor="#94a3b8"
             style={styles.searchInput}
             value={search}
             onChangeText={setSearch}
@@ -46,6 +48,41 @@ const AdminControlScreen = ({ navigation }) => {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
+        {/* === SABON SASHE: NIMC ADMIN MONITORING === */}
+        <View style={styles.nimcSection}>
+          <Text style={styles.sectionTitle}>NIMC Service Monitor</Text>
+          <View style={styles.nimcGrid}>
+            {/* Card don ganin Forms da aka cike */}
+            <TouchableOpacity
+              style={[styles.nimcCard, { borderLeftColor: "#38bdf8" }]}
+              onPress={() => navigation.navigate("NIMCRequests")}
+            >
+              <MaterialCommunityIcons
+                name="file-document-edit-outline"
+                size={24}
+                color="#38bdf8"
+              />
+              <Text style={styles.nimcCardValue}>12</Text>
+              <Text style={styles.nimcCardLabel}>Pending Forms</Text>
+            </TouchableOpacity>
+
+            {/* Card don ganin Tarihin Aiki (History) */}
+            <TouchableOpacity
+              style={[styles.nimcCard, { borderLeftColor: "#10b981" }]}
+              onPress={() => navigation.navigate("NIMCHistory")}
+            >
+              <MaterialCommunityIcons
+                name="history"
+                size={24}
+                color="#10b981"
+              />
+              <Text style={styles.nimcCardValue}>145</Text>
+              <Text style={styles.nimcCardLabel}>Total History</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        {/* === KARSHE SABON SASHE === */}
+
         {/* 2. Monthly Global Stats */}
         <View style={styles.globalStatsCard}>
           <Text style={styles.cardLabel}>Company-Wide Sales (Monthly)</Text>
@@ -64,12 +101,12 @@ const AdminControlScreen = ({ navigation }) => {
         </View>
 
         {/* 3. Supervisor Management Section */}
-        <View style={styles.sectionHeader}>
+        <div style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Supervisors Performance</Text>
           <TouchableOpacity onPress={() => navigation.navigate("AssignTarget")}>
             <Text style={styles.actionLink}>Set Targets</Text>
           </TouchableOpacity>
-        </View>
+        </div>
 
         {supervisors.map((sup) => (
           <TouchableOpacity key={sup.id} style={styles.supCard}>
@@ -105,7 +142,9 @@ const AdminControlScreen = ({ navigation }) => {
   );
 };
 
+// KARIN STYLES DOMIN NIMC SECTION
 const styles = StyleSheet.create({
+  // ... Styles dinka na baya suna nan (Karka goge su)
   container: { flex: 1, backgroundColor: "#ffffff" },
   header: {
     backgroundColor: "#0f172a",
@@ -129,6 +168,32 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   searchInput: { color: "#fff" },
+
+  // Sabon Styles don NIMC monitor
+  nimcSection: { paddingHorizontal: 20, marginTop: 20 },
+  nimcGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 10,
+  },
+  nimcCard: {
+    backgroundColor: "#fff",
+    width: "48%",
+    padding: 15,
+    borderRadius: 15,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    borderLeftWidth: 5,
+  },
+  nimcCardValue: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#1e293b",
+    marginTop: 5,
+  },
+  nimcCardLabel: { fontSize: 12, color: "#64748b" },
+
   globalStatsCard: {
     margin: 20,
     backgroundColor: "#f8fafc",

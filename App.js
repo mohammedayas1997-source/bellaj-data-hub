@@ -25,10 +25,13 @@ import LeaderDashboard from "./src/screens/LeaderDashboard";
 import CreateSupervisorScreen from "./src/screens/CreateSupervisorScreen";
 import ManageAgentsScreen from "./src/screens/ManageAgentsScreen";
 
-// Gyaran Import Path na UserManagement (Tabbatar folder din tana src/screens/)
+// Import na Superadmin
 import UserManagement from "./src/screens/superadmin/UserManagement";
-// Idan kana da SuperAdminDashboard shima ka yi import dinsa
 import SuperAdminDashboard from "./src/screens/superadmin/SuperAdminDashboard";
+
+// --- SABABBIN IMPORT NA NIMC SYSTEM (WANDA MUKA GINA) ---
+import NIMCRequests from "./src/screens/Admin/NIMCRequests"; // Shafin Admin
+import NIMCHistory from "./src/screens/User/NIMCHistory"; // Shafin User
 
 const Stack = createStackNavigator();
 
@@ -164,24 +167,30 @@ export default function App() {
           options={{ title: "Manage Agents" }}
         />
 
-        {/* --- ROUTES NA SUPERADMIN (GYARARRE) --- */}
-        {/* 
-            Lura: A React Native ba mu amfani da <ProtectedRoute> a nan. 
-            Muna yin logic din kariya ne a cikin HomeScreen ko LoginScreen 
-            domin tura user zuwa shafin da ya dace dangane da role dinsa.
-        */}
+        {/* --- ROUTES NA SUPERADMIN --- */}
         <Stack.Screen
           name="SuperAdminUsers"
           component={UserManagement}
           options={{ title: "Global User Management" }}
         />
 
-        {/* Idan kana da shafin Dashboard na Superadmin shima saka shi haka: */}
-
         <Stack.Screen
           name="SuperAdminDashboard"
           component={SuperAdminDashboard}
           options={{ title: "SuperAdmin Control" }}
+        />
+
+        {/* --- SABABBIN ROUTES NA NIMC PROCESSING --- */}
+        <Stack.Screen
+          name="NIMCRequests"
+          component={NIMCRequests}
+          options={{ title: "NIMC Pending Tasks" }}
+        />
+
+        <Stack.Screen
+          name="UserNIMCHistory"
+          component={NIMCHistory}
+          options={{ title: "My NIMC Applications" }}
         />
       </Stack.Navigator>
     </NavigationContainer>
