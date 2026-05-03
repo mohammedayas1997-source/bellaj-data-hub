@@ -20,10 +20,15 @@ import SupervisorDashboard from "./src/screens/SupervisorDashboard";
 import AdminControlScreen from "./src/screens/AdminControlScreen";
 import AssignTargetScreen from "./src/screens/AssignTargetScreen";
 
-// --- SABABBIN IMPORT NA LEADER SYSTEM ---
+// --- SABABBIN IMPORT NA LEADER & SUPERADMIN SYSTEM ---
 import LeaderDashboard from "./src/screens/LeaderDashboard";
 import CreateSupervisorScreen from "./src/screens/CreateSupervisorScreen";
 import ManageAgentsScreen from "./src/screens/ManageAgentsScreen";
+
+// Gyaran Import Path na UserManagement (Tabbatar folder din tana src/screens/)
+import UserManagement from "./src/screens/superadmin/UserManagement";
+// Idan kana da SuperAdminDashboard shima ka yi import dinsa
+import SuperAdminDashboard from "./src/screens/superadmin/SuperAdminDashboard";
 
 const Stack = createStackNavigator();
 
@@ -152,10 +157,31 @@ export default function App() {
           component={CreateSupervisorScreen}
           options={{ title: "Add New Supervisor" }}
         />
+
         <Stack.Screen
           name="ManageAgents"
           component={ManageAgentsScreen}
           options={{ title: "Manage Agents" }}
+        />
+
+        {/* --- ROUTES NA SUPERADMIN (GYARARRE) --- */}
+        {/* 
+            Lura: A React Native ba mu amfani da <ProtectedRoute> a nan. 
+            Muna yin logic din kariya ne a cikin HomeScreen ko LoginScreen 
+            domin tura user zuwa shafin da ya dace dangane da role dinsa.
+        */}
+        <Stack.Screen
+          name="SuperAdminUsers"
+          component={UserManagement}
+          options={{ title: "Global User Management" }}
+        />
+
+        {/* Idan kana da shafin Dashboard na Superadmin shima saka shi haka: */}
+
+        <Stack.Screen
+          name="SuperAdminDashboard"
+          component={SuperAdminDashboard}
+          options={{ title: "SuperAdmin Control" }}
         />
       </Stack.Navigator>
     </NavigationContainer>
