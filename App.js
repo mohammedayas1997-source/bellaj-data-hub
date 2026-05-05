@@ -29,9 +29,14 @@ import ManageAgentsScreen from "./src/screens/ManageAgentsScreen";
 import UserManagement from "./src/screens/superadmin/UserManagement";
 import SuperAdminDashboard from "./src/screens/superadmin/SuperAdminDashboard";
 
-// --- SABABBIN IMPORT NA NIMC SYSTEM (WANDA MUKA GINA) ---
-import NIMCRequests from "./src/screens/Admin/NIMCRequests"; // Shafin Admin
-import NIMCHistory from "./src/screens/User/NIMCHistory"; // Shafin User
+// --- SABABBIN IMPORT NA NIMC & BVN SYSTEM ---
+import NIMCRequests from "./src/screens/Admin/NIMCRequests";
+import NIMCHistory from "./src/screens/User/NIMCHistory";
+import BVNScreen from "./src/screens/BVNScreen";
+import BVNHistory from "./src/screens/User/BVNHistory";
+
+// --- SABON IMPORT NA SUPPORT ---
+import SupportDashboard from "./src/screens/SupportDashboard"; // Tabbatar ka samar da wannan file din
 
 const Stack = createStackNavigator();
 
@@ -119,6 +124,12 @@ export default function App() {
         />
 
         <Stack.Screen
+          name="BVNScreen"
+          component={BVNScreen}
+          options={{ title: "BVN Verification" }}
+        />
+
+        <Stack.Screen
           name="Cable"
           component={CableScreen}
           options={{ title: "Cable TV Subscription" }}
@@ -130,6 +141,7 @@ export default function App() {
           options={{ title: "My Profile" }}
         />
 
+        {/* --- ROUTES NA ADMIN & SUPERVISOR --- */}
         <Stack.Screen
           name="AdminControl"
           component={AdminControlScreen}
@@ -180,7 +192,14 @@ export default function App() {
           options={{ title: "SuperAdmin Control" }}
         />
 
-        {/* --- SABABBIN ROUTES NA NIMC PROCESSING --- */}
+        {/* --- ROUTES NA SUPPORT SYSTEM --- */}
+        <Stack.Screen
+          name="SupportDashboard"
+          component={SupportDashboard}
+          options={{ title: "Support & Tracing" }}
+        />
+
+        {/* --- ROUTES NA NIMC & BVN HISTORY --- */}
         <Stack.Screen
           name="NIMCRequests"
           component={NIMCRequests}
@@ -191,6 +210,12 @@ export default function App() {
           name="UserNIMCHistory"
           component={NIMCHistory}
           options={{ title: "My NIMC Applications" }}
+        />
+
+        <Stack.Screen
+          name="UserBVNHistory"
+          component={BVNHistory}
+          options={{ title: "My BVN History" }}
         />
       </Stack.Navigator>
     </NavigationContainer>
