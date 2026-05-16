@@ -3,11 +3,11 @@
     "name": "Ayax Data Xpress",
     "slug": "Ayax-Data-Xpress",
     "version": "1.0.0",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "android": {
       "package": "com.ayas8724.AyaxDataXpress"
     },
-    "plugins": [],
+    "plugins": ["expo-sharing", "expo-print"],
     "extra": {
       "eas": {
         "projectId": "84b7adc6-0b27-4dd2-abbd-d119de52bc66"
