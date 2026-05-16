@@ -32,6 +32,9 @@
         "projectId": "84b7adc6-0b27-4dd2-abbd-d119de52bc66"
       }
     },
-    "owner": "ayas8724"
+    "owner": "ayas8724",
+    "plugins": [
+      "expo-sharing"
+    ]
   }
 }
