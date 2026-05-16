@@ -7,7 +7,7 @@
     "android": {
       "package": "com.ayas8724.AyaxDataXpress"
     },
-    "plugins": ["expo-sharing", "expo-print"],
+    "plugins": [],
     "extra": {
       "eas": {
         "projectId": "84b7adc6-0b27-4dd2-abbd-d119de52bc66"
