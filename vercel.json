@@ -1,15 +1,10 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "index.js",
-      "use": "@vercel/node"
-    }
-  ],
+  "public": true,
+  "cleanUrls": true,
+  "framework": "expo",
   "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "index.js"
-    }
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
