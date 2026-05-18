@@ -3,9 +3,11 @@
     "name": "Ayax Data Xpress",
     "slug": "Ayax-Data-Xpress",
     "version": "1.0.0",
+    "orientation": "portrait",
     "newArchEnabled": true,
     "android": {
-      "package": "com.ayas8724.AyaxDataXpress"
+      "package": "com.ayas8724.AyaxDataXpress",
+      "softwareKeyboardLayoutMode": "resize"
     },
     "plugins": [],
     "extra": {
