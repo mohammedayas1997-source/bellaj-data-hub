@@ -1,7 +1,8 @@
 {
   "version": 2,
   "cleanUrls": true,
-  "buildCommand": "echo Skipping-Build-Step",
+  "installCommand": "npm install --legacy-peer-deps",
+  "buildCommand": "npx expo export --platform web",
   "outputDirectory": "dist",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
