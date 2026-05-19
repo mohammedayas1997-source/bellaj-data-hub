@@ -1,216 +1,469 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
+  ActivityIndicator,
   Alert,
-  StatusBar,
-  Image,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
+  Image,
+  Linking,
+  Dimensions,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  Ionicons,
+  MaterialCommunityIcons,
+  FontAwesome,
+} from "@expo/vector-icons";
+import * as LocalAuthentication from "expo-local-authentication";
 import axios from "axios";
-import AsyncStorage from "@react-native-async-storage/async-storage"; // 1. Don adana login
+
+const { width } = Dimensions.get("window");
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false); // Don nuna alamar aiki
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
+
+  useEffect(() => {
+    checkLoginStatus();
+    checkBiometricStatus();
+  }, []);
+
+  const checkLoginStatus = async () => {
+    const token = await AsyncStorage.getItem("userToken");
+    if (token) {
+      navigation.replace("Main");
+    }
+  };
+
+  const checkBiometricStatus = async () => {
+    const isEnabled = await AsyncStorage.getItem("useBiometricLogin");
+    const hasHardware = await LocalAuthentication.hasHardwareAsync();
+    const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+
+    if (isEnabled === "true" && hasHardware && isEnrolled) {
+      setIsBiometricEnabled(true);
+    }
+  };
+
+  const openWhatsApp = () => {
+    Linking.openURL(
+      "whatsapp://send?phone=+2349061244444&text=Hello Ayax Xpress Support",
+    );
+  };
+
+  const openEmail = () => {
+    Linking.openURL("mailto:support@ayaxxpress.com");
+  };
+
+  const makeCall = () => {
+    Linking.openURL("tel:+2349061244444");
+  };
+
+  const handleBiometricLogin = async () => {
+    try {
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: "Login to Ayax Xpress",
+        fallbackLabel: "Use Password",
+        disableDeviceFallback: false,
+      });
+
+      if (result.success) {
+        setLoading(true);
+        const token = await AsyncStorage.getItem("userToken");
+        if (token) {
+          navigation.replace("Main");
+        } else {
+          Alert.alert(
+            "Error",
+            "Please login with password once to enable biometrics.",
+          );
+        }
+      }
+    } catch (error) {
+      Alert.alert("Error", "Biometric authentication failed.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
-      return Alert.alert("Error", "Please fill in all fields");
+      Alert.alert("Error", "Please fill in all fields.");
+      return;
     }
 
     setLoading(true);
     try {
+      // Corrected the URL to point to your live Render server
+      // Gwada wannan URL din:
       const response = await axios.post(
-        "https://ayax-data-xpress-server.vercel.app/api/v1/auth/login",
-        { email, password },
+        "https://ayax-data-xpress-server.onrender.com/api/v1/auth/login",
+        {
+          email: email.trim(),
+          password: password,
+        },
       );
 
-      if (response.data.success) {
-        // 2. Adana Token da bayanan mutum a wayar
-        await AsyncStorage.setItem("userToken", response.data.token);
-        if (response.data.user) {
-          await AsyncStorage.setItem(
-            "userData",
-            JSON.stringify(response.data.user),
-          );
-        }
+      if (response.data.status === "success" || response.data.token) {
+        const token = response.data.token;
+        const userData = JSON.stringify(response.data.user);
 
-        navigation.replace("Home"); // Replace don kar ya koma baya zuwa login
+        await AsyncStorage.setItem("userToken", token);
+        await AsyncStorage.setItem("userData", userData);
+
+        navigation.replace("Main");
+      } else {
+        Alert.alert(
+          "Login Failed",
+          response.data.message || "Invalid credentials",
+        );
       }
     } catch (error) {
+      // Improved error logging to see exactly what the server says
+      console.log("Login Error Details:", error.response?.data);
       const errorMsg =
-        error.response?.data?.message || "Invalid Email or Password";
-      Alert.alert("Login Failed", errorMsg);
+        error.response?.data?.message ||
+        "Something went wrong. Please check your connection.";
+      Alert.alert("Error", errorMsg);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-
-      {/* 1. LOGO SECTION */}
-      <View style={styles.logoContainer}>
-        <Image
-          source={require("../assets/Logo.png")}
-          style={styles.logoImage}
-          resizeMode="contain"
-        />
-        <Text style={styles.logoText}>Data Xpress</Text>
-      </View>
-
-      {/* 2. INPUT FIELDS */}
-      <View style={styles.inputContainer}>
-        <Text style={styles.fieldLabel}>Email Address</Text>
-        <View style={styles.inputView}>
-          <TextInput
-            style={styles.inputText}
-            placeholder="e.g. user@ayax.com"
-            placeholderTextColor="#cbd5e1"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            onChangeText={setEmail}
-          />
-        </View>
-
-        <Text style={styles.fieldLabel}>Password</Text>
-        <View style={styles.inputView}>
-          <TextInput
-            secureTextEntry
-            style={styles.inputText}
-            placeholder="••••••••"
-            placeholderTextColor="#cbd5e1"
-            onChangeText={setPassword}
-          />
-        </View>
-      </View>
-
-      {/* 3. FORGOT PASSWORD */}
-      <TouchableOpacity
-        style={styles.forgotBtn}
-        onPress={() => navigation.navigate("ForgotPassword")}
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={styles.desktopContainer}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.forgotText}>Forgot Password?</Text>
-      </TouchableOpacity>
+        <View style={styles.contentWrapper}>
+          <View style={styles.headerSection}>
+            <View style={styles.logoCircle}>
+              <Image
+                source={require("../assets/Logo.png")}
+                style={styles.logoImg}
+              />
+            </View>
+            <Text style={styles.appName}>Ayax Xpress</Text>
+            <Text style={styles.tagline}>
+              Swift & Reliable Utility Payments
+            </Text>
+          </View>
 
-      {/* 4. LOGIN BUTTON */}
-      <TouchableOpacity
-        style={[styles.loginBtn, loading && { opacity: 0.7 }]}
-        onPress={handleLogin}
-        disabled={loading}
-      >
-        <Text style={styles.loginText}>
-          {loading ? "AUTHENTICATING..." : "SIGN IN"}
-        </Text>
-      </TouchableOpacity>
+          <View style={styles.formSection}>
+            <Text style={styles.label}>Email Address</Text>
+            <View style={styles.inputContainer}>
+              <Ionicons
+                name="mail-outline"
+                size={20}
+                color="#64748b"
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="example@mail.com"
+                placeholderTextColor="#94a3b8"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
 
-      {/* 5. CREATE ACCOUNT SECTION */}
-      <View style={styles.footer}>
-        <Text style={styles.noAccountText}>New to Ayax Xpress? </Text>
-        <TouchableOpacity onPress={() => navigation.navigate("Signup")}>
-          <Text style={styles.signupText}>Create Account</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+            <Text style={styles.label}>Password</Text>
+            <View style={styles.inputContainer}>
+              <Ionicons
+                name="lock-closed-outline"
+                size={20}
+                color="#64748b"
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="••••••••"
+                placeholderTextColor="#94a3b8"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+              />
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                <Ionicons
+                  name={showPassword ? "eye-off-outline" : "eye-outline"}
+                  size={20}
+                  color="#64748b"
+                />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.actionRow}>
+              {isBiometricEnabled && (
+                <TouchableOpacity
+                  style={styles.biometricBtn}
+                  onPress={handleBiometricLogin}
+                >
+                  <MaterialCommunityIcons
+                    name="fingerprint"
+                    size={35}
+                    color="#0a1d37"
+                  />
+                  <Text style={styles.biometricText}>Touch ID</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={styles.forgotBtn}
+                onPress={() => navigation.navigate("ForgotPassword")}
+              >
+                <Text style={styles.forgotText}>Forgot Password?</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={styles.loginBtn}
+              onPress={handleLogin}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.loginBtnText}>Login to Dashboard</Text>
+              )}
+            </TouchableOpacity>
+
+            <View style={styles.footerLinks}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => navigation.navigate("About")}
+              >
+                <Text style={styles.linkText} numberOfLines={0}>
+                  About Us
+                </Text>
+              </TouchableOpacity>
+
+              <View style={styles.divider} />
+
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => navigation.navigate("PrivacyPolicy")}
+              >
+                <Text style={styles.linkText} numberOfLines={0}>
+                  Privacy Policy
+                </Text>
+              </TouchableOpacity>
+
+              <View style={styles.divider} />
+
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => navigation.navigate("Terms")}
+              >
+                <Text style={styles.linkText} numberOfLines={0}>
+                  Terms
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.signupContainer}>
+              <Text style={styles.noAccountText}>Don't have an account? </Text>
+              <TouchableOpacity onPress={() => navigation.navigate("Signup")}>
+                <Text style={styles.signupText}>Create Account</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.contactContainer}>
+            <Text style={styles.contactTitle}>Quick Support</Text>
+            <View style={styles.iconRow}>
+              <TouchableOpacity
+                style={styles.contactIconCircle}
+                onPress={openWhatsApp}
+              >
+                <FontAwesome name="whatsapp" size={24} color="#25D366" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.contactIconCircle, { marginHorizontal: 20 }]}
+                onPress={makeCall}
+              >
+                <Ionicons name="call" size={24} color="#0a1d37" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.contactIconCircle}
+                onPress={openEmail}
+              >
+                <Ionicons name="mail" size={24} color="#EA4335" />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.phoneNumber}>+234 906 124 4444</Text>
+          </View>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    backgroundColor: "#ffffff",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 40,
-  },
-  logoContainer: {
-    alignItems: "center",
-    marginBottom: 40,
-  },
-  logoImage: {
-    width: 150,
-    height: 100,
-  },
-  logoText: {
-    fontWeight: "800",
-    fontSize: 32,
-    color: "#0f172a",
-    letterSpacing: 1.5,
-    marginTop: -10,
-  },
-  inputContainer: {
-    width: "85%",
-  },
-  fieldLabel: {
-    color: "#475569",
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 8,
-    marginLeft: 5,
-  },
-  inputView: {
-    width: "100%",
+  desktopContainer: {
+    flex: 1,
     backgroundColor: "#f8fafc",
-    borderRadius: 12,
-    height: 58,
-    marginBottom: 20,
-    justifyContent: "center",
-    paddingHorizontal: 20,
-    borderWidth: 1.5,
-    borderColor: "#f1f5f9",
-  },
-  inputText: {
-    height: 50,
-    color: "#1e293b",
-    fontSize: 16,
-  },
-  forgotBtn: {
-    alignSelf: "flex-end",
-    marginRight: "8%",
-    marginBottom: 30,
-  },
-  forgotText: {
-    color: "#38bdf8",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  loginBtn: {
-    width: "85%",
-    backgroundColor: "#1e3a8a",
-    borderRadius: 12,
-    height: 58,
     alignItems: "center",
     justifyContent: "center",
-    elevation: 4,
-    shadowColor: "#1e3a8a",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
   },
-  loginText: {
-    color: "#ffffff",
+  scrollContainer: {
+    flexGrow: 1,
+    paddingVertical: 40,
+    width: "100%",
+    alignItems: "center",
+  },
+  contentWrapper: {
+    width: width > 600 ? 500 : "90%",
+    backgroundColor: "#ffffff",
+    borderRadius: 25,
+    padding: 25,
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+  },
+  headerSection: { alignItems: "center", marginBottom: 30 },
+  logoCircle: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: "#ffffff",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  logoImg: { width: 60, height: 60, resizeMode: "contain" },
+  appName: { fontSize: 28, fontWeight: "bold", color: "#0f172a" },
+  tagline: { fontSize: 14, color: "#64748b", marginTop: 5 },
+  formSection: { width: "100%" },
+  label: { color: "#475569", fontSize: 14, marginBottom: 8, fontWeight: "600" },
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f1f5f9",
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  inputIcon: { marginRight: 10 },
+  input: { flex: 1, height: 50, color: "#0f172a", fontSize: 16 },
+  actionRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 25,
+  },
+  biometricBtn: { alignItems: "center" },
+  biometricText: {
+    fontSize: 10,
+    color: "#0a1d37",
     fontWeight: "bold",
-    fontSize: 16,
+    marginTop: 2,
+  },
+  forgotBtn: { alignSelf: "center" },
+  forgotText: { color: "#0a1d37", fontSize: 14, fontWeight: "600" },
+  loginBtn: {
+    backgroundColor: "#0a1d37",
+    height: 55,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loginBtnText: { color: "#ffffff", fontSize: 18, fontWeight: "bold" },
+  footerLinks: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 25,
+  },
+  linkText: {
+    color: "#64748b",
+    fontSize: 12,
+    fontWeight: "600",
+    textDecorationLine: "underline",
+  },
+  divider: {
+    width: 1,
+    height: 14,
+    backgroundColor: "#cbd5e1",
+    marginHorizontal: 12,
+  },
+  signupContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: 25,
+  },
+  noAccountText: { color: "#64748b", fontSize: 14 },
+  signupText: { color: "#0a1d37", fontSize: 14, fontWeight: "bold" },
+  contactContainer: {
+    marginTop: 35,
+    alignItems: "center",
+    borderTopWidth: 1,
+    borderTopColor: "#f1f5f9",
+    paddingTop: 20,
+  },
+  contactTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#94a3b8",
+    marginBottom: 15,
     letterSpacing: 1,
   },
-  footer: {
-    flexDirection: "row",
-    marginTop: 40,
+  iconRow: { flexDirection: "row", alignItems: "center" },
+  contactIconCircle: {
+    width: 45,
+    height: 45,
+    borderRadius: 22.5,
+    backgroundColor: "#f8fafc",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
   },
-  noAccountText: {
-    color: "#64748b",
-    fontSize: 15,
-  },
-  signupText: {
-    color: "#1e3a8a",
-    fontSize: 15,
+  phoneNumber: {
+    marginTop: 15,
+    fontSize: 16,
     fontWeight: "bold",
+    color: "#0a1d37",
+    textAlign: "center",
+  },
+  footerLinks: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 25,
+    width: "100%", // Ensures the container spans the full width
+    flexWrap: "wrap", // Allows links to move to a new line if the screen is too narrow
+  },
+  linkText: {
+    color: "#64748b",
+    fontSize: 12,
+    fontWeight: "600",
+    textDecorationLine: "underline",
+    paddingHorizontal: 4, // Adds a small hit area for easier clicking
+  },
+  divider: {
+    width: 1,
+    height: 14,
+    backgroundColor: "#cbd5e1",
+    marginHorizontal: 8,
   },
 });
 

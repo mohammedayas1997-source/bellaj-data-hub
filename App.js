@@ -32,7 +32,7 @@ import ManageAgentsScreen from "./src/screens/ManageAgentsScreen";
 
 // Import na Superadmin
 import UserManagement from "./src/screens/superadmin/UserManagement";
-import SuperAdminDashboard from "./src/screens/superadmin/SuperAdminDashboard";
+import SuperAdminDashboard from "./src/screens/SuperAdminDashboard";
 
 // --- NIMC & BVN SYSTEM ---
 import NIMCModificationScreen from "./src/screens/Services/NIMCModificationScreen";
