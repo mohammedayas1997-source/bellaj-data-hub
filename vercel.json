@@ -1,7 +1,7 @@
 {
   "version": 2,
   "cleanUrls": true,
-  "buildCommand": "echo Skipping-Build",
-  "outputDirectory": ".",
+  "buildCommand": "echo Skipping-Build-Step",
+  "outputDirectory": "dist",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
