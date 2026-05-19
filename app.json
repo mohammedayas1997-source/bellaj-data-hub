@@ -4,16 +4,38 @@
     "slug": "Ayax-Data-Xpress",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "android": {
-      "package": "com.ayas8724.AyaxDataXpress",
-      "softwareKeyboardLayoutMode": "resize"
+    "platforms": ["ios", "android", "web"],
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
     },
-    "plugins": [],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ayas8724.AyaxDataXpress"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.ayas8724.AyaxDataXpress",
+      "edgeToEdgeEnabled": true,
+      "permissions": ["INTERNET"],
+      "usesCleartextTraffic": true
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
     "extra": {
       "eas": {
         "projectId": "84b7adc6-0b27-4dd2-abbd-d119de52bc66"
       }
-    }
+    },
+    "owner": "ayas8724"
   }
 }
