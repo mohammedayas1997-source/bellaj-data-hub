@@ -62,29 +62,43 @@ const SignupScreen = ({ navigation }) => {
       !password
     ) {
       Alert.alert(
-        "Input Validation Failed",
-        "Mandatory data clusters are empty. Populate all required fields.",
+        "Missing Fields",
+        "Please fill all the compulsory fields before proceeding.",
       );
       return false;
     }
     if (!emailRegex.test(email.trim())) {
       Alert.alert(
-        "Protocol Error",
-        "Email address syntax does not conform to standard SMTP routing.",
+        "Invalid Email",
+        "The email address enter format is wrong. Check it well.",
       );
       return false;
     }
     if (!phoneRegex.test(phone.trim())) {
       Alert.alert(
-        "Syntax Error",
-        "Phone sequence is mathematically invalid for telecommunication routing.",
+        "Invalid Phone Number",
+        "Please enter a valid Nigerian phone number.",
+      );
+      return false;
+    }
+    if (password.length < 6) {
+      Alert.alert(
+        "Password Too Short",
+        "Your password must be at least 6 characters long.",
       );
       return false;
     }
     if (password !== confirmPassword) {
       Alert.alert(
-        "Security Mismatch",
-        "Cryptographic keys do not align. Verify password parameters.",
+        "Password Mismatch",
+        "The two passwords do not match. Please re-enter.",
+      );
+      return false;
+    }
+    if (role === "agent" && (!state.trim() || !lga.trim() || !address.trim())) {
+      Alert.alert(
+        "Agent Verification Missing",
+        "As an Agent, your State, LGA, and Business Address are compulsory.",
       );
       return false;
     }
@@ -107,15 +121,14 @@ const SignupScreen = ({ navigation }) => {
       };
 
       if (role === "agent") {
-        registrationData.state = state;
-        registrationData.lga = lga;
-        registrationData.address = address;
+        registrationData.state = state.trim();
+        registrationData.lga = lga.trim();
+        registrationData.address = address.trim();
         if (supervisorId)
-          registrationData.supervisorId = supervisorId.toUpperCase();
+          registrationData.supervisorId = supervisorId.toUpperCase().trim();
         if (image) registrationData.businessImage = image;
       }
 
-      // Execute Network Request
       const response = await axios({
         method: "POST",
         url: "https://ayax-data-xpress-server.onrender.com/api/v1/auth/register",
@@ -127,41 +140,36 @@ const SignupScreen = ({ navigation }) => {
         timeout: 60000,
       });
 
-      // Verification of account deployment status
       if (
         response.status === 201 ||
         response.status === 200 ||
         response.data.success
       ) {
         setLoading(false);
-
-        /** * Transitioning from Alert to Success Screen:
-         * This removes the manual "OK" button click and moves the user
-         * straight to the Success UI for a professional experience.
-         */
         navigation.replace("Success");
       }
     } catch (error) {
       setLoading(false);
       const serverMsg =
         error.response?.data?.message ||
-        "Terminal rejected deployment parameters.";
+        "Network connection issue. Please try again.";
 
       if (error.code === "ECONNABORTED") {
         Alert.alert(
-          "Link Timeout",
-          "Latency threshold exceeded. Server initialization failed.",
+          "Network Timeout",
+          "Connection took too long to respond. Check your internet connection.",
         );
       } else {
-        Alert.alert("Registration Refused ❌", serverMsg);
+        Alert.alert("Registration Failed ❌", serverMsg);
       }
 
       console.error(
-        "Critical Failure Log:",
+        "Registration Log Error:",
         error.response?.data || error.message,
       );
     }
   };
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -175,14 +183,15 @@ const SignupScreen = ({ navigation }) => {
         <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
 
         <View style={styles.headerArea}>
-          <Text style={styles.title}>System Registration</Text>
+          <Text style={styles.title}>Create Account</Text>
           <Text style={styles.subtitle}>
-            Institutional Grade Connectivity for Ayax Data Xpress Architecture
+            Join Ayax Data Xpress to start enjoying affordable VTU and Data
+            services.
           </Text>
         </View>
 
         <View style={styles.inputContainer}>
-          <Text style={styles.label}>Access Hierarchy</Text>
+          <Text style={styles.label}>Select Account Type</Text>
           <View style={styles.roleContainer}>
             <TouchableOpacity
               style={[styles.roleBtn, role === "user" && styles.activeRole]}
@@ -194,7 +203,7 @@ const SignupScreen = ({ navigation }) => {
                   role === "user" && styles.activeRoleText,
                 ]}
               >
-                Retail User
+                Customer / User
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -207,29 +216,29 @@ const SignupScreen = ({ navigation }) => {
                   role === "agent" && styles.activeRoleText,
                 ]}
               >
-                Operational Agent
+                Sub-Agent / Reseller
               </Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.row}>
             <View style={{ flex: 1, marginRight: 5 }}>
-              <Text style={styles.label}>Legal Surname</Text>
+              <Text style={styles.label}>Surname (Last Name)</Text>
               <View style={styles.inputView}>
                 <TextInput
                   style={styles.inputText}
-                  placeholder="Required"
+                  placeholder="Compulsory"
                   onChangeText={setSurname}
                   placeholderTextColor="#94a3b8"
                 />
               </View>
             </View>
             <View style={{ flex: 1, marginLeft: 5 }}>
-              <Text style={styles.label}>Given Name</Text>
+              <Text style={styles.label}>First Name</Text>
               <View style={styles.inputView}>
                 <TextInput
                   style={styles.inputText}
-                  placeholder="Required"
+                  placeholder="Compulsory"
                   onChangeText={setFirstName}
                   placeholderTextColor="#94a3b8"
                 />
@@ -237,11 +246,21 @@ const SignupScreen = ({ navigation }) => {
             </View>
           </View>
 
-          <Text style={styles.label}>Communication Email</Text>
+          <Text style={styles.label}>Middle Name (Optional)</Text>
           <View style={styles.inputView}>
             <TextInput
               style={styles.inputText}
-              placeholder="corporate@protocol.com"
+              placeholder="Enter Middle Name"
+              onChangeText={setOtherName}
+              placeholderTextColor="#94a3b8"
+            />
+          </View>
+
+          <Text style={styles.label}>Email Address</Text>
+          <View style={styles.inputView}>
+            <TextInput
+              style={styles.inputText}
+              placeholder="example@gmail.com"
               keyboardType="email-address"
               autoCapitalize="none"
               onChangeText={setEmail}
@@ -249,7 +268,7 @@ const SignupScreen = ({ navigation }) => {
             />
           </View>
 
-          <Text style={styles.label}>Telecommunication String</Text>
+          <Text style={styles.label}>Active Phone Number</Text>
           <View style={styles.inputView}>
             <TextInput
               style={styles.inputText}
@@ -263,17 +282,55 @@ const SignupScreen = ({ navigation }) => {
           {role === "agent" && (
             <View style={styles.agentSection}>
               <Text style={styles.agentInfoTitle}>
-                Business Verification Module
+                Business Verification Details
               </Text>
-              <Text style={styles.label}>Supervisor Referral Code</Text>
+
+              <Text style={styles.label}>
+                Supervisor Referral Code (Optional)
+              </Text>
               <View style={styles.inputView}>
                 <TextInput
                   style={styles.inputText}
-                  placeholder="Example: AX770"
+                  placeholder="e.g. AX770"
                   autoCapitalize="characters"
                   onChangeText={setSupervisorId}
                   placeholderTextColor="#94a3b8"
                 />
+              </View>
+
+              <Text style={styles.label}>Shop / Office Address</Text>
+              <View style={styles.inputView}>
+                <TextInput
+                  style={styles.inputText}
+                  placeholder="Enter full business address"
+                  onChangeText={setAddress}
+                  placeholderTextColor="#94a3b8"
+                />
+              </View>
+
+              <View style={styles.row}>
+                <View style={{ flex: 1, marginRight: 5 }}>
+                  <Text style={styles.label}>State</Text>
+                  <View style={styles.inputView}>
+                    <TextInput
+                      style={styles.inputText}
+                      placeholder="e.g. Kano"
+                      onChangeText={setState}
+                      placeholderTextColor="#94a3b8"
+                    />
+                  </View>
+                </View>
+                <View style={{ flex: 1, marginLeft: 5 }}>
+                  <Text style={styles.label}>LGA</Text>
+                  <View style={styles.inputView}>
+                    <TextInput
+                      style={styles.inputText}
+                      placeholder="Local Govt"
+                      onChangeText={setLga}
+                      placeholderTextColor="#94a3b8"
+                    />
+                  </View>
+                </View>
               </View>
 
               <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
@@ -281,29 +338,19 @@ const SignupScreen = ({ navigation }) => {
                   <Image source={{ uri: image }} style={styles.previewImage} />
                 ) : (
                   <Text style={styles.imagePickerText}>
-                    Upload Business Credentials
+                    Upload Utility Bill or Shop Image
                   </Text>
                 )}
               </TouchableOpacity>
-
-              <Text style={styles.label}>Geographic State</Text>
-              <View style={styles.inputView}>
-                <TextInput
-                  style={styles.inputText}
-                  placeholder="Primary State"
-                  onChangeText={setState}
-                  placeholderTextColor="#94a3b8"
-                />
-              </View>
             </View>
           )}
 
-          <Text style={styles.label}>Cryptographic Key</Text>
+          <Text style={styles.label}>Create Password</Text>
           <View style={styles.passwordWrapper}>
             <TextInput
               secureTextEntry={!showPassword}
               style={styles.passwordInput}
-              placeholder="Min. 6 Alpha-Numerics"
+              placeholder="Minimum of 6 characters"
               onChangeText={setPassword}
               placeholderTextColor="#94a3b8"
             />
@@ -319,12 +366,12 @@ const SignupScreen = ({ navigation }) => {
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.label}>Verify Key Integrity</Text>
+          <Text style={styles.label}>Confirm Password</Text>
           <View style={styles.passwordWrapper}>
             <TextInput
               secureTextEntry={!showConfirmPassword}
               style={styles.passwordInput}
-              placeholder="Confirm Parameters"
+              placeholder="Repeat your password"
               onChangeText={setConfirmPassword}
               placeholderTextColor="#94a3b8"
             />
@@ -349,14 +396,14 @@ const SignupScreen = ({ navigation }) => {
           {loading ? (
             <ActivityIndicator color="#ffffff" />
           ) : (
-            <Text style={styles.signupText}>INITIATE DEPLOYMENT</Text>
+            <Text style={styles.signupText}>REGISTER ACCOUNT</Text>
           )}
         </TouchableOpacity>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>Authorized user? </Text>
+          <Text style={styles.footerText}>Already have an account? </Text>
           <TouchableOpacity onPress={() => navigation.navigate("Login")}>
-            <Text style={styles.loginLink}>Secure Login Portal</Text>
+            <Text style={styles.loginLink}>Login Here</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -372,7 +419,7 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
     paddingBottom: 60,
   },
-  headerArea: { alignItems: "center", marginBottom: 30 },
+  headerArea: { alignItems: "center", marginBottom: 30, width: "90%" },
   title: {
     fontSize: 26,
     fontWeight: "800",
@@ -381,10 +428,11 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     color: "#64748b",
-    fontSize: 12,
+    fontSize: 13,
     marginTop: 5,
     textAlign: "center",
-    width: "85%",
+    width: "95%",
+    lineHeight: 18,
   },
   inputContainer: { width: "90%" },
   row: { flexDirection: "row", justifyContent: "space-between" },
@@ -461,8 +509,9 @@ const styles = StyleSheet.create({
     borderStyle: "dashed",
     borderWidth: 2,
     borderColor: "#cbd5e1",
+    marginTop: 10,
   },
-  imagePickerText: { color: "#64748b", fontSize: 11, fontWeight: "600" },
+  imagePickerText: { color: "#64748b", fontSize: 12, fontWeight: "600" },
   previewImage: { width: "100%", height: "100%", borderRadius: 10 },
   signupBtn: {
     width: "90%",
@@ -484,7 +533,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     letterSpacing: 1.5,
   },
-  footer: { flexDirection: "row", marginTop: 25 },
+  footer: { flexDirection: "row", marginTop: 25, marginBottom: 20 },
   footerText: { color: "#64748b", fontSize: 14 },
   loginLink: { color: "#1e3a8a", fontWeight: "800", fontSize: 14 },
 });
