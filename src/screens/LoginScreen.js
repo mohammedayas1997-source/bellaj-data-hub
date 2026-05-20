@@ -31,6 +31,7 @@ const LoginScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(""); // State to display inline errors on the screen
 
   useEffect(() => {
     checkLoginStatus();
@@ -82,33 +83,31 @@ const LoginScreen = ({ navigation }) => {
         if (token) {
           navigation.replace("Main");
         } else {
-          Alert.alert(
-            "Error",
+          setErrorMessage(
             "Please login with password once to enable biometrics.",
           );
         }
       }
     } catch (error) {
-      Alert.alert("Error", "Biometric authentication failed.");
+      setErrorMessage("Biometric authentication failed.");
     } finally {
       setLoading(false);
     }
   };
 
   const handleLogin = async () => {
+    setErrorMessage(""); // Clear any existing errors on visual terminal
     if (!email || !password) {
-      Alert.alert("Error", "Please fill in all fields.");
+      setErrorMessage("Please enter both your email address and password.");
       return;
     }
 
     setLoading(true);
     try {
-      // Corrected the URL to point to your live Render server
-      // Gwada wannan URL din:
       const response = await axios.post(
         "https://ayax-data-xpress-server.onrender.com/api/v1/auth/login",
         {
-          email: email.trim(),
+          email: email.trim().toLowerCase(),
           password: password,
         },
       );
@@ -122,18 +121,24 @@ const LoginScreen = ({ navigation }) => {
 
         navigation.replace("Main");
       } else {
-        Alert.alert(
-          "Login Failed",
-          response.data.message || "Invalid credentials",
+        setErrorMessage(
+          response.data.message || "Invalid login credentials details.",
         );
       }
     } catch (error) {
-      // Improved error logging to see exactly what the server says
       console.log("Login Error Details:", error.response?.data);
-      const errorMsg =
-        error.response?.data?.message ||
-        "Something went wrong. Please check your connection.";
-      Alert.alert("Error", errorMsg);
+
+      // Capture 401 or backend validation messages directly onto the screen layout
+      if (error.response?.status === 401) {
+        setErrorMessage(
+          "Invalid email or password. Please double-check your credentials.",
+        );
+      } else {
+        const errorMsg =
+          error.response?.data?.message ||
+          "Network connection issue. Please verify your internet connection and try again.";
+        setErrorMessage(errorMsg);
+      }
     } finally {
       setLoading(false);
     }
@@ -163,6 +168,14 @@ const LoginScreen = ({ navigation }) => {
           </View>
 
           <View style={styles.formSection}>
+            {/* Inline Error Container Banner */}
+            {errorMessage ? (
+              <View style={styles.errorBanner}>
+                <Ionicons name="alert-circle" size={20} color="#b91c1c" />
+                <Text style={styles.errorBannerText}>{errorMessage}</Text>
+              </View>
+            ) : null}
+
             <Text style={styles.label}>Email Address</Text>
             <View style={styles.inputContainer}>
               <Ionicons
@@ -176,7 +189,10 @@ const LoginScreen = ({ navigation }) => {
                 placeholder="example@mail.com"
                 placeholderTextColor="#94a3b8"
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  if (errorMessage) setErrorMessage(""); // Clear error when typing
+                }}
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
@@ -195,7 +211,10 @@ const LoginScreen = ({ navigation }) => {
                 placeholder="••••••••"
                 placeholderTextColor="#94a3b8"
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  if (errorMessage) setErrorMessage(""); // Clear error when typing
+                }}
                 secureTextEntry={!showPassword}
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
@@ -246,9 +265,7 @@ const LoginScreen = ({ navigation }) => {
                 activeOpacity={0.7}
                 onPress={() => navigation.navigate("About")}
               >
-                <Text style={styles.linkText} numberOfLines={0}>
-                  About Us
-                </Text>
+                <Text style={styles.linkText}>About Us</Text>
               </TouchableOpacity>
 
               <View style={styles.divider} />
@@ -257,9 +274,7 @@ const LoginScreen = ({ navigation }) => {
                 activeOpacity={0.7}
                 onPress={() => navigation.navigate("PrivacyPolicy")}
               >
-                <Text style={styles.linkText} numberOfLines={0}>
-                  Privacy Policy
-                </Text>
+                <Text style={styles.linkText}>Privacy Policy</Text>
               </TouchableOpacity>
 
               <View style={styles.divider} />
@@ -268,11 +283,10 @@ const LoginScreen = ({ navigation }) => {
                 activeOpacity={0.7}
                 onPress={() => navigation.navigate("Terms")}
               >
-                <Text style={styles.linkText} numberOfLines={0}>
-                  Terms
-                </Text>
+                <Text style={styles.linkText}>Terms</Text>
               </TouchableOpacity>
             </View>
+
             <View style={styles.signupContainer}>
               <Text style={styles.noAccountText}>Don't have an account? </Text>
               <TouchableOpacity onPress={() => navigation.navigate("Signup")}>
@@ -364,6 +378,23 @@ const styles = StyleSheet.create({
   },
   inputIcon: { marginRight: 10 },
   input: { flex: 1, height: 50, color: "#0f172a", fontSize: 16 },
+  errorBanner: {
+    flexDirection: "row",
+    backgroundColor: "#fef2f2",
+    borderColor: "#fee2e2",
+    borderWidth: 1,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 20,
+    alignItems: "center",
+    gap: 8,
+  },
+  errorBannerText: {
+    color: "#991b1b",
+    fontSize: 14,
+    fontWeight: "600",
+    flex: 1,
+  },
   actionRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -387,24 +418,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   loginBtnText: { color: "#ffffff", fontSize: 18, fontWeight: "bold" },
-  footerLinks: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 25,
-  },
-  linkText: {
-    color: "#64748b",
-    fontSize: 12,
-    fontWeight: "600",
-    textDecorationLine: "underline",
-  },
-  divider: {
-    width: 1,
-    height: 14,
-    backgroundColor: "#cbd5e1",
-    marginHorizontal: 12,
-  },
   signupContainer: {
     flexDirection: "row",
     justifyContent: "center",
@@ -449,15 +462,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginTop: 25,
-    width: "100%", // Ensures the container spans the full width
-    flexWrap: "wrap", // Allows links to move to a new line if the screen is too narrow
+    width: "100%",
+    flexWrap: "wrap",
   },
   linkText: {
     color: "#64748b",
     fontSize: 12,
     fontWeight: "600",
     textDecorationLine: "underline",
-    paddingHorizontal: 4, // Adds a small hit area for easier clicking
+    paddingHorizontal: 4,
   },
   divider: {
     width: 1,
