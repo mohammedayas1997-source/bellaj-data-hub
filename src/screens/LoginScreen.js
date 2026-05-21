@@ -31,7 +31,7 @@ const LoginScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
-  const [errorMessage, setErrorMessage] = useState(""); // State to display inline errors on the screen
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     checkLoginStatus();
@@ -39,24 +39,31 @@ const LoginScreen = ({ navigation }) => {
   }, []);
 
   const checkLoginStatus = async () => {
-    const token = await AsyncStorage.getItem("userToken");
-    const storedUserData = await AsyncStorage.getItem("userData");
+    try {
+      const token = await AsyncStorage.getItem("userToken");
+      const storedUserData = await AsyncStorage.getItem("userData");
 
-    if (token) {
-      if (storedUserData) {
+      if (token && storedUserData) {
         const user = JSON.parse(storedUserData);
-        const detectedRole =
-          user?.role || user?.data?.role || user?.user?.role || "";
-        if (detectedRole.trim().toLowerCase() === "agent") {
+        const detectedRole = (
+          user?.role ||
+          user?.data?.role ||
+          user?.user?.role ||
+          ""
+        )
+          .trim()
+          .toLowerCase();
+
+        if (detectedRole === "agent") {
           navigation.replace("AgentDashboard");
           return;
         } else if (detectedRole) {
-          // If a token exists but it's not an agent, route safely or intercept
           navigation.replace("Main");
           return;
         }
       }
-      navigation.replace("Main");
+    } catch (e) {
+      console.error("Failed to fetch startup authentication states:", e);
     }
   };
 
@@ -97,22 +104,22 @@ const LoginScreen = ({ navigation }) => {
         const token = await AsyncStorage.getItem("userToken");
         const storedUserData = await AsyncStorage.getItem("userData");
 
-        if (token) {
-          if (storedUserData) {
-            const user = JSON.parse(storedUserData);
-            const detectedRole =
-              user?.role || user?.data?.role || user?.user?.role || "";
-            if (detectedRole.trim().toLowerCase() === "agent") {
-              navigation.replace("AgentDashboard");
-              return;
-            } else {
-              setErrorMessage(
-                `Access Denied: Biometric account profile role is "${detectedRole || "undefined"}". Agent portal access only.`,
-              );
-              return;
-            }
+        if (token && storedUserData) {
+          const user = JSON.parse(storedUserData);
+          const detectedRole = (
+            user?.role ||
+            user?.data?.role ||
+            user?.user?.role ||
+            ""
+          )
+            .trim()
+            .toLowerCase();
+
+          if (detectedRole === "agent") {
+            navigation.replace("AgentDashboard");
+          } else {
+            navigation.replace("Main");
           }
-          navigation.replace("Main");
         } else {
           setErrorMessage(
             "Please login with password once to enable biometrics.",
@@ -120,15 +127,16 @@ const LoginScreen = ({ navigation }) => {
         }
       }
     } catch (error) {
-      setErrorMessage("Biometric authentication failed.");
+      setErrorMessage("Biometric authentication encountered an error.");
     } finally {
       setLoading(false);
     }
   };
 
   const handleLogin = async () => {
-    setErrorMessage(""); // Clear any existing errors on visual terminal
-    if (!email || !password) {
+    setErrorMessage("");
+
+    if (!email.trim() || !password) {
       setErrorMessage("Please enter both your email address and password.");
       return;
     }
@@ -146,15 +154,14 @@ const LoginScreen = ({ navigation }) => {
       if (response.data.status === "success" || response.data.token) {
         const token = response.data.token;
 
-        // Deep verification fallback logic for nested object payloads
         const userPayload =
           response.data.user ||
           response.data.data?.user ||
           response.data.data ||
           {};
+
         const userData = JSON.stringify(userPayload);
 
-        // Extract role through every possible structural variant from the server response
         const finalRole =
           userPayload?.role ||
           response.data.role ||
@@ -163,43 +170,61 @@ const LoginScreen = ({ navigation }) => {
 
         const normalizedRole = finalRole.trim().toLowerCase();
 
+        // Persist records immediately prior to running screen transitions
+        await AsyncStorage.setItem("userToken", token);
+        await AsyncStorage.setItem("userData", userData);
+
         if (normalizedRole === "agent") {
-          await AsyncStorage.setItem("userToken", token);
-          await AsyncStorage.setItem("userData", userData);
           navigation.replace("AgentDashboard");
-        } else if (
-          normalizedRole === "customer" ||
-          normalizedRole === "user" ||
-          normalizedRole === "client"
-        ) {
-          // If authenticated but intentionally registered as a regular mobile customer
-          await AsyncStorage.setItem("userToken", token);
-          await AsyncStorage.setItem("userData", userData);
-          navigation.replace("Main");
         } else {
-          // Intercept here and display exact role conflict explanation on the screen layout instead of failing silently
-          setErrorMessage(
-            `Access Intercepted: Authenticated successfully but your account is registered under the role "${finalRole || "null"}". Contact administration if you should be an Agent.`,
-          );
+          navigation.replace("Main");
         }
       } else {
         setErrorMessage(
-          response.data.message || "Invalid login credentials details.",
+          response.data.message ||
+            "Invalid credentials. Please verify details.",
         );
       }
     } catch (error) {
       console.log("Login Error Details:", error.response?.data);
 
-      // Capture 401 or backend validation messages directly onto the screen layout
-      if (error.response?.status === 401) {
+      if (error.response) {
+        const status = error.response.status;
+        const backendMessage = error.response.data?.message || "";
+
+        if (status === 401) {
+          if (backendMessage.toLowerCase().includes("password")) {
+            setErrorMessage(
+              "Incorrect password. Please try again or reset it.",
+            );
+          } else if (
+            backendMessage.toLowerCase().includes("user") ||
+            backendMessage.toLowerCase().includes("found") ||
+            backendMessage.toLowerCase().includes("exist")
+          ) {
+            setErrorMessage(
+              "This email address is not registered. Create an account below.",
+            );
+          } else {
+            setErrorMessage(
+              "Invalid email or password. Please double-check your credentials.",
+            );
+          }
+        } else if (status === 404) {
+          setErrorMessage(
+            "Account not found. Please verify your email or sign up.",
+          );
+        } else {
+          setErrorMessage(
+            backendMessage || "Server error encountered during authentication.",
+          );
+        }
+      } else if (error.request) {
         setErrorMessage(
-          "Invalid email or password. Please double-check your credentials.",
+          "Network error. Please verify your internet connection and try again.",
         );
       } else {
-        const errorMsg =
-          error.response?.data?.message ||
-          "Network connection issue. Please verify your internet connection and try again.";
-        setErrorMessage(errorMsg);
+        setErrorMessage("An unexpected error occurred. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -214,6 +239,7 @@ const LoginScreen = ({ navigation }) => {
       <ScrollView
         contentContainerStyle={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         <View style={styles.contentWrapper}>
           <View style={styles.headerSection}>
@@ -230,7 +256,6 @@ const LoginScreen = ({ navigation }) => {
           </View>
 
           <View style={styles.formSection}>
-            {/* Inline Error Container Banner */}
             {errorMessage ? (
               <View style={styles.errorBanner}>
                 <Ionicons name="alert-circle" size={20} color="#b91c1c" />
@@ -253,7 +278,7 @@ const LoginScreen = ({ navigation }) => {
                 value={email}
                 onChangeText={(text) => {
                   setEmail(text);
-                  if (errorMessage) setErrorMessage(""); // Clear error when typing
+                  if (errorMessage) setErrorMessage("");
                 }}
                 keyboardType="email-address"
                 autoCapitalize="none"
@@ -275,7 +300,7 @@ const LoginScreen = ({ navigation }) => {
                 value={password}
                 onChangeText={(text) => {
                   setPassword(text);
-                  if (errorMessage) setErrorMessage(""); // Clear error when typing
+                  if (errorMessage) setErrorMessage("");
                 }}
                 secureTextEntry={!showPassword}
               />
