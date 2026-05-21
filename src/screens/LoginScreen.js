@@ -45,10 +45,14 @@ const LoginScreen = ({ navigation }) => {
     if (token) {
       if (storedUserData) {
         const user = JSON.parse(storedUserData);
-        // Robust check across multiple common payload structures for persistence routing
-        const detectedRole = user?.role || user?.data?.role || "";
+        const detectedRole =
+          user?.role || user?.data?.role || user?.user?.role || "";
         if (detectedRole.trim().toLowerCase() === "agent") {
           navigation.replace("AgentDashboard");
+          return;
+        } else if (detectedRole) {
+          // If a token exists but it's not an agent, route safely or intercept
+          navigation.replace("Main");
           return;
         }
       }
@@ -96,9 +100,15 @@ const LoginScreen = ({ navigation }) => {
         if (token) {
           if (storedUserData) {
             const user = JSON.parse(storedUserData);
-            const detectedRole = user?.role || user?.data?.role || "";
+            const detectedRole =
+              user?.role || user?.data?.role || user?.user?.role || "";
             if (detectedRole.trim().toLowerCase() === "agent") {
               navigation.replace("AgentDashboard");
+              return;
+            } else {
+              setErrorMessage(
+                `Access Denied: Biometric account profile role is "${detectedRole || "undefined"}". Agent portal access only.`,
+              );
               return;
             }
           }
@@ -144,16 +154,33 @@ const LoginScreen = ({ navigation }) => {
           {};
         const userData = JSON.stringify(userPayload);
 
-        await AsyncStorage.setItem("userToken", token);
-        await AsyncStorage.setItem("userData", userData);
+        // Extract role through every possible structural variant from the server response
+        const finalRole =
+          userPayload?.role ||
+          response.data.role ||
+          response.data.data?.role ||
+          "";
 
-        // Comprehensive verification checks for agent assignment values
-        const finalRole = userPayload?.role || response.data.role || "";
+        const normalizedRole = finalRole.trim().toLowerCase();
 
-        if (finalRole.trim().toLowerCase() === "agent") {
+        if (normalizedRole === "agent") {
+          await AsyncStorage.setItem("userToken", token);
+          await AsyncStorage.setItem("userData", userData);
           navigation.replace("AgentDashboard");
-        } else {
+        } else if (
+          normalizedRole === "customer" ||
+          normalizedRole === "user" ||
+          normalizedRole === "client"
+        ) {
+          // If authenticated but intentionally registered as a regular mobile customer
+          await AsyncStorage.setItem("userToken", token);
+          await AsyncStorage.setItem("userData", userData);
           navigation.replace("Main");
+        } else {
+          // Intercept here and display exact role conflict explanation on the screen layout instead of failing silently
+          setErrorMessage(
+            `Access Intercepted: Authenticated successfully but your account is registered under the role "${finalRole || "null"}". Contact administration if you should be an Agent.`,
+          );
         }
       } else {
         setErrorMessage(
