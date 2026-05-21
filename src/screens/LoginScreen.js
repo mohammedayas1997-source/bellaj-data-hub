@@ -45,7 +45,9 @@ const LoginScreen = ({ navigation }) => {
     if (token) {
       if (storedUserData) {
         const user = JSON.parse(storedUserData);
-        if (user.role === "agent") {
+        // Robust check across multiple common payload structures for persistence routing
+        const detectedRole = user?.role || user?.data?.role || "";
+        if (detectedRole.trim().toLowerCase() === "agent") {
           navigation.replace("AgentDashboard");
           return;
         }
@@ -94,7 +96,8 @@ const LoginScreen = ({ navigation }) => {
         if (token) {
           if (storedUserData) {
             const user = JSON.parse(storedUserData);
-            if (user.role === "agent") {
+            const detectedRole = user?.role || user?.data?.role || "";
+            if (detectedRole.trim().toLowerCase() === "agent") {
               navigation.replace("AgentDashboard");
               return;
             }
@@ -132,13 +135,22 @@ const LoginScreen = ({ navigation }) => {
 
       if (response.data.status === "success" || response.data.token) {
         const token = response.data.token;
-        const userData = JSON.stringify(response.data.user);
+
+        // Deep verification fallback logic for nested object payloads
+        const userPayload =
+          response.data.user ||
+          response.data.data?.user ||
+          response.data.data ||
+          {};
+        const userData = JSON.stringify(userPayload);
 
         await AsyncStorage.setItem("userToken", token);
         await AsyncStorage.setItem("userData", userData);
 
-        // Conditional routing based on the user's assigned database role
-        if (response.data.user && response.data.user.role === "agent") {
+        // Comprehensive verification checks for agent assignment values
+        const finalRole = userPayload?.role || response.data.role || "";
+
+        if (finalRole.trim().toLowerCase() === "agent") {
           navigation.replace("AgentDashboard");
         } else {
           navigation.replace("Main");
