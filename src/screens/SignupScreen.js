@@ -233,14 +233,13 @@ const SignupScreen = ({ navigation }) => {
   };
 
   return (
-    // NAN NE AN GYARA: An sanya style={styles.mainWrapper} domin tabbatar da flex: 1 ya bude gaba daya allon don scroll ya fito
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.mainWrapper}
     >
       <ScrollView
         contentContainerStyle={styles.container}
-        showsVerticalScrollIndicator={true} // An kunna wannan don mai amfani ya rinka ganin scroll bar din gefe
+        showsVerticalScrollIndicator={true}
         keyboardShouldPersistTaps="handled"
       >
         <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
@@ -486,39 +485,51 @@ const SignupScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  // NAN AKA KARI: Wannan wrapper din yana tilasta wa kowace na'ura (PC ko Wayoyi) nuna tsawon kashi 100% don scrollbar ta gane akai sauran abubuwa a kasa
+  // GYARA NA MUSAMMAN: An canza babban wrapper din ya zama yana tsaye cak (Centered) kuma baya gudu
   mainWrapper: {
     flex: 1,
+    backgroundColor: "#f1f5f9", // Kyakkyawan background mai duhu kadan don akwatin ya fito radau
+    justifyContent: "center",
+    alignItems: "center",
     height: Platform.OS === "web" ? "100vh" : "100%",
-    backgroundColor: "#ffffff",
   },
+  // GYARA NA AKWATI: Maimakon duka allo ya rinka scrolling, yanzu mun takura shi a cikin 'Box/Container' mai max-height da iyakantaccen fili
   container: {
     flexGrow: 1,
     backgroundColor: "#ffffff",
     alignItems: "center",
-    paddingVertical: 40,
-    paddingBottom: 60,
+    paddingVertical: 30,
+    paddingHorizontal: 15,
+    borderRadius: 24, // Yana kawo rounded box shape
+    width: Platform.OS === "web" ? 450 : "92%", // Girman akwatin a PC da Waya
+    maxHeight: Platform.OS === "web" ? "85vh" : "80%", // Iyakacin tsayi don scroll ya kulle a ciki kadai
+    marginVertical: 20,
+    elevation: 4, // Inuwa (Shadow) don ya bayyana kamar akwati a Android
+    shadowColor: "#0f172a", // Inuwa don iOS da Web Browser
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 15,
   },
-  headerArea: { alignItems: "center", marginBottom: 30, width: "90%" },
+  headerArea: { alignItems: "center", marginBottom: 25, width: "100%" },
   title: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: "800",
     color: "#0f172a",
     letterSpacing: -0.5,
   },
   subtitle: {
     color: "#64748b",
-    fontSize: 13,
+    fontSize: 12,
     marginTop: 5,
     textAlign: "center",
-    width: "95%",
-    lineHeight: 18,
+    width: "100%",
+    lineHeight: 16,
   },
-  inputContainer: { width: "90%" },
+  inputContainer: { width: "100%" },
   row: { flexDirection: "row", justifyContent: "space-between" },
   label: {
     color: "#334155",
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "700",
     marginBottom: 6,
     marginLeft: 2,
@@ -527,7 +538,7 @@ const styles = StyleSheet.create({
   roleContainer: { flexDirection: "row", marginBottom: 20, gap: 10 },
   roleBtn: {
     flex: 1,
-    height: 48,
+    height: 45,
     backgroundColor: "#f8fafc",
     borderRadius: 12,
     justifyContent: "center",
@@ -537,16 +548,16 @@ const styles = StyleSheet.create({
     cursor: Platform.OS === "web" ? "pointer" : "auto",
   },
   activeRole: { backgroundColor: "#1e3a8a", borderColor: "#1e3a8a" },
-  roleBtnText: { color: "#64748b", fontWeight: "700", fontSize: 13 },
+  roleBtnText: { color: "#64748b", fontWeight: "700", fontSize: 12 },
   activeRoleText: { color: "#ffffff" },
   inputView: {
     width: "100%",
     backgroundColor: "#f8fafc",
     borderRadius: 12,
-    height: 52,
-    marginBottom: 16,
+    height: 48,
+    marginBottom: 14,
     justifyContent: "center",
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     borderWidth: 1,
     borderColor: "#e2e8f0",
   },
@@ -556,69 +567,69 @@ const styles = StyleSheet.create({
     width: "100%",
     backgroundColor: "#f8fafc",
     borderRadius: 12,
-    height: 52,
-    marginBottom: 16,
+    height: 48,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: "#e2e8f0",
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
   },
-  passwordInput: { flex: 1, color: "#0f172a", fontSize: 15 },
+  passwordInput: { flex: 1, color: "#0f172a", fontSize: 14 },
   eyeIcon: { padding: 5, cursor: Platform.OS === "web" ? "pointer" : "auto" },
-  inputText: { color: "#0f172a", fontSize: 15 },
+  inputText: { color: "#0f172a", fontSize: 14 },
   agentSection: {
-    marginTop: 10,
-    padding: 15,
+    marginTop: 5,
+    padding: 12,
     backgroundColor: "#f1f5f9",
-    borderRadius: 16,
-    marginBottom: 20,
+    borderRadius: 14,
+    marginBottom: 14,
   },
   agentInfoTitle: {
     color: "#1e3a8a",
     fontWeight: "800",
-    marginBottom: 12,
-    fontSize: 13,
+    marginBottom: 10,
+    fontSize: 12,
     textTransform: "uppercase",
   },
   imagePicker: {
     width: "100%",
-    height: 140,
+    height: 120,
     backgroundColor: "#ffffff",
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 15,
+    marginBottom: 10,
     borderStyle: "dashed",
     borderWidth: 2,
     borderColor: "#cbd5e1",
-    marginTop: 10,
+    marginTop: 8,
     cursor: Platform.OS === "web" ? "pointer" : "auto",
   },
-  imagePickerText: { color: "#64748b", fontSize: 12, fontWeight: "600" },
+  imagePickerText: { color: "#64748b", fontSize: 11, fontWeight: "600" },
   previewImage: { width: "100%", height: "100%", borderRadius: 10 },
   signupBtn: {
-    width: "90%",
+    width: "100%",
     backgroundColor: "#1e3a8a",
     borderRadius: 12,
-    height: 56,
+    height: 52,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 20,
-    elevation: 8,
+    marginTop: 15,
+    elevation: 4,
     shadowColor: "#1e3a8a",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
     cursor: Platform.OS === "web" ? "pointer" : "auto",
   },
   signupText: {
     color: "white",
     fontWeight: "800",
-    fontSize: 15,
-    letterSpacing: 1.5,
+    fontSize: 14,
+    letterSpacing: 1.2,
   },
-  footer: { flexDirection: "row", marginTop: 25, marginBottom: 20 },
-  footerText: { color: "#64748b", fontSize: 14 },
-  loginLink: { color: "#1e3a8a", fontWeight: "800", fontSize: 14 },
+  footer: { flexDirection: "row", marginTop: 20, marginBottom: 10 },
+  footerText: { color: "#64748b", fontSize: 13 },
+  loginLink: { color: "#1e3a8a", fontWeight: "800", fontSize: 13 },
 });
 
 export default SignupScreen;
