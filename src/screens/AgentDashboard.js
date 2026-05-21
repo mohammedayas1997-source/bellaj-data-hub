@@ -1,361 +1,305 @@
-import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  RefreshControl,
-  Alert,
-} from "react-native";
-import { useNavigation } from "@react-navigation/native";
-import axios from "axios";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import React from "react";
+import { NavigationContainer } from "@react-navigation/native";
+import { createStackNavigator } from "@react-navigation/stack";
+import { createDrawerNavigator } from "@react-navigation/drawer";
+import CustomDrawerContent from "./src/components/CustomDrawerContent";
 
-const AgentDashboard = () => {
-  const navigation = useNavigation();
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [performance, setPerformance] = useState({
-    totalGB: 0,
-    totalSalesValue: 0,
-    commissionsEarned: 0,
-    bonusEarned: 0,
-    monthlyTargetSales: 0,
-  });
-  const [supervisor, setSupervisor] = useState(null);
+// --- IMPORT SCREENS ---
+import LoginScreen from "./src/screens/LoginScreen";
+import HomeScreen from "./src/screens/HomeScreen";
+import BuyDataScreen from "./src/screens/BuyDataScreen";
+import HistoryScreen from "./src/screens/HistoryScreen";
+import ElectricityScreen from "./src/screens/ElectricityScreen";
+import ProfileScreen from "./src/screens/ProfileScreen";
+import NIMCScreen from "./src/screens/NIMCScreen";
+import CableScreen from "./src/screens/CableScreen";
+import SignupScreen from "./src/screens/SignupScreen";
+import ForgotPasswordScreen from "./src/screens/ForgotPasswordScreen";
+import AirtimeScreen from "./src/screens/AirtimeScreen";
+import FundWalletScreen from "./src/screens/FundWalletScreen";
+import ContactScreen from "./src/screens/ContactScreen";
+import SupervisorDashboard from "./src/screens/SupervisorDashboard";
+import AdminControlScreen from "./src/screens/AdminControlScreen";
+import AssignTargetScreen from "./src/screens/AssignTargetScreen";
 
-  const fetchAgentData = async () => {
-    try {
-      const token = await AsyncStorage.getItem("userToken");
-      const config = { headers: { Authorization: `Bearer ${token}` } };
+// --- AGENT CODES IMPORT (AN GYARA - AN DAURA SHI) ---
+import AgentDashboard from "./src/screens/AgentDashboard";
 
-      // AN GYARA NAN: An sanya asalin URL dinka na Render maimakon ayax-api.com
-      const BASE_URL =
-        "https://ayax-data-xpress-server.onrender.com/api/v1/agent";
+// --- SETTINGS IMPORT ---
+import SettingsScreen from "./src/screens/SettingsScreen";
+import SuccessScreen from "./src/screens/SuccessScreen";
+// --- LEADER & SUPERADMIN SYSTEM ---
+import LeaderDashboard from "./src/screens/LeaderDashboard";
+import CreateSupervisorScreen from "./src/screens/CreateSupervisorScreen";
+import ManageAgentsScreen from "./src/screens/ManageAgentsScreen";
 
-      const [perfRes, supRes] = await Promise.all([
-        axios
-          .get(`${BASE_URL}/performance`, config)
-          .catch((e) => ({ data: { data: null } })),
-        axios
-          .get(`${BASE_URL}/my-supervisor`, config)
-          .catch((e) => ({ data: { data: null } })),
-      ]);
+// Import na Superadmin
+import UserManagement from "./src/screens/superadmin/UserManagement";
+import SuperAdminDashboard from "./src/screens/SuperAdminDashboard";
 
-      // Idan server bata gama hada endpoints din ba, sanya tsoffin bayanan nan don kada Dashboard din ya karye
-      if (perfRes.data?.data) {
-        setPerformance(perfRes.data.data);
-      } else {
-        setPerformance({
-          totalGB: 0,
-          totalSalesValue: 0,
-          commissionsEarned: 0,
-          bonusEarned: 0,
-          monthlyTargetSales: 100000, // Misali na Target
-        });
-      }
+// --- NIMC & BVN SYSTEM ---
+import NIMCModificationScreen from "./src/screens/Services/NIMCModificationScreen";
+import NIMCRequests from "./src/screens/Admin/NIMCRequests";
+import NIMCHistory from "./src/screens/User/NIMCHistory";
+import BVNScreen from "./src/screens/BVNScreen";
+import BVNHistory from "./src/screens/User/BVNHistory";
+import UpdatePin from "./src/screens/UpdatePin";
 
-      if (supRes.data?.data) {
-        setSupervisor(supRes.data.data);
-      } else {
-        setSupervisor("No Supervisor Assigned Yet");
-      }
-    } catch (err) {
-      console.log("Dashboard Metrics Fetch Error:", err);
-      // Mun cire murnikin Alert din da ke razana Agent cewa bai yi login ba
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-  useEffect(() => {
-    fetchAgentData();
-  }, []);
+// --- SUPPORT ---
+import SupportDashboard from "./src/screens/SupportDashboard";
+import OnboardingScreen from "./src/screens/OnboardingScreen";
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchAgentData();
-  };
+// --- LEGAL & INFO SCREENS (NEW) ---
+import AboutScreen from "./src/screens/AboutScreen";
+import PrivacyPolicyScreen from "./src/screens/PrivacyPolicyScreen";
+import TermsScreen from "./src/screens/TermsScreen";
 
-  // Calculations for Target Progression
-  const currentSales = performance.totalSalesValue || 0;
-  const targetSales = performance.monthlyTargetSales || 0;
-  const remainingToTarget =
-    targetSales - currentSales > 0 ? targetSales - currentSales : 0;
-  const achievementPercentage =
-    targetSales > 0
-      ? Math.min(Math.round((currentSales / targetSales) * 100), 100)
-      : 0;
+// --- NIN VALIDATION IMPORT ---
+import NINValidation from "./src/screens/NINValidation";
 
-  const StatCard = ({ title, value, unit, color }) => (
-    <View style={[styles.statCard, { borderLeftColor: color }]}>
-      <Text style={styles.statLabel}>{title}</Text>
-      <Text style={styles.statValue}>
-        {value} <Text style={styles.statUnit}>{unit}</Text>
-      </Text>
-    </View>
-  );
+const Stack = createStackNavigator();
+const Drawer = createDrawerNavigator();
 
-  if (loading) {
-    return (
-      <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#1e3a8a" />
-      </View>
-    );
-  }
-
+// --- DRAWER NAVIGATOR SECTION ---
+function DrawerNavigator() {
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
+    <Drawer.Navigator
+      initialRouteName="Dashboard"
+      drawerContent={(props) => <CustomDrawerContent {...props} />}
+      screenOptions={{
+        headerShown: true,
+        headerStyle: { backgroundColor: "#0f172a" },
+        headerTintColor: "#38bdf8",
+        drawerActiveBackgroundColor: "#1e3a8a",
+        drawerActiveTintColor: "#fff",
+        drawerLabelStyle: { marginLeft: -10, fontSize: 16 },
+        unmountOnBlur: true,
+      }}
     >
-      <View style={styles.header}>
-        <Text style={styles.welcome}>Agent Portal</Text>
-        <Text style={styles.subText}>Track your sales and performance</Text>
-      </View>
-
-      {/* CORE PERFORMANCE METRICS */}
-      <View style={styles.statsGrid}>
-        <StatCard
-          title="Monthly Volume"
-          value={performance.totalGB || 0}
-          unit="GB"
-          color="#2563eb"
-        />
-        <StatCard
-          title="Monthly Revenue"
-          value={`₦${currentSales}`}
-          unit=""
-          color="#059669"
-        />
-      </View>
-
-      {/* COMMISSIONS & BONUSES SECTION */}
-      <View style={styles.statsGridAlt}>
-        <StatCard
-          title="Commissions Earned"
-          value={`₦${performance.commissionsEarned || 0}`}
-          unit=""
-          color="#d4af37"
-        />
-        <StatCard
-          title="Bonus Earned"
-          value={`₦${performance.bonusEarned || 0}`}
-          unit=""
-          color="#dc2626"
-        />
-      </View>
-
-      {/* TARGET & PROGRESSION TRACKING */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Target & Performance Tracking</Text>
-        <View style={styles.targetCard}>
-          <View style={styles.targetRow}>
-            <View>
-              <Text style={styles.targetLabel}>Monthly Target</Text>
-              <Text style={styles.targetValue}>₦{targetSales}</Text>
-            </View>
-            <View style={styles.rightAlign}>
-              <Text style={styles.targetLabel}>Achievement</Text>
-              <Text style={styles.percentageText}>
-                {achievementPercentage}%
-              </Text>
-            </View>
-          </View>
-
-          {/* Progress Bar Track */}
-          <View style={styles.progressTrack}>
-            <View
-              style={[
-                styles.progressBar,
-                { width: `${achievementPercentage}%` },
-              ]}
-            />
-          </View>
-
-          <View style={styles.targetRowAlt}>
-            <Text style={styles.progressSubText}>
-              Current Progress:{" "}
-              <Text style={styles.boldText}>₦{currentSales}</Text>
-            </Text>
-            <Text style={styles.remainingText}>
-              Remaining:{" "}
-              <Text style={styles.boldTextRed}>₦{remainingToTarget}</Text>
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* SUPERVISOR INFO SECTION */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Assigned Supervisor</Text>
-        <View style={styles.infoBox}>
-          {typeof supervisor === "string" ? (
-            <Text style={styles.infoText}>{supervisor}</Text>
-          ) : (
-            <View>
-              <Text style={styles.supName}>{supervisor?.name || "N/A"}</Text>
-              <Text style={styles.supPhone}>
-                {supervisor?.phone || "No Contact"}
-              </Text>
-            </View>
-          )}
-        </View>
-      </View>
-
-      {/* QUICK ACTIONS */}
-      <View style={styles.actionSection}>
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
-
-        <TouchableOpacity
-          style={styles.actionBtn}
-          onPress={() => navigation.navigate("NewSale")}
-        >
-          <Text style={styles.actionBtnText}>Process New Sale</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.actionBtn}
-          onPress={() => navigation.navigate("SalesHistory")}
-        >
-          <Text style={styles.actionBtnText}>View Sales History</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.actionBtn}
-          onPress={() => navigation.navigate("Profile")}
-        >
-          <Text style={styles.actionBtnText}>Account Settings</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+      <Drawer.Screen
+        name="Dashboard"
+        component={HomeScreen}
+        options={{ title: "Ayax Xpress" }}
+      />
+      <Drawer.Screen
+        name="Wallet History"
+        component={HistoryScreen}
+        options={{ title: "Transaction History" }}
+      />
+      <Drawer.Screen
+        name="BVN History"
+        component={BVNHistory}
+        options={{ title: "My BVN Logs" }}
+      />
+      <Drawer.Screen
+        name="NIMC History"
+        component={NIMCHistory}
+        options={{ title: "My NIMC Logs" }}
+      />
+      <Drawer.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{ title: "App Settings" }}
+      />
+    </Drawer.Navigator>
   );
-};
+}
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f8fafc" },
-  loaderContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-  header: {
-    padding: 25,
-    backgroundColor: "#1e3a8a",
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-  },
-  welcome: { fontSize: 24, fontWeight: "bold", color: "#fff" },
-  subText: { color: "#cbd5e1", marginTop: 5 },
-  statsGrid: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  statsGridAlt: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  statCard: {
-    backgroundColor: "#fff",
-    width: "48%",
-    padding: 15,
-    borderRadius: 12,
-    borderLeftWidth: 6,
-    elevation: 3,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  statLabel: { fontSize: 12, color: "#64748b", fontWeight: "600" },
-  statValue: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#1e293b",
-    marginTop: 5,
-  },
-  statUnit: { fontSize: 12, color: "#94a3b8" },
-  section: { paddingHorizontal: 20, marginTop: 20 },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#334155",
-    marginBottom: 10,
-  },
-  targetCard: {
-    backgroundColor: "#fff",
-    padding: 20,
-    borderRadius: 12,
-    elevation: 3,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-  },
-  targetRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  targetRowAlt: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 12,
-  },
-  targetLabel: { fontSize: 12, color: "#64748b", fontWeight: "600" },
-  targetValue: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#1e3a8a",
-    marginTop: 2,
-  },
-  rightAlign: { alignItems: "flex-end" },
-  percentageText: { fontSize: 20, fontWeight: "800", color: "#059669" },
-  progressTrack: {
-    width: "100%",
-    height: 10,
-    backgroundColor: "#e2e8f0",
-    borderRadius: 5,
-    marginTop: 15,
-    overflow: "hidden",
-  },
-  progressBar: {
-    height: "100%",
-    backgroundColor: "#059669",
-    borderRadius: 5,
-  },
-  progressSubText: { fontSize: 12, color: "#475569" },
-  remainingText: { fontSize: 12, color: "#475569" },
-  boldText: { fontWeight: "700", color: "#0f172a" },
-  boldTextRed: { fontWeight: "700", color: "#dc2626" },
-  infoBox: {
-    backgroundColor: "#fff",
-    padding: 15,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-  },
-  infoText: { color: "#64748b" },
-  supName: { fontSize: 16, fontWeight: "bold", color: "#1e3a8a" },
-  supPhone: { fontSize: 14, color: "#475569", marginTop: 2 },
-  actionSection: { padding: 20 },
-  actionBtn: {
-    backgroundColor: "#fff",
-    padding: 18,
-    borderRadius: 12,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    alignItems: "center",
-  },
-  actionBtnText: { fontSize: 15, color: "#1e3a8a", fontWeight: "600" },
-});
+// --- MAIN APP COMPONENT ---
+export default function App() {
+  return (
+    <NavigationContainer>
+      <Stack.Navigator
+        initialRouteName="Onboarding"
+        screenOptions={{
+          headerStyle: {
+            backgroundColor: "#0f172a",
+            elevation: 0,
+            shadowOpacity: 0,
+          },
+          headerTintColor: "#38bdf8",
+          headerTitleStyle: {
+            fontWeight: "bold",
+          },
+        }}
+      >
+        <Stack.Screen
+          name="Onboarding"
+          component={OnboardingScreen}
+          options={{ headerShown: false }}
+        />
 
-export default AgentDashboard;
+        {/* Auth Stack - Fixed Duplicate Entry */}
+        <Stack.Screen
+          name="Login"
+          component={LoginScreen}
+          options={{ headerShown: false }}
+        />
+
+        <Stack.Screen
+          name="Signup"
+          component={SignupScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="Success"
+          component={SuccessScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="ForgotPassword"
+          component={ForgotPasswordScreen}
+          options={{ title: "Reset Password" }}
+        />
+
+        {/* Main App Entry Point */}
+        <Stack.Screen
+          name="Main"
+          component={DrawerNavigator}
+          options={{ headerShown: false }}
+        />
+
+        {/* Other Stack Screens */}
+        <Stack.Screen
+          name="BuyAirtime"
+          component={AirtimeScreen}
+          options={{ title: "Buy Airtime" }}
+        />
+        <Stack.Screen
+          name="FundWallet"
+          component={FundWalletScreen}
+          options={{ title: "Fund Your Wallet" }}
+        />
+        <Stack.Screen
+          name="BuyData"
+          component={BuyDataScreen}
+          options={{ title: "Data Services" }}
+        />
+        <Stack.Screen
+          name="Electricity"
+          component={ElectricityScreen}
+          options={{ title: "Utility Bills" }}
+        />
+        <Stack.Screen
+          name="NIMC"
+          component={NIMCScreen}
+          options={{ title: "NIMC Services" }}
+        />
+        <Stack.Screen
+          name="BVNScreen"
+          component={BVNScreen}
+          options={{ title: "BVN Verification" }}
+        />
+        <Stack.Screen
+          name="Cable"
+          component={CableScreen}
+          options={{ title: "Cable TV Subscription" }}
+        />
+        <Stack.Screen
+          name="Profile"
+          component={ProfileScreen}
+          options={{ title: "My Profile" }}
+        />
+        <Stack.Screen
+          name="Contact"
+          component={ContactScreen}
+          options={{ title: "Help & Support" }}
+        />
+
+        {/* Admin & Management Screens */}
+        <Stack.Screen
+          name="AdminControl"
+          component={AdminControlScreen}
+          options={{ title: "Admin Panel" }}
+        />
+        <Stack.Screen
+          name="SupervisorDashboard"
+          component={SupervisorDashboard}
+          options={{ title: "Supervisor Panel" }}
+        />
+
+        {/* AGENT DASHBOARD REGISTERED */}
+        <Stack.Screen
+          name="AgentDashboard"
+          component={AgentDashboard}
+          options={{ title: "Agent Control Panel" }}
+        />
+
+        <Stack.Screen
+          name="AssignTarget"
+          component={AssignTargetScreen}
+          options={{ title: "Set Target" }}
+        />
+        <Stack.Screen
+          name="LeaderDashboard"
+          component={LeaderDashboard}
+          options={{ title: "Leader Control Center" }}
+        />
+        <Stack.Screen
+          name="CreateSupervisor"
+          component={CreateSupervisorScreen}
+          options={{ title: "Add New Supervisor" }}
+        />
+        <Stack.Screen
+          name="ManageAgents"
+          component={ManageAgentsScreen}
+          options={{ title: "Manage Agents" }}
+        />
+        <Stack.Screen
+          name="SuperAdminUsers"
+          component={UserManagement}
+          options={{ title: "Global User Management" }}
+        />
+        <Stack.Screen
+          name="SuperAdminDashboard"
+          component={SuperAdminDashboard}
+          options={{ title: "SuperAdmin Control" }}
+        />
+        <Stack.Screen
+          name="SupportDashboard"
+          component={SupportDashboard}
+          options={{ title: "Support & Tracing" }}
+        />
+        <Stack.Screen
+          name="NIMCRequests"
+          component={NIMCRequests}
+          options={{ title: "NIMC Pending Tasks" }}
+        />
+        <Stack.Screen
+          name="NIMCModification"
+          component={NIMCModificationScreen}
+          options={{ title: "NIMC Modification", headerShown: false }}
+        />
+        <Stack.Screen
+          name="UpdatePin"
+          component={UpdatePin}
+          options={{ headerShown: false }}
+        />
+
+        {/* Legal & Info Stack */}
+        <Stack.Screen
+          name="About"
+          component={AboutScreen}
+          options={{ title: "About Us" }}
+        />
+        <Stack.Screen
+          name="PrivacyPolicy"
+          component={PrivacyPolicyScreen}
+          options={{ title: "Privacy Policy" }}
+        />
+        <Stack.Screen
+          name="Terms"
+          component={TermsScreen}
+          options={{ title: "Terms & Conditions" }}
+        />
+
+        {/* NIN VALIDATION SCREEN REGISTRATION */}
+        <Stack.Screen
+          name="NINValidation"
+          component={NINValidation}
+          options={{ title: "NIN Validation" }}
+        />
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+}

@@ -22,6 +22,9 @@ import SupervisorDashboard from "./src/screens/SupervisorDashboard";
 import AdminControlScreen from "./src/screens/AdminControlScreen";
 import AssignTargetScreen from "./src/screens/AssignTargetScreen";
 
+// --- AGENT CODES IMPORT (AN GYARA - AN DAURA SHI) ---
+import AgentDashboardScreen from "./src/screens/AgentDashboardScreen";
+
 // --- SETTINGS IMPORT ---
 import SettingsScreen from "./src/screens/SettingsScreen";
 import SuccessScreen from "./src/screens/SuccessScreen";
@@ -214,6 +217,14 @@ export default function App() {
           component={SupervisorDashboard}
           options={{ title: "Supervisor Panel" }}
         />
+
+        {/* AGENT DASHBOARD REGISTERED (AN GYARA) */}
+        <Stack.Screen
+          name="AgentDashboard"
+          component={AgentDashboardScreen}
+          options={{ title: "Agent Control Panel" }}
+        />
+
         <Stack.Screen
           name="AssignTarget"
           component={AssignTargetScreen}
