@@ -36,9 +36,36 @@ const SignupScreen = ({ navigation }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  // Tsarin nuna sanarwa na musamman don dacewa da kowace na'ura (Waya da PC)
+  const showAlert = (title, message, buttons = []) => {
+    if (Platform.OS === "web") {
+      alert(`${title}\n\n${message}`);
+      if (buttons.length > 0 && buttons[0].onPress) {
+        buttons[0].onPress();
+      }
+    } else {
+      Alert.alert(title, message, buttons.length > 0 ? buttons : undefined, {
+        cancelable: false,
+      });
+    }
+  };
+
   const pickImage = async () => {
+    // Neman izini ga masu amfani da wayoyin hannu
+    if (Platform.OS !== "web") {
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        showAlert(
+          "Permission Denied",
+          "Sorry, we need camera roll permissions to make this work!",
+        );
+        return;
+      }
+    }
+
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.2,
@@ -46,8 +73,17 @@ const SignupScreen = ({ navigation }) => {
     });
 
     if (!result.canceled) {
-      const base64Img = `data:image/jpeg;base64,${result.assets[0].base64}`;
-      setImage(base64Img);
+      const asset = result.assets[0];
+      let base64Img = asset.base64;
+
+      // Gyara na musamman don tabbatar da Base64 yana aiki a PC browser idan babu flag
+      if (!base64Img && asset.uri.startsWith("data:")) {
+        setImage(asset.uri);
+      } else if (base64Img) {
+        setImage(`data:image/jpeg;base64,${base64Img}`);
+      } else {
+        setImage(asset.uri);
+      }
     }
   };
 
@@ -62,42 +98,42 @@ const SignupScreen = ({ navigation }) => {
       !phone.trim() ||
       !password
     ) {
-      Alert.alert(
+      showAlert(
         "Missing Fields",
         "Please fill all the compulsory fields before proceeding.",
       );
       return false;
     }
     if (!emailRegex.test(email.trim())) {
-      Alert.alert(
+      showAlert(
         "Invalid Email",
         "The email address enter format is wrong. Check it well.",
       );
       return false;
     }
     if (!phoneRegex.test(phone.trim())) {
-      Alert.alert(
+      showAlert(
         "Invalid Phone Number",
         "Please enter a valid Nigerian phone number.",
       );
       return false;
     }
     if (password.length < 6) {
-      Alert.alert(
+      showAlert(
         "Password Too Short",
         "Your password must be at least 6 characters long.",
       );
       return false;
     }
     if (password !== confirmPassword) {
-      Alert.alert(
+      showAlert(
         "Password Mismatch",
         "The two passwords do not match. Please re-enter.",
       );
       return false;
     }
     if (role === "agent" && (!state.trim() || !lga.trim() || !address.trim())) {
-      Alert.alert(
+      showAlert(
         "Agent Verification Missing",
         "As an Agent, your State, LGA, and Business Address are compulsory.",
       );
@@ -148,12 +184,10 @@ const SignupScreen = ({ navigation }) => {
         response.data?.status === "success";
 
       if (isSuccess) {
-        // Extract registration response context
         const userPayload = response.data.user ||
           response.data.data?.user ||
           response.data.data || { role: role.trim().toLowerCase() };
 
-        // Explicitly write state to cache so SuccessScreen reads it cleanly
         await AsyncStorage.setItem("userData", JSON.stringify(userPayload));
         if (response.data.token) {
           await AsyncStorage.setItem("userToken", response.data.token);
@@ -161,7 +195,7 @@ const SignupScreen = ({ navigation }) => {
 
         setLoading(false);
 
-        Alert.alert(
+        showAlert(
           "Account Created 🎉",
           "Your registration has been completed successfully! Click OK to proceed.",
           [
@@ -170,11 +204,10 @@ const SignupScreen = ({ navigation }) => {
               onPress: () => navigation.replace("Success"),
             },
           ],
-          { cancelable: false },
         );
       } else {
         setLoading(false);
-        Alert.alert(
+        showAlert(
           "Registration Alert",
           response.data?.message ||
             "Unexpected response from server. Please check.",
@@ -187,12 +220,12 @@ const SignupScreen = ({ navigation }) => {
         "Network connection issue. Please try again.";
 
       if (error.code === "ECONNABORTED") {
-        Alert.alert(
+        showAlert(
           "Network Timeout",
           "Connection took too long to respond. Check your internet connection.",
         );
       } else {
-        Alert.alert("Registration Failed ❌", serverMsg);
+        showAlert("Registration Failed ❌", serverMsg);
       }
 
       console.error(
@@ -497,6 +530,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#e2e8f0",
+    cursor: Platform.OS === "web" ? "pointer" : "auto", // Gyara don PC Web pointers
   },
   activeRole: { backgroundColor: "#1e3a8a", borderColor: "#1e3a8a" },
   roleBtnText: { color: "#64748b", fontWeight: "700", fontSize: 13 },
@@ -525,7 +559,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   passwordInput: { flex: 1, color: "#0f172a", fontSize: 15 },
-  eyeIcon: { padding: 5 },
+  eyeIcon: { padding: 5, cursor: Platform.OS === "web" ? "pointer" : "auto" },
   inputText: { color: "#0f172a", fontSize: 15 },
   agentSection: {
     marginTop: 10,
@@ -553,6 +587,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#cbd5e1",
     marginTop: 10,
+    cursor: Platform.OS === "web" ? "pointer" : "auto",
   },
   imagePickerText: { color: "#64748b", fontSize: 12, fontWeight: "600" },
   previewImage: { width: "100%", height: "100%", borderRadius: 10 },
@@ -569,6 +604,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
+    cursor: Platform.OS === "web" ? "pointer" : "auto",
   },
   signupText: {
     color: "white",
