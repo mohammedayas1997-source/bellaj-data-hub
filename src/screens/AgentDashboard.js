@@ -2,49 +2,84 @@ import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
-  ScrollView,
-  TouchableOpacity,
   StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  Image,
+  StatusBar,
+  Dimensions,
+  Clipboard,
+  ToastAndroid,
+  ImageBackground,
+  Linking,
+  Alert,
+  Platform,
   ActivityIndicator,
   RefreshControl,
-  Alert,
 } from "react-native";
+import {
+  MaterialCommunityIcons,
+  Ionicons,
+  FontAwesome5,
+} from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation } from "@react-navigation/native";
-import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
+
+const { width } = Dimensions.get("window");
+const BASE_URL = "https://ayax-data-xpress-server.onrender.com/api/v1";
 
 const AgentDashboard = () => {
   const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [userData, setUserData] = useState(null);
+  const [isBalanceVisible, setIsBalanceVisible] = useState(true);
+
   const [performance, setPerformance] = useState({
     totalGB: 0,
     totalSalesValue: 0,
     commissionsEarned: 0,
     bonusEarned: 0,
-    monthlyTargetSales: 0,
+    monthlyTargetSales: 100000,
   });
   const [supervisor, setSupervisor] = useState(null);
 
-  const fetchAgentData = async () => {
+  const fetchAgentAndProfileData = async () => {
     try {
       const token = await AsyncStorage.getItem("userToken");
-      const config = { headers: { Authorization: `Bearer ${token}` } };
+      if (!token) {
+        navigation.reset({ index: 0, routes: [{ name: "Login" }] });
+        return;
+      }
 
-      // AN GYARA NAN: An sanya asalin URL dinka na Render maimakon ayax-api.com
-      const BASE_URL =
-        "https://ayax-data-xpress-server.onrender.com/api/v1/agent";
+      const config = {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
+      };
 
-      const [perfRes, supRes] = await Promise.all([
+      // Gudanar da dukkan kiran API lokaci guda (Profile Data + Performance Metrics)
+      const [profileRes, perfRes, supRes] = await Promise.all([
         axios
-          .get(`${BASE_URL}/performance`, config)
+          .get(`${BASE_URL}/user/profile`, config)
+          .catch((e) => ({ data: { success: false } })),
+        axios
+          .get(`${BASE_URL}/agent/performance`, config)
           .catch((e) => ({ data: { data: null } })),
         axios
-          .get(`${BASE_URL}/my-supervisor`, config)
+          .get(`${BASE_URL}/agent/my-supervisor`, config)
           .catch((e) => ({ data: { data: null } })),
       ]);
 
-      // Idan server bata gama hada endpoints din ba, sanya tsoffin bayanan nan don kada Dashboard din ya karye
+      // Karban bayanan Profile na asali (Domin ciro sunaye da Account Number dinsa)
+      if (profileRes.data && profileRes.data.success) {
+        setUserData(profileRes.data.user || profileRes.data.data);
+      }
+
+      // Karban bayanan Metrics na Agent
       if (perfRes.data?.data) {
         setPerformance(perfRes.data.data);
       } else {
@@ -53,7 +88,7 @@ const AgentDashboard = () => {
           totalSalesValue: 0,
           commissionsEarned: 0,
           bonusEarned: 0,
-          monthlyTargetSales: 100000, // Misali na Target
+          monthlyTargetSales: 100000,
         });
       }
 
@@ -63,20 +98,41 @@ const AgentDashboard = () => {
         setSupervisor("No Supervisor Assigned Yet");
       }
     } catch (err) {
-      console.log("Dashboard Metrics Fetch Error:", err);
-      // Mun cire murnikin Alert din da ke razana Agent cewa bai yi login ba
+      console.log("Comprehensive Agent Dashboard Fetch Error:", err);
+      if (err.response && err.response.status === 401) {
+        await AsyncStorage.clear();
+        navigation.reset({ index: 0, routes: [{ name: "Login" }] });
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
+
   useEffect(() => {
-    fetchAgentData();
+    fetchAgentAndProfileData();
   }, []);
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchAgentData();
+    fetchAgentAndProfileData();
+  };
+
+  const copyToClipboard = (text) => {
+    if (!text) return;
+    Clipboard.setString(text);
+    if (Platform.OS === "android") {
+      ToastAndroid.show("Copied to clipboard", ToastAndroid.SHORT);
+    }
+  };
+
+  const openWhatsApp = () => {
+    const phoneNumber = "+2349061244444";
+    const message = `Hello Ayax Xpress Support, I need assistance with my Agent account.`;
+    const url = `whatsapp://send?phone=${phoneNumber}&text=${encodeURIComponent(message)}`;
+    Linking.openURL(url).catch(() =>
+      Linking.openURL(`https://wa.me/${phoneNumber.replace("+", "")}`),
+    );
   };
 
   // Calculations for Target Progression
@@ -107,157 +163,557 @@ const AgentDashboard = () => {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
-      <View style={styles.header}>
-        <Text style={styles.welcome}>Agent Portal</Text>
-        <Text style={styles.subText}>Track your sales and performance</Text>
-      </View>
+    <View style={styles.mainContainer}>
+      <StatusBar
+        barStyle="dark-content"
+        translucent
+        backgroundColor="transparent"
+      />
 
-      {/* CORE PERFORMANCE METRICS */}
-      <View style={styles.statsGrid}>
-        <StatCard
-          title="Monthly Volume"
-          value={performance.totalGB || 0}
-          unit="GB"
-          color="#2563eb"
-        />
-        <StatCard
-          title="Monthly Revenue"
-          value={`₦${currentSales}`}
-          unit=""
-          color="#059669"
-        />
-      </View>
+      <ImageBackground
+        source={require("../assets/ayax_promo_hijab.png")}
+        style={styles.backgroundImage}
+        resizeMode="cover"
+      >
+        <View style={styles.fullOverlayGradient}>
+          <LinearGradient
+            colors={["rgba(255,255,255,0.6)", "rgba(248,250,252,0.95)"]}
+            style={styles.fullOverlay}
+          />
+        </View>
 
-      {/* COMMISSIONS & BONUSES SECTION */}
-      <View style={styles.statsGridAlt}>
-        <StatCard
-          title="Commissions Earned"
-          value={`₦${performance.commissionsEarned || 0}`}
-          unit=""
-          color="#d4af37"
-        />
-        <StatCard
-          title="Bonus Earned"
-          value={`₦${performance.bonusEarned || 0}`}
-          unit=""
-          color="#dc2626"
-        />
-      </View>
-
-      {/* TARGET & PROGRESSION TRACKING */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Target & Performance Tracking</Text>
-        <View style={styles.targetCard}>
-          <View style={styles.targetRow}>
-            <View>
-              <Text style={styles.targetLabel}>Monthly Target</Text>
-              <Text style={styles.targetValue}>₦{targetSales}</Text>
+        <View style={styles.topHeader}>
+          <View style={styles.navRow}>
+            <View style={styles.logoCircle}>
+              <Image
+                source={require("../assets/Logo.png")}
+                style={styles.logoImg}
+              />
             </View>
-            <View style={styles.rightAlign}>
-              <Text style={styles.targetLabel}>Achievement</Text>
-              <Text style={styles.percentageText}>
-                {achievementPercentage}%
-              </Text>
-            </View>
+            <TouchableOpacity onPress={() => navigation.navigate("Settings")}>
+              <Ionicons
+                name="notifications-outline"
+                size={28}
+                color="#0f172a"
+              />
+            </TouchableOpacity>
           </View>
 
-          {/* Progress Bar Track */}
-          <View style={styles.progressTrack}>
-            <View
-              style={[
-                styles.progressBar,
-                { width: `${achievementPercentage}%` },
-              ]}
+          <View style={styles.welcomeSection}>
+            <Text style={styles.welcomeText}>Agent Control Panel,</Text>
+            <Text style={styles.userName}>
+              {userData
+                ? `${userData.firstName || userData.name || ""} ${userData.surname || ""}`
+                : "Loading Agent..."}
+            </Text>
+          </View>
+        </View>
+
+        <ScrollView
+          style={styles.content}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
+          {/* 1. WALLET CARD & BALANCE */}
+          <LinearGradient
+            colors={["#1e40af", "#1e3a8a"]}
+            style={styles.walletCard}
+          >
+            <View style={styles.walletTop}>
+              <Text style={styles.walletLabel}>Agent Available Balance</Text>
+              <TouchableOpacity
+                onPress={() =>
+                  navigation.navigate("Main", { screen: "Wallet History" })
+                }
+              >
+                <Text style={styles.historyText}>
+                  Transactions <Ionicons name="chevron-forward" size={12} />
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.balanceContainer}>
+              <Text style={styles.currency}>₦</Text>
+              <Text style={styles.balanceText}>
+                {isBalanceVisible
+                  ? userData?.walletBalance || userData?.balance || "0.00"
+                  : "****"}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setIsBalanceVisible(!isBalanceVisible)}
+              >
+                <Ionicons
+                  name={isBalanceVisible ? "eye-outline" : "eye-off-outline"}
+                  size={24}
+                  color="#38bdf8"
+                  style={{ marginLeft: 15 }}
+                />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.walletActions}>
+              <TouchableOpacity
+                style={styles.actionBtn}
+                onPress={() => navigation.navigate("FundWallet")}
+              >
+                <LinearGradient
+                  colors={["#38bdf8", "#0ea5e9"]}
+                  style={styles.innerBtnGradient}
+                >
+                  <Ionicons name="add-circle" size={18} color="#fff" />
+                  <Text style={styles.actionBtnText}>FUND WALLET</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.actionBtn,
+                  { backgroundColor: "rgba(255,255,255,0.15)" },
+                ]}
+                onPress={openWhatsApp}
+              >
+                <Ionicons name="logo-whatsapp" size={18} color="#22c55e" />
+                <Text style={[styles.actionBtnText, { color: "#fff" }]}>
+                  SUPPORT
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </LinearGradient>
+
+          {/* 2. AUTOMATIC VIRTUAL ACCOUNTS SECTION */}
+          <Text style={styles.sectionLabel}>Automatic Funding Accounts</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.bankScroll}
+          >
+            {userData?.accountNumber &&
+            userData?.accountNumber !== "Initialization Pending" ? (
+              <BankCard
+                bank={userData.bankName || "Wema Bank"}
+                acc={userData.accountNumber}
+                code="WB"
+                onCopy={() => copyToClipboard(userData.accountNumber)}
+              />
+            ) : (
+              <BankCard
+                bank="Wema Bank (Pending)"
+                acc="Generating..."
+                code=".."
+                onCopy={() =>
+                  Alert.alert(
+                    "Wait",
+                    "Your unique virtual agent account is being provisioned automatically.",
+                  )
+                }
+              />
+            )}
+            <BankCard
+              bank="Paystack Terminal"
+              acc="Automated Funding"
+              code="PAY"
+              onCopy={() =>
+                Alert.alert(
+                  "Note",
+                  "Transfer to your assigned Wema account for instant automated wallet credit.",
+                )
+              }
+            />
+          </ScrollView>
+
+          {/* 3. CORE METRICS GRID */}
+          <Text style={styles.sectionLabel}>Performance Metrics</Text>
+          <View style={styles.statsGrid}>
+            <StatCard
+              title="Monthly Volume"
+              value={performance.totalGB || 0}
+              unit="GB"
+              color="#2563eb"
+            />
+            <StatCard
+              title="Monthly Revenue"
+              value={`₦${currentSales}`}
+              unit=""
+              color="#059669"
             />
           </View>
 
-          <View style={styles.targetRowAlt}>
-            <Text style={styles.progressSubText}>
-              Current Progress:{" "}
-              <Text style={styles.boldText}>₦{currentSales}</Text>
-            </Text>
-            <Text style={styles.remainingText}>
-              Remaining:{" "}
-              <Text style={styles.boldTextRed}>₦{remainingToTarget}</Text>
-            </Text>
+          <View style={styles.statsGridAlt}>
+            <StatCard
+              title="Commissions Earned"
+              value={`₦${performance.commissionsEarned || 0}`}
+              unit=""
+              color="#d4af37"
+            />
+            <StatCard
+              title="Bonus Earned"
+              value={`₦${performance.bonusEarned || 0}`}
+              unit=""
+              color="#dc2626"
+            />
           </View>
-        </View>
-      </View>
 
-      {/* SUPERVISOR INFO SECTION */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Assigned Supervisor</Text>
-        <View style={styles.infoBox}>
-          {typeof supervisor === "string" ? (
-            <Text style={styles.infoText}>{supervisor}</Text>
-          ) : (
-            <View>
-              <Text style={styles.supName}>{supervisor?.name || "N/A"}</Text>
-              <Text style={styles.supPhone}>
-                {supervisor?.phone || "No Contact"}
-              </Text>
+          {/* 4. PERFORMANCE TRACKING PROGRESS */}
+          <View style={styles.targetTrackingSection}>
+            <Text style={styles.sectionTitle}>
+              Target & Performance Tracking
+            </Text>
+            <View style={styles.targetCard}>
+              <View style={styles.targetRow}>
+                <View>
+                  <Text style={styles.targetLabel}>Monthly Target</Text>
+                  <Text style={styles.targetValue}>₦{targetSales}</Text>
+                </View>
+                <View style={styles.rightAlign}>
+                  <Text style={styles.targetLabel}>Achievement</Text>
+                  <Text style={styles.percentageText}>
+                    {achievementPercentage}%
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.progressTrack}>
+                <View
+                  style={[
+                    styles.progressBar,
+                    { width: `${achievementPercentage}%` },
+                  ]}
+                />
+              </View>
+
+              <View style={styles.targetRowAlt}>
+                <Text style={styles.progressSubText}>
+                  Current Progress:{" "}
+                  <Text style={styles.boldText}>₦{currentSales}</Text>
+                </Text>
+                <Text style={styles.remainingText}>
+                  Remaining:{" "}
+                  <Text style={styles.boldTextRed}>₦{remainingToTarget}</Text>
+                </Text>
+              </View>
             </View>
-          )}
-        </View>
-      </View>
+          </View>
 
-      {/* QUICK ACTIONS */}
-      <View style={styles.actionSection}>
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
+          {/* 5. SERVICES GRID FOR AGENT TO SELL */}
+          <Text style={styles.sectionLabel}>Agent Utilities Services</Text>
+          <View style={styles.servicesContainer}>
+            <View style={styles.grid}>
+              <ServiceItem
+                icon="wifi"
+                color="#0ea5e9"
+                label="Data"
+                onPress={() => navigation.navigate("BuyData")}
+              />
+              <ServiceItem
+                icon="phone-alt"
+                color="#22c55e"
+                label="Airtime"
+                onPress={() => navigation.navigate("BuyAirtime")}
+              />
+              <ServiceItem
+                icon="bolt"
+                color="#eab308"
+                label="Power"
+                onPress={() => navigation.navigate("Electricity")}
+              />
+              <ServiceItem
+                icon="tv"
+                color="#8b5cf6"
+                label="Cable"
+                onPress={() => navigation.navigate("Cable")}
+              />
+              <ServiceItem
+                icon="id-card"
+                color="#f43f5e"
+                label="NIMC Verify"
+                onPress={() => navigation.navigate("NIMC")}
+              />
+              <ServiceItem
+                icon="fingerprint"
+                color="#ec4899"
+                label="NIMC Mod"
+                onPress={() => navigation.navigate("NIMCModification")}
+              />
+              <ServiceItem
+                icon="user-shield"
+                color="#64748b"
+                label="BVN"
+                onPress={() => navigation.navigate("BVNScreen")}
+              />
+              <ServiceItem
+                icon="shield-alt"
+                color="#1e40af"
+                label="NIN Valid"
+                onPress={() => navigation.navigate("NINValidation")}
+              />
+              <ServiceItem
+                icon="history"
+                color="#f97316"
+                label="History"
+                onPress={() =>
+                  navigation.navigate("Main", { screen: "Wallet History" })
+                }
+              />
+            </View>
+          </View>
 
-        <TouchableOpacity
-          style={styles.actionBtn}
-          onPress={() => navigation.navigate("NewSale")}
-        >
-          <Text style={styles.actionBtnText}>Process New Sale</Text>
-        </TouchableOpacity>
+          {/* 6. SUPERVISOR INFO */}
+          <View style={styles.supervisorSection}>
+            <Text style={styles.sectionTitle}>Assigned Supervisor</Text>
+            <View style={styles.infoBox}>
+              {typeof supervisor === "string" ? (
+                <Text style={styles.infoText}>{supervisor}</Text>
+              ) : (
+                <View>
+                  <Text style={styles.supName}>
+                    {supervisor?.name || "N/A"}
+                  </Text>
+                  <Text style={styles.supPhone}>
+                    {supervisor?.phone || "No Contact"}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
 
-        <TouchableOpacity
-          style={styles.actionBtn}
-          onPress={() => navigation.navigate("SalesHistory")}
-        >
-          <Text style={styles.actionBtnText}>View Sales History</Text>
-        </TouchableOpacity>
+          {/* 7. QUICK ACTIONS */}
+          <View style={styles.actionSection}>
+            <Text style={styles.sectionTitle}>Quick Agent Actions</Text>
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={() => navigation.navigate("NewSale")}
+            >
+              <Text style={styles.actionBtnText}>Process New Sale</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={() => navigation.navigate("SalesHistory")}
+            >
+              <Text style={styles.actionBtnText}>View Sales History</Text>
+            </TouchableOpacity>
+          </View>
 
-        <TouchableOpacity
-          style={styles.actionBtn}
+          {/* 8. BRANDING FOOTER */}
+          <View style={styles.footerBranding}>
+            <Text style={styles.footerHeadline}>Why Choose Ayax Xpress?</Text>
+            <View style={styles.trustGrid}>
+              <TrustItem
+                icon="shield-check"
+                color="#16a34a"
+                bg="#dcfce7"
+                title="100% Secure"
+                sub="Encrypted"
+              />
+              <TrustItem
+                icon="flash"
+                color="#ca8a04"
+                bg="#fef9c3"
+                title="Instant"
+                sub="Automated"
+              />
+              <TrustItem
+                icon="headset"
+                color="#0284c7"
+                bg="#e0f2fe"
+                title="24/7 Support"
+                sub="Reliable"
+              />
+            </View>
+          </View>
+          <View style={{ height: 120 }} />
+        </ScrollView>
+      </ImageBackground>
+
+      {/* BOTTOM NAVIGATION TAB */}
+      <View style={styles.bottomTab}>
+        <TabItem icon="home" label="Dashboard" active onPress={() => {}} />
+        <TabItem
+          icon="time-outline"
+          label="History"
+          onPress={() =>
+            navigation.navigate("Main", { screen: "Wallet History" })
+          }
+        />
+        <TabItem
+          icon="person-outline"
+          label="Profile"
           onPress={() => navigation.navigate("Profile")}
-        >
-          <Text style={styles.actionBtnText}>Account Settings</Text>
-        </TouchableOpacity>
+        />
+        <TabItem
+          icon="help-buoy-outline"
+          label="Support"
+          onPress={() => navigation.navigate("Contact")}
+        />
       </View>
-    </ScrollView>
+    </View>
   );
 };
 
+// Internal Sub-Components
+const BankCard = ({ bank, acc, code, onCopy }) => (
+  <TouchableOpacity style={styles.bankBox} onPress={onCopy}>
+    <View style={styles.bankInfo}>
+      <View style={styles.bankLogoCircle}>
+        <Text style={styles.bankLogoText}>{code}</Text>
+      </View>
+      <View>
+        <Text style={styles.bankTitle}>{bank}</Text>
+        <Text style={styles.accNo}>{acc}</Text>
+      </View>
+    </View>
+    <Ionicons name="copy-outline" size={18} color="#1e40af" />
+  </TouchableOpacity>
+);
+
+const ServiceItem = ({ icon, label, color, onPress }) => (
+  <TouchableOpacity style={styles.gridItem} onPress={onPress}>
+    <View style={styles.iconBox}>
+      <FontAwesome5 name={icon} size={20} color={color} />
+    </View>
+    <Text style={styles.gridLabel}>{label}</Text>
+  </TouchableOpacity>
+);
+
+const TrustItem = ({ icon, color, bg, title, sub }) => (
+  <View style={styles.trustItem}>
+    <View style={[styles.trustIconCircle, { backgroundColor: bg }]}>
+      {icon === "flash" ? (
+        <Ionicons name={icon} size={28} color={color} />
+      ) : (
+        <MaterialCommunityIcons name={icon} size={28} color={color} />
+      )}
+    </View>
+    <Text style={styles.trustTitle}>{title}</Text>
+    <Text style={styles.trustSub}>{sub}</Text>
+  </View>
+);
+
+const TabItem = ({ icon, label, active, onPress }) => (
+  <TouchableOpacity style={styles.tabItem} onPress={onPress}>
+    <Ionicons name={icon} size={24} color={active ? "#1e40af" : "#94a3b8"} />
+    <Text style={[styles.tabLabel, { color: active ? "#1e40af" : "#94a3b8" }]}>
+      {label}
+    </Text>
+  </TouchableOpacity>
+);
+
+// Unified Consistent Stylesheet
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f8fafc" },
+  mainContainer: { flex: 1, backgroundColor: "#f8fafc" },
+  backgroundImage: { flex: 1, width: "100%", height: "100%" },
+  fullOverlayGradient: { ...StyleSheet.absoluteFillObject },
+  fullOverlay: { flex: 1 },
   loaderContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-  header: {
-    padding: 25,
-    backgroundColor: "#1e3a8a",
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-  },
-  welcome: { fontSize: 24, fontWeight: "bold", color: "#fff" },
-  subText: { color: "#cbd5e1", marginTop: 5 },
-  statsGrid: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
+  topHeader: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20 },
+  navRow: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  logoCircle: {
+    width: 45,
+    height: 45,
+    backgroundColor: "#0f172a",
+    borderRadius: 22.5,
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 4,
+  },
+  logoImg: { width: 32, height: 32, resizeMode: "contain" },
+  welcomeSection: { marginBottom: 10 },
+  welcomeText: { color: "#64748b", fontSize: 14, fontWeight: "500" },
+  userName: { color: "#0f172a", fontSize: 24, fontWeight: "bold" },
+  content: { flex: 1, paddingHorizontal: 16 },
+  walletCard: {
+    borderRadius: 24,
+    padding: 22,
+    marginBottom: 25,
+    elevation: 10,
+  },
+  walletTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  walletLabel: { color: "#dbeafe", fontSize: 13 },
+  historyText: { color: "#38bdf8", fontSize: 12, fontWeight: "600" },
+  balanceContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 15,
+  },
+  currency: { color: "#fff", fontSize: 24, fontWeight: "600" },
+  balanceText: {
+    color: "#fff",
+    fontSize: 34,
+    fontWeight: "bold",
+    marginLeft: 8,
+  },
+  walletActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 10,
+  },
+  actionBtn: { flex: 0.48, height: 48, borderRadius: 14, overflow: "hidden" },
+  innerBtnGradient: {
+    flex: 1,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  actionBtnText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 12,
+    marginLeft: 8,
+  },
+  sectionLabel: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#1e293b",
+    marginTop: 15,
+    marginBottom: 15,
+    paddingLeft: 4,
+  },
+  bankScroll: { marginBottom: 25 },
+  bankBox: {
+    backgroundColor: "#fff",
+    width: width * 0.75,
+    padding: 16,
+    borderRadius: 20,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginRight: 15,
+    elevation: 3,
+    borderLeftWidth: 4,
+    borderLeftColor: "#1e40af",
+  },
+  bankInfo: { flexDirection: "row", alignItems: "center" },
+  bankLogoCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#f1f5f9",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  bankLogoText: { color: "#1e40af", fontWeight: "bold", fontSize: 12 },
+  bankTitle: { fontSize: 12, color: "#64748b" },
+  accNo: { fontSize: 17, color: "#0f172a", fontWeight: "bold" },
+  statsGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 12,
   },
   statsGridAlt: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
     flexDirection: "row",
     justifyContent: "space-between",
+    marginBottom: 15,
   },
   statCard: {
     backgroundColor: "#fff",
@@ -266,10 +722,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderLeftWidth: 6,
     elevation: 3,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
   },
   statLabel: { fontSize: 12, color: "#64748b", fontWeight: "600" },
   statValue: {
@@ -279,7 +731,7 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   statUnit: { fontSize: 12, color: "#94a3b8" },
-  section: { paddingHorizontal: 20, marginTop: 20 },
+  targetTrackingSection: { marginTop: 10, marginBottom: 20 },
   sectionTitle: {
     fontSize: 16,
     fontWeight: "bold",
@@ -291,10 +743,6 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: 12,
     elevation: 3,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
     borderWidth: 1,
     borderColor: "#e2e8f0",
   },
@@ -309,14 +757,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 12,
   },
-  targetLabel: { fontSize: 12, color: "#64748b", fontWeight: "600" },
-  targetValue: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#1e3a8a",
-    marginTop: 2,
-  },
-  rightAlign: { alignItems: "flex-end" },
   percentageText: { fontSize: 20, fontWeight: "800", color: "#059669" },
   progressTrack: {
     width: "100%",
@@ -326,15 +766,41 @@ const styles = StyleSheet.create({
     marginTop: 15,
     overflow: "hidden",
   },
-  progressBar: {
-    height: "100%",
-    backgroundColor: "#059669",
-    borderRadius: 5,
-  },
+  progressBar: { height: "100%", backgroundColor: "#059669", borderRadius: 5 },
   progressSubText: { fontSize: 12, color: "#475569" },
   remainingText: { fontSize: 12, color: "#475569" },
   boldText: { fontWeight: "700", color: "#0f172a" },
   boldTextRed: { fontWeight: "700", color: "#dc2626" },
+  servicesContainer: {
+    backgroundColor: "rgba(255,255,255,0.9)",
+    borderRadius: 28,
+    padding: 20,
+    elevation: 4,
+    marginBottom: 20,
+  },
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+  gridItem: { width: "23%", alignItems: "center", marginBottom: 22 },
+  iconBox: {
+    width: 54,
+    height: 54,
+    borderRadius: 18,
+    backgroundColor: "#f8fafc",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+    elevation: 1,
+  },
+  gridLabel: {
+    color: "#475569",
+    fontSize: 11,
+    textAlign: "center",
+    fontWeight: "600",
+  },
+  supervisorSection: { marginBottom: 20 },
   infoBox: {
     backgroundColor: "#fff",
     padding: 15,
@@ -345,7 +811,7 @@ const styles = StyleSheet.create({
   infoText: { color: "#64748b" },
   supName: { fontSize: 16, fontWeight: "bold", color: "#1e3a8a" },
   supPhone: { fontSize: 14, color: "#475569", marginTop: 2 },
-  actionSection: { padding: 20 },
+  actionSection: { marginBottom: 20 },
   actionBtn: {
     backgroundColor: "#fff",
     padding: 18,
@@ -356,6 +822,60 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   actionBtnText: { fontSize: 15, color: "#1e3a8a", fontWeight: "600" },
+  bottomTab: {
+    height: 85,
+    backgroundColor: "#fff",
+    flexDirection: "row",
+    borderTopWidth: 1,
+    borderTopColor: "#f1f5f9",
+    paddingBottom: 20,
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    elevation: 20,
+  },
+  tabItem: { flex: 1, justifyContent: "center", alignItems: "center" },
+  tabLabel: { fontSize: 10, marginTop: 4, fontWeight: "600" },
+  footerBranding: {
+    marginTop: 10,
+    paddingBottom: 40,
+    backgroundColor: "#f8fafc",
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingTop: 20,
+  },
+  footerHeadline: {
+    textAlign: "center",
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#64748b",
+    marginBottom: 20,
+    textTransform: "uppercase",
+  },
+  trustGrid: { flexDirection: "row", justifyContent: "space-around" },
+  trustItem: { alignItems: "center", width: "30%" },
+  trustIconCircle: {
+    width: 55,
+    height: 55,
+    borderRadius: 27.5,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+    elevation: 3,
+  },
+  trustTitle: {
+    fontSize: 12,
+    fontWeight: "bold",
+    color: "#1e293b",
+    textAlign: "center",
+  },
+  trustSub: {
+    fontSize: 10,
+    color: "#94a3b8",
+    textAlign: "center",
+    marginTop: 2,
+  },
 });
 
 export default AgentDashboard;
