@@ -26,6 +26,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
+import SettingsScreen from "./SettingsScreen"; // Ko inda fayil ɗin yake
+import CustomDrawerContent from "./CustomDrawerContent"; // Idan za ka yi amfani da shi a nan
+import { useColorScheme } from "react-native";
 
 const { width } = Dimensions.get("window");
 const BASE_URL = "https://ayax-data-xpress-server.onrender.com/api/v1";
@@ -36,6 +39,8 @@ const AgentDashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [userData, setUserData] = useState(null);
   const [isBalanceVisible, setIsBalanceVisible] = useState(true);
+  const colorScheme = useColorScheme();
+  const isDarkMode = colorScheme === "dark";
 
   const [performance, setPerformance] = useState({
     totalGB: 0,
@@ -203,6 +208,7 @@ const AgentDashboard = () => {
                 style={styles.logoImg}
               />
             </View>
+            {/* Bar notification kawai a nan */}
             <TouchableOpacity onPress={() => navigation.navigate("Settings")}>
               <Ionicons
                 name="notifications-outline"
@@ -217,7 +223,7 @@ const AgentDashboard = () => {
             <Text style={styles.userName}>
               {userData
                 ? `${userData.firstName || userData.name || ""} ${userData.surname || ""}`
-                : "Loading Agent..."}
+                : "Loading..."}
             </Text>
           </View>
         </View>
@@ -229,6 +235,36 @@ const AgentDashboard = () => {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         >
+          {/* A ƙarshen ScrollView, kafin footer ko bayan Services */}
+          <View style={styles.menuSection}>
+            <Text style={styles.sectionTitle}>Account</Text>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigation.navigate("Profile")}
+            >
+              <Ionicons name="person-outline" size={24} color="#1e40af" />
+              <Text style={styles.menuText}>Profile</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigation.navigate("Settings")}
+            >
+              <Ionicons name="settings-outline" size={24} color="#1e40af" />
+              <Text style={styles.menuText}>Settings</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
+              <Ionicons name="log-out-outline" size={24} color="#dc2626" />
+              <Text style={[styles.menuText, { color: "#dc2626" }]}>
+                Logout
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ height: 120 }} />
+
           {/* 1. WALLET CARD & BALANCE */}
           <LinearGradient
             colors={["#1e40af", "#1e3a8a"]}
@@ -472,34 +508,6 @@ const AgentDashboard = () => {
             </View>
           </View>
 
-          {/* 7. QUICK SETTINGS & ACCOUNT ACTIONS */}
-          <View style={styles.menuSection}>
-            <Text style={styles.sectionTitle}>Account</Text>
-
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => navigation.navigate("Profile")}
-            >
-              <Ionicons name="person-outline" size={24} color="#1e40af" />
-              <Text style={styles.menuText}>Profile</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => navigation.navigate("Settings")}
-            >
-              <Ionicons name="settings-outline" size={24} color="#1e40af" />
-              <Text style={styles.menuText}>Settings</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
-              <Ionicons name="log-out-outline" size={24} color="#dc2626" />
-              <Text style={[styles.menuText, { color: "#dc2626" }]}>
-                Logout
-              </Text>
-            </TouchableOpacity>
-          </View>
-
           {/* 6. SUPERVISOR INFO */}
           <View style={styles.supervisorSection}>
             <Text style={styles.sectionTitle}>Assigned Supervisor</Text>
@@ -642,7 +650,15 @@ const TabItem = ({ icon, label, active, onPress }) => (
 
 // Unified Consistent Stylesheet
 const styles = StyleSheet.create({
-  mainContainer: { flex: 1, backgroundColor: "#f8fafc" },
+  mainContainer: {
+    flex: 1,
+    backgroundColor: isDarkMode ? "#0f172a" : "#f8fafc",
+  },
+  userName: {
+    color: isDarkMode ? "#f8fafc" : "#0f172a",
+    fontSize: 24,
+    fontWeight: "bold",
+  },
   backgroundImage: { flex: 1, width: "100%", height: "100%" },
   fullOverlayGradient: { ...StyleSheet.absoluteFillObject },
   fullOverlay: { flex: 1 },
