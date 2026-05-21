@@ -21,7 +21,7 @@ import {
   FontAwesome,
 } from "@expo/vector-icons";
 import * as LocalAuthentication from "expo-local-authentication";
-import axios from "react-native-axios";
+import axios from "axios";
 
 const { width } = Dimensions.get("window");
 
