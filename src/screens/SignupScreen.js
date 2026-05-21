@@ -36,7 +36,6 @@ const SignupScreen = ({ navigation }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Tsarin nuna sanarwa na musamman don dacewa da kowace na'ura (Waya da PC)
   const showAlert = (title, message, buttons = []) => {
     if (Platform.OS === "web") {
       alert(`${title}\n\n${message}`);
@@ -51,7 +50,6 @@ const SignupScreen = ({ navigation }) => {
   };
 
   const pickImage = async () => {
-    // Neman izini ga masu amfani da wayoyin hannu
     if (Platform.OS !== "web") {
       const { status } =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -76,7 +74,6 @@ const SignupScreen = ({ navigation }) => {
       const asset = result.assets[0];
       let base64Img = asset.base64;
 
-      // Gyara na musamman don tabbatar da Base64 yana aiki a PC browser idan babu flag
       if (!base64Img && asset.uri.startsWith("data:")) {
         setImage(asset.uri);
       } else if (base64Img) {
@@ -236,13 +233,14 @@ const SignupScreen = ({ navigation }) => {
   };
 
   return (
+    // NAN NE AN GYARA: An sanya style={styles.mainWrapper} domin tabbatar da flex: 1 ya bude gaba daya allon don scroll ya fito
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={{ flex: 1 }}
+      style={styles.mainWrapper}
     >
       <ScrollView
         contentContainerStyle={styles.container}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={true} // An kunna wannan don mai amfani ya rinka ganin scroll bar din gefe
         keyboardShouldPersistTaps="handled"
       >
         <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
@@ -488,6 +486,12 @@ const SignupScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
+  // NAN AKA KARI: Wannan wrapper din yana tilasta wa kowace na'ura (PC ko Wayoyi) nuna tsawon kashi 100% don scrollbar ta gane akai sauran abubuwa a kasa
+  mainWrapper: {
+    flex: 1,
+    height: Platform.OS === "web" ? "100vh" : "100%",
+    backgroundColor: "#ffffff",
+  },
   container: {
     flexGrow: 1,
     backgroundColor: "#ffffff",
@@ -530,7 +534,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#e2e8f0",
-    cursor: Platform.OS === "web" ? "pointer" : "auto", // Gyara don PC Web pointers
+    cursor: Platform.OS === "web" ? "pointer" : "auto",
   },
   activeRole: { backgroundColor: "#1e3a8a", borderColor: "#1e3a8a" },
   roleBtnText: { color: "#64748b", fontWeight: "700", fontSize: 13 },
