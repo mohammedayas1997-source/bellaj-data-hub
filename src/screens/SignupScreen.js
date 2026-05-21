@@ -37,7 +37,7 @@ const SignupScreen = ({ navigation }) => {
 
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ["images"], // AN GYARA NAN: An maye gurbin ImagePicker.MediaTypeOptions.Images da aka dakar da shi
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.2,
@@ -117,7 +117,7 @@ const SignupScreen = ({ navigation }) => {
         email: email.trim().toLowerCase(),
         phone: phone.trim(),
         password: password,
-        role: role || "user",
+        role: role.trim().toLowerCase(),
       };
 
       if (role === "agent") {
@@ -146,7 +146,18 @@ const SignupScreen = ({ navigation }) => {
         response.data.success
       ) {
         setLoading(false);
-        navigation.replace("Success");
+
+        Alert.alert(
+          "Account Created",
+          "Your registration has been completed successfully! You can now proceed.",
+          [
+            {
+              text: "OK",
+              onPress: () => navigation.replace("Success"),
+            },
+          ],
+          { cancelable: false },
+        );
       }
     } catch (error) {
       setLoading(false);
@@ -228,6 +239,7 @@ const SignupScreen = ({ navigation }) => {
                 <TextInput
                   style={styles.inputText}
                   placeholder="Compulsory"
+                  value={surname}
                   onChangeText={setSurname}
                   placeholderTextColor="#94a3b8"
                 />
@@ -239,6 +251,7 @@ const SignupScreen = ({ navigation }) => {
                 <TextInput
                   style={styles.inputText}
                   placeholder="Compulsory"
+                  value={firstName}
                   onChangeText={setFirstName}
                   placeholderTextColor="#94a3b8"
                 />
@@ -251,6 +264,7 @@ const SignupScreen = ({ navigation }) => {
             <TextInput
               style={styles.inputText}
               placeholder="Enter Middle Name"
+              value={otherName}
               onChangeText={setOtherName}
               placeholderTextColor="#94a3b8"
             />
@@ -263,6 +277,7 @@ const SignupScreen = ({ navigation }) => {
               placeholder="example@gmail.com"
               keyboardType="email-address"
               autoCapitalize="none"
+              value={email}
               onChangeText={setEmail}
               placeholderTextColor="#94a3b8"
             />
@@ -274,6 +289,7 @@ const SignupScreen = ({ navigation }) => {
               style={styles.inputText}
               placeholder="080XXXXXXXX"
               keyboardType="phone-pad"
+              value={phone}
               onChangeText={setPhone}
               placeholderTextColor="#94a3b8"
             />
@@ -293,6 +309,7 @@ const SignupScreen = ({ navigation }) => {
                   style={styles.inputText}
                   placeholder="e.g. AX770"
                   autoCapitalize="characters"
+                  value={supervisorId}
                   onChangeText={setSupervisorId}
                   placeholderTextColor="#94a3b8"
                 />
@@ -303,6 +320,7 @@ const SignupScreen = ({ navigation }) => {
                 <TextInput
                   style={styles.inputText}
                   placeholder="Enter full business address"
+                  value={address}
                   onChangeText={setAddress}
                   placeholderTextColor="#94a3b8"
                 />
@@ -315,6 +333,7 @@ const SignupScreen = ({ navigation }) => {
                     <TextInput
                       style={styles.inputText}
                       placeholder="e.g. Kano"
+                      value={state}
                       onChangeText={setState}
                       placeholderTextColor="#94a3b8"
                     />
@@ -326,6 +345,7 @@ const SignupScreen = ({ navigation }) => {
                     <TextInput
                       style={styles.inputText}
                       placeholder="Local Govt"
+                      value={lga}
                       onChangeText={setLga}
                       placeholderTextColor="#94a3b8"
                     />
@@ -351,6 +371,7 @@ const SignupScreen = ({ navigation }) => {
               secureTextEntry={!showPassword}
               style={styles.passwordInput}
               placeholder="Minimum of 6 characters"
+              value={password}
               onChangeText={setPassword}
               placeholderTextColor="#94a3b8"
             />
@@ -372,6 +393,7 @@ const SignupScreen = ({ navigation }) => {
               secureTextEntry={!showConfirmPassword}
               style={styles.passwordInput}
               placeholder="Repeat your password"
+              value={confirmPassword}
               onChangeText={setConfirmPassword}
               placeholderTextColor="#94a3b8"
             />
