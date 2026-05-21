@@ -45,14 +45,19 @@ const LoginScreen = ({ navigation }) => {
 
       if (token && storedUserData) {
         const user = JSON.parse(storedUserData);
+
+        // AN GYARA: Matataccen tsarin kwaso role lokacin auto-login
         const detectedRole = (
           user?.role ||
-          user?.data?.role ||
           user?.user?.role ||
+          user?.data?.user?.role ||
+          user?.data?.role ||
           ""
         )
           .trim()
           .toLowerCase();
+
+        console.log("[Auto-Login] Detected Saved Role:", detectedRole);
 
         if (detectedRole === "agent") {
           navigation.replace("AgentDashboard");
@@ -108,8 +113,9 @@ const LoginScreen = ({ navigation }) => {
           const user = JSON.parse(storedUserData);
           const detectedRole = (
             user?.role ||
-            user?.data?.role ||
             user?.user?.role ||
+            user?.data?.user?.role ||
+            user?.data?.role ||
             ""
           )
             .trim()
@@ -143,6 +149,8 @@ const LoginScreen = ({ navigation }) => {
 
     setLoading(true);
     try {
+      console.log("🚀 Attemping Login for:", email.trim().toLowerCase());
+
       const response = await axios.post(
         "https://ayax-data-xpress-server.onrender.com/api/v1/auth/login",
         {
@@ -151,17 +159,26 @@ const LoginScreen = ({ navigation }) => {
         },
       );
 
-      if (response.data.status === "success" || response.data.token) {
+      console.log(
+        "📥 Raw Server Response Structure:",
+        JSON.stringify(response.data),
+      );
+
+      if (
+        response.data.success ||
+        response.data.status === "success" ||
+        response.data.token
+      ) {
         const token = response.data.token;
 
+        // AN GYARA: Matataccen tsarin dauko user object ta kowane siga
         const userPayload =
           response.data.user ||
           response.data.data?.user ||
           response.data.data ||
           {};
 
-        const userData = JSON.stringify(userPayload);
-
+        // AN GYARA: Matataccen tsarin gano Role na ainihi daga response dinnan
         const finalRole =
           userPayload?.role ||
           response.data.role ||
@@ -169,10 +186,11 @@ const LoginScreen = ({ navigation }) => {
           "";
 
         const normalizedRole = finalRole.trim().toLowerCase();
+        console.log("🎯 Final Resolved Role for Navigation:", normalizedRole);
 
-        // Persist records immediately prior to running screen transitions
+        // Tabbatar muna adana duka bayanan a storage domin amfanin gaba
         await AsyncStorage.setItem("userToken", token);
-        await AsyncStorage.setItem("userData", userData);
+        await AsyncStorage.setItem("userData", JSON.stringify(userPayload));
 
         if (normalizedRole === "agent") {
           navigation.replace("AgentDashboard");
@@ -186,7 +204,10 @@ const LoginScreen = ({ navigation }) => {
         );
       }
     } catch (error) {
-      console.log("Login Error Details:", error.response?.data);
+      console.log(
+        "❌ Login Error Details Caught:",
+        error.response?.data || error.message,
+      );
 
       if (error.response) {
         const status = error.response.status;
