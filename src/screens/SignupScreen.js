@@ -13,6 +13,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
@@ -37,7 +38,7 @@ const SignupScreen = ({ navigation }) => {
 
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"], // AN GYARA NAN: An maye gurbin ImagePicker.MediaTypeOptions.Images da aka dakar da shi
+      mediaTypes: ["images"],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.2,
@@ -140,16 +141,29 @@ const SignupScreen = ({ navigation }) => {
         timeout: 200000,
       });
 
-      if (
+      const isSuccess =
         response.status === 201 ||
         response.status === 200 ||
-        response.data.success
-      ) {
+        response.data?.success === true ||
+        response.data?.status === "success";
+
+      if (isSuccess) {
+        // Extract registration response context
+        const userPayload = response.data.user ||
+          response.data.data?.user ||
+          response.data.data || { role: role.trim().toLowerCase() };
+
+        // Explicitly write state to cache so SuccessScreen reads it cleanly
+        await AsyncStorage.setItem("userData", JSON.stringify(userPayload));
+        if (response.data.token) {
+          await AsyncStorage.setItem("userToken", response.data.token);
+        }
+
         setLoading(false);
 
         Alert.alert(
-          "Account Created",
-          "Your registration has been completed successfully! You can now proceed.",
+          "Account Created 🎉",
+          "Your registration has been completed successfully! Click OK to proceed.",
           [
             {
               text: "OK",
@@ -157,6 +171,13 @@ const SignupScreen = ({ navigation }) => {
             },
           ],
           { cancelable: false },
+        );
+      } else {
+        setLoading(false);
+        Alert.alert(
+          "Registration Alert",
+          response.data?.message ||
+            "Unexpected response from server. Please check.",
         );
       }
     } catch (error) {
