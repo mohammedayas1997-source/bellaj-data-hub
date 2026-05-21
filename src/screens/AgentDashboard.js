@@ -30,24 +30,46 @@ const AgentDashboard = () => {
     try {
       const token = await AsyncStorage.getItem("userToken");
       const config = { headers: { Authorization: `Bearer ${token}` } };
-      const BASE_URL = "https://ayax-api.com/api/v1/agent"; // Replace with your actual Agent URL
+
+      // AN GYARA NAN: An sanya asalin URL dinka na Render maimakon ayax-api.com
+      const BASE_URL =
+        "https://ayax-data-xpress-server.onrender.com/api/v1/agent";
 
       const [perfRes, supRes] = await Promise.all([
-        axios.get(`${BASE_URL}/performance`, config),
-        axios.get(`${BASE_URL}/my-supervisor`, config),
+        axios
+          .get(`${BASE_URL}/performance`, config)
+          .catch((e) => ({ data: { data: null } })),
+        axios
+          .get(`${BASE_URL}/my-supervisor`, config)
+          .catch((e) => ({ data: { data: null } })),
       ]);
 
-      setPerformance(perfRes.data.data);
-      setSupervisor(supRes.data.data);
+      // Idan server bata gama hada endpoints din ba, sanya tsoffin bayanan nan don kada Dashboard din ya karye
+      if (perfRes.data?.data) {
+        setPerformance(perfRes.data.data);
+      } else {
+        setPerformance({
+          totalGB: 0,
+          totalSalesValue: 0,
+          commissionsEarned: 0,
+          bonusEarned: 0,
+          monthlyTargetSales: 100000, // Misali na Target
+        });
+      }
+
+      if (supRes.data?.data) {
+        setSupervisor(supRes.data.data);
+      } else {
+        setSupervisor("No Supervisor Assigned Yet");
+      }
     } catch (err) {
-      console.error(err);
-      Alert.alert("Error", "Failed to retrieve agent metrics.");
+      console.log("Dashboard Metrics Fetch Error:", err);
+      // Mun cire murnikin Alert din da ke razana Agent cewa bai yi login ba
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
-
   useEffect(() => {
     fetchAgentData();
   }, []);
