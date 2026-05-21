@@ -485,30 +485,32 @@ const SignupScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  // GYARA NA MUSAMMAN: An canza babban wrapper din ya zama yana tsaye cak (Centered) kuma baya gudu
   mainWrapper: {
     flex: 1,
-    backgroundColor: "#f1f5f9", // Kyakkyawan background mai duhu kadan don akwatin ya fito radau
-    justifyContent: "center",
-    alignItems: "center",
-    height: Platform.OS === "web" ? "100vh" : "100%",
+    backgroundColor: "#f1f5f9",
   },
-  // GYARA NA AKWATI: Maimakon duka allo ya rinka scrolling, yanzu mun takura shi a cikin 'Box/Container' mai max-height da iyakantaccen fili
+  // AN GYARA ALLON WAYA NAN: Maimakon box shape da ke takura layout a waya, mun bar shi ya gudanar da scrolling din sa lami-lafiya a kowane irin allo
   container: {
     flexGrow: 1,
     backgroundColor: "#ffffff",
-    alignItems: "center",
     paddingVertical: 30,
-    paddingHorizontal: 15,
-    borderRadius: 24, // Yana kawo rounded box shape
-    width: Platform.OS === "web" ? 450 : "92%", // Girman akwatin a PC da Waya
-    maxHeight: Platform.OS === "web" ? "85vh" : "80%", // Iyakacin tsayi don scroll ya kulle a ciki kadai
-    marginVertical: 20,
-    elevation: 4, // Inuwa (Shadow) don ya bayyana kamar akwati a Android
-    shadowColor: "#0f172a", // Inuwa don iOS da Web Browser
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 15,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    width: Platform.OS === "web" ? 450 : "100%",
+    alignSelf: "center",
+    // Inuwa don Web browser da PC kadai
+    ...Platform.select({
+      web: {
+        borderRadius: 24,
+        marginVertical: 20,
+        maxHeight: "90vh",
+        elevation: 4,
+        shadowColor: "#0f172a",
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.1,
+        shadowRadius: 15,
+      },
+    }),
   },
   headerArea: { alignItems: "center", marginBottom: 25, width: "100%" },
   title: {
@@ -526,7 +528,7 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   inputContainer: { width: "100%" },
-  row: { flexDirection: "row", justifyContent: "space-between" },
+  row: { flexDirection: "row", justifyContent: "space-between", width: "100%" },
   label: {
     color: "#334155",
     fontSize: 11,
@@ -535,7 +537,12 @@ const styles = StyleSheet.create({
     marginLeft: 2,
     textTransform: "uppercase",
   },
-  roleContainer: { flexDirection: "row", marginBottom: 20, gap: 10 },
+  roleContainer: {
+    flexDirection: "row",
+    marginBottom: 20,
+    gap: 10,
+    width: "100%",
+  },
   roleBtn: {
     flex: 1,
     height: 45,
@@ -545,7 +552,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#e2e8f0",
-    cursor: Platform.OS === "web" ? "pointer" : "auto",
+    ...Platform.select({
+      web: { cursor: "pointer" },
+    }),
   },
   activeRole: { backgroundColor: "#1e3a8a", borderColor: "#1e3a8a" },
   roleBtnText: { color: "#64748b", fontWeight: "700", fontSize: 12 },
@@ -573,15 +582,22 @@ const styles = StyleSheet.create({
     borderColor: "#e2e8f0",
     paddingHorizontal: 14,
   },
-  passwordInput: { flex: 1, color: "#0f172a", fontSize: 14 },
-  eyeIcon: { padding: 5, cursor: Platform.OS === "web" ? "pointer" : "auto" },
-  inputText: { color: "#0f172a", fontSize: 14 },
+  passwordInput: { flex: 1, color: "#0f172a", fontSize: 14, height: "100%" },
+  eyeIcon: {
+    padding: 5,
+    ...Platform.select({
+      web: { cursor: "pointer" },
+    }),
+  },
+  // AN GYARA NAN: An ba TextInput din width 100% don ya bude radau a wayoyin Android da iOS
+  inputText: { color: "#0f172a", fontSize: 14, width: "100%", height: "100%" },
   agentSection: {
     marginTop: 5,
     padding: 12,
     backgroundColor: "#f1f5f9",
     borderRadius: 14,
     marginBottom: 14,
+    width: "100%",
   },
   agentInfoTitle: {
     color: "#1e3a8a",
@@ -602,7 +618,9 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#cbd5e1",
     marginTop: 8,
-    cursor: Platform.OS === "web" ? "pointer" : "auto",
+    ...Platform.select({
+      web: { cursor: "pointer" },
+    }),
   },
   imagePickerText: { color: "#64748b", fontSize: 11, fontWeight: "600" },
   previewImage: { width: "100%", height: "100%", borderRadius: 10 },
@@ -619,7 +637,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
-    cursor: Platform.OS === "web" ? "pointer" : "auto",
+    ...Platform.select({
+      web: { cursor: "pointer" },
+    }),
   },
   signupText: {
     color: "white",

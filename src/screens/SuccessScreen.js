@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -7,17 +7,47 @@ import {
   Animated,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const SuccessScreen = ({ navigation }) => {
   const scaleValue = new Animated.Value(0);
+  const [userRole, setUserRole] = useState("");
 
   useEffect(() => {
+    // Gyaran syntax na Animated.spring don cire jan kuskure
     Animated.spring(scaleValue, {
       toValue: 1,
       friction: 4,
       useNativeDriver: true,
     }).start();
+
+    const fetchRegisteredRole = async () => {
+      try {
+        const storedUserData = await AsyncStorage.getItem("userData");
+        if (storedUserData) {
+          const user = JSON.parse(storedUserData);
+          const detectedRole = (
+            user?.role ||
+            user?.data?.role ||
+            user?.user?.role ||
+            ""
+          )
+            .trim()
+            .toLowerCase();
+          setUserRole(detectedRole);
+        }
+      } catch (error) {
+        console.log(
+          "Error reading user role context on success screen:",
+          error,
+        );
+      }
+    };
+
+    fetchRegisteredRole();
   }, []);
+
+  const isAgent = userRole === "agent";
 
   return (
     <View style={styles.container}>
@@ -27,10 +57,14 @@ const SuccessScreen = ({ navigation }) => {
         <Ionicons name="checkmark-done-circle" size={100} color="#10b981" />
       </Animated.View>
 
-      <Text style={styles.title}>DEPLOYMENT COMPLETE</Text>
+      <Text style={styles.title}>
+        {isAgent ? "AGENT DEPLOYMENT COMPLETE" : "DEPLOYMENT COMPLETE"}
+      </Text>
+
       <Text style={styles.subtitle}>
-        Your profile and virtual banking infrastructure have been successfully
-        integrated into the Ayax architecture.
+        {isAgent
+          ? "Your elite agent profile, merchant terminal access, and corporate virtual banking infrastructure have been successfully integrated into the Ayax architecture."
+          : "Your profile and virtual banking infrastructure have been successfully integrated into the Ayax architecture."}
       </Text>
 
       <TouchableOpacity
@@ -57,6 +91,7 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     color: "#0f172a",
     letterSpacing: 1,
+    textAlign: "center",
   },
   subtitle: {
     color: "#64748b",
@@ -64,7 +99,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 10,
     lineHeight: 22,
-    width: "80%",
+    width: "85%",
   },
   button: {
     marginTop: 40,
@@ -73,6 +108,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
     borderRadius: 12,
     elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   buttonText: {
     color: "#ffffff",
