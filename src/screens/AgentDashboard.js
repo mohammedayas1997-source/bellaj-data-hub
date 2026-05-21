@@ -20,6 +20,9 @@ const AgentDashboard = () => {
   const [performance, setPerformance] = useState({
     totalGB: 0,
     totalSalesValue: 0,
+    commissionsEarned: 0,
+    bonusEarned: 0,
+    monthlyTargetSales: 0,
   });
   const [supervisor, setSupervisor] = useState(null);
 
@@ -54,6 +57,16 @@ const AgentDashboard = () => {
     fetchAgentData();
   };
 
+  // Calculations for Target Progression
+  const currentSales = performance.totalSalesValue || 0;
+  const targetSales = performance.monthlyTargetSales || 0;
+  const remainingToTarget =
+    targetSales - currentSales > 0 ? targetSales - currentSales : 0;
+  const achievementPercentage =
+    targetSales > 0
+      ? Math.min(Math.round((currentSales / targetSales) * 100), 100)
+      : 0;
+
   const StatCard = ({ title, value, unit, color }) => (
     <View style={[styles.statCard, { borderLeftColor: color }]}>
       <Text style={styles.statLabel}>{title}</Text>
@@ -83,6 +96,7 @@ const AgentDashboard = () => {
         <Text style={styles.subText}>Track your sales and performance</Text>
       </View>
 
+      {/* CORE PERFORMANCE METRICS */}
       <View style={styles.statsGrid}>
         <StatCard
           title="Monthly Volume"
@@ -92,10 +106,66 @@ const AgentDashboard = () => {
         />
         <StatCard
           title="Monthly Revenue"
-          value={`₦${performance.totalSalesValue || 0}`}
+          value={`₦${currentSales}`}
           unit=""
           color="#059669"
         />
+      </View>
+
+      {/* COMMISSIONS & BONUSES SECTION */}
+      <View style={styles.statsGridAlt}>
+        <StatCard
+          title="Commissions Earned"
+          value={`₦${performance.commissionsEarned || 0}`}
+          unit=""
+          color="#d4af37"
+        />
+        <StatCard
+          title="Bonus Earned"
+          value={`₦${performance.bonusEarned || 0}`}
+          unit=""
+          color="#dc2626"
+        />
+      </View>
+
+      {/* TARGET & PROGRESSION TRACKING */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Target & Performance Tracking</Text>
+        <View style={styles.targetCard}>
+          <View style={styles.targetRow}>
+            <View>
+              <Text style={styles.targetLabel}>Monthly Target</Text>
+              <Text style={styles.targetValue}>₦{targetSales}</Text>
+            </View>
+            <View style={styles.rightAlign}>
+              <Text style={styles.targetLabel}>Achievement</Text>
+              <Text style={styles.percentageText}>
+                {achievementPercentage}%
+              </Text>
+            </View>
+          </View>
+
+          {/* Progress Bar Track */}
+          <View style={styles.progressTrack}>
+            <View
+              style={[
+                styles.progressBar,
+                { width: `${achievementPercentage}%` },
+              ]}
+            />
+          </View>
+
+          <View style={styles.targetRowAlt}>
+            <Text style={styles.progressSubText}>
+              Current Progress:{" "}
+              <Text style={styles.boldText}>₦{currentSales}</Text>
+            </Text>
+            <Text style={styles.remainingText}>
+              Remaining:{" "}
+              <Text style={styles.boldTextRed}>₦{remainingToTarget}</Text>
+            </Text>
+          </View>
+        </View>
       </View>
 
       {/* SUPERVISOR INFO SECTION */}
@@ -156,7 +226,14 @@ const styles = StyleSheet.create({
   welcome: { fontSize: 24, fontWeight: "bold", color: "#fff" },
   subText: { color: "#cbd5e1", marginTop: 5 },
   statsGrid: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  statsGridAlt: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
     flexDirection: "row",
     justifyContent: "space-between",
   },
@@ -167,6 +244,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderLeftWidth: 6,
     elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   statLabel: { fontSize: 12, color: "#64748b", fontWeight: "600" },
   statValue: {
@@ -176,13 +257,62 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   statUnit: { fontSize: 12, color: "#94a3b8" },
-  section: { paddingHorizontal: 20, marginTop: 10 },
+  section: { paddingHorizontal: 20, marginTop: 20 },
   sectionTitle: {
     fontSize: 16,
     fontWeight: "bold",
     color: "#334155",
     marginBottom: 10,
   },
+  targetCard: {
+    backgroundColor: "#fff",
+    padding: 20,
+    borderRadius: 12,
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  targetRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  targetRowAlt: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 12,
+  },
+  targetLabel: { fontSize: 12, color: "#64748b", fontWeight: "600" },
+  targetValue: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#1e3a8a",
+    marginTop: 2,
+  },
+  rightAlign: { alignItems: "flex-end" },
+  percentageText: { fontSize: 20, fontWeight: "800", color: "#059669" },
+  progressTrack: {
+    width: "100%",
+    height: 10,
+    backgroundColor: "#e2e8f0",
+    borderRadius: 5,
+    marginTop: 15,
+    overflow: "hidden",
+  },
+  progressBar: {
+    height: "100%",
+    backgroundColor: "#059669",
+    borderRadius: 5,
+  },
+  progressSubText: { fontSize: 12, color: "#475569" },
+  remainingText: { fontSize: 12, color: "#475569" },
+  boldText: { fontWeight: "700", color: "#0f172a" },
+  boldTextRed: { fontWeight: "700", color: "#dc2626" },
   infoBox: {
     backgroundColor: "#fff",
     padding: 15,

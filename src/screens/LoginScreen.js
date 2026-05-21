@@ -21,7 +21,7 @@ import {
   FontAwesome,
 } from "@expo/vector-icons";
 import * as LocalAuthentication from "expo-local-authentication";
-import axios from "axios";
+import axios from "react-native-axios";
 
 const { width } = Dimensions.get("window");
 
@@ -40,7 +40,16 @@ const LoginScreen = ({ navigation }) => {
 
   const checkLoginStatus = async () => {
     const token = await AsyncStorage.getItem("userToken");
+    const storedUserData = await AsyncStorage.getItem("userData");
+
     if (token) {
+      if (storedUserData) {
+        const user = JSON.parse(storedUserData);
+        if (user.role === "agent") {
+          navigation.replace("AgentDashboard");
+          return;
+        }
+      }
       navigation.replace("Main");
     }
   };
@@ -80,7 +89,16 @@ const LoginScreen = ({ navigation }) => {
       if (result.success) {
         setLoading(true);
         const token = await AsyncStorage.getItem("userToken");
+        const storedUserData = await AsyncStorage.getItem("userData");
+
         if (token) {
+          if (storedUserData) {
+            const user = JSON.parse(storedUserData);
+            if (user.role === "agent") {
+              navigation.replace("AgentDashboard");
+              return;
+            }
+          }
           navigation.replace("Main");
         } else {
           setErrorMessage(
@@ -119,7 +137,12 @@ const LoginScreen = ({ navigation }) => {
         await AsyncStorage.setItem("userToken", token);
         await AsyncStorage.setItem("userData", userData);
 
-        navigation.replace("Main");
+        // Conditional routing based on the user's assigned database role
+        if (response.data.user && response.data.user.role === "agent") {
+          navigation.replace("AgentDashboard");
+        } else {
+          navigation.replace("Main");
+        }
       } else {
         setErrorMessage(
           response.data.message || "Invalid login credentials details.",
