@@ -64,7 +64,6 @@ const AgentDashboard = () => {
         },
       };
 
-      // Gudanar da dukkan kiran API lokaci guda (Profile Data + Performance Metrics)
       const [profileRes, perfRes, supRes] = await Promise.all([
         axios
           .get(`${BASE_URL}/user/profile`, config)
@@ -77,12 +76,10 @@ const AgentDashboard = () => {
           .catch((e) => ({ data: { data: null } })),
       ]);
 
-      // Karban bayanan Profile na asali (Domin ciro sunaye da Account Number dinsa)
       if (profileRes.data && profileRes.data.success) {
         setUserData(profileRes.data.user || profileRes.data.data);
       }
 
-      // Karban bayanan Metrics na Agent
       if (perfRes.data?.data) {
         setPerformance(perfRes.data.data);
       } else {
@@ -138,7 +135,6 @@ const AgentDashboard = () => {
     );
   };
 
-  // Calculations for Target Progression
   const currentSales = performance.totalSalesValue || 0;
   const targetSales = performance.monthlyTargetSales || 0;
   const remainingToTarget =
@@ -147,23 +143,6 @@ const AgentDashboard = () => {
     targetSales > 0
       ? Math.min(Math.round((currentSales / targetSales) * 100), 100)
       : 0;
-
-  const StatCard = ({ title, value, unit, color }) => (
-    <View style={[styles.statCard, { borderLeftColor: color }]}>
-      <Text style={styles.statLabel}>{title}</Text>
-      <Text style={styles.statValue}>
-        {value} <Text style={styles.statUnit}>{unit}</Text>
-      </Text>
-    </View>
-  );
-
-  if (loading) {
-    return (
-      <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#1e3a8a" />
-      </View>
-    );
-  }
 
   const handleLogout = async () => {
     Alert.alert("Logout", "Are you sure you want to exit?", [
@@ -178,6 +157,14 @@ const AgentDashboard = () => {
     ]);
   };
 
+  if (loading) {
+    return (
+      <View style={styles.loaderContainer}>
+        <ActivityIndicator size="large" color="#1e3a8a" />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.mainContainer}>
       <StatusBar
@@ -185,7 +172,6 @@ const AgentDashboard = () => {
         translucent
         backgroundColor="transparent"
       />
-
       <ImageBackground
         source={require("../assets/ayax_promo_hijab.png")}
         style={styles.backgroundImage}
@@ -206,7 +192,6 @@ const AgentDashboard = () => {
                 style={styles.logoImg}
               />
             </View>
-            {/* Bar notification kawai a nan */}
             <TouchableOpacity onPress={() => navigation.navigate("Settings")}>
               <Ionicons
                 name="notifications-outline"
@@ -215,7 +200,6 @@ const AgentDashboard = () => {
               />
             </TouchableOpacity>
           </View>
-
           <View style={styles.welcomeSection}>
             <Text style={styles.welcomeText}>Agent Control Panel,</Text>
             <Text style={styles.userName}>
@@ -233,10 +217,8 @@ const AgentDashboard = () => {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         >
-          {/* A ƙarshen ScrollView, kafin footer ko bayan Services */}
           <View style={styles.menuSection}>
             <Text style={styles.sectionTitle}>Account</Text>
-
             <TouchableOpacity
               style={styles.menuItem}
               onPress={() => navigation.navigate("Profile")}
@@ -244,7 +226,6 @@ const AgentDashboard = () => {
               <Ionicons name="person-outline" size={24} color="#1e40af" />
               <Text style={styles.menuText}>Profile</Text>
             </TouchableOpacity>
-
             <TouchableOpacity
               style={styles.menuItem}
               onPress={() => navigation.navigate("Settings")}
@@ -252,7 +233,6 @@ const AgentDashboard = () => {
               <Ionicons name="settings-outline" size={24} color="#1e40af" />
               <Text style={styles.menuText}>Settings</Text>
             </TouchableOpacity>
-
             <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
               <Ionicons name="log-out-outline" size={24} color="#dc2626" />
               <Text style={[styles.menuText, { color: "#dc2626" }]}>
@@ -261,9 +241,6 @@ const AgentDashboard = () => {
             </TouchableOpacity>
           </View>
 
-          <View style={{ height: 120 }} />
-
-          {/* 1. WALLET CARD & BALANCE */}
           <LinearGradient
             colors={["#1e40af", "#1e3a8a"]}
             style={styles.walletCard}
@@ -280,7 +257,6 @@ const AgentDashboard = () => {
                 </Text>
               </TouchableOpacity>
             </View>
-
             <View style={styles.balanceContainer}>
               <Text style={styles.currency}>₦</Text>
               <Text style={styles.balanceText}>
@@ -299,7 +275,6 @@ const AgentDashboard = () => {
                 />
               </TouchableOpacity>
             </View>
-
             <View style={styles.walletActions}>
               <TouchableOpacity
                 style={styles.actionBtn}
@@ -313,7 +288,6 @@ const AgentDashboard = () => {
                   <Text style={styles.actionBtnText}>FUND WALLET</Text>
                 </LinearGradient>
               </TouchableOpacity>
-
               <TouchableOpacity
                 style={[
                   styles.actionBtn,
@@ -329,7 +303,6 @@ const AgentDashboard = () => {
             </View>
           </LinearGradient>
 
-          {/* 2. AUTOMATIC VIRTUAL ACCOUNTS SECTION */}
           <Text style={styles.sectionLabel}>Automatic Funding Accounts</Text>
           <ScrollView
             horizontal
@@ -370,7 +343,6 @@ const AgentDashboard = () => {
             />
           </ScrollView>
 
-          {/* 3. CORE METRICS GRID */}
           <Text style={styles.sectionLabel}>Performance Metrics</Text>
           <View style={styles.statsGrid}>
             <StatCard
@@ -386,7 +358,6 @@ const AgentDashboard = () => {
               color="#059669"
             />
           </View>
-
           <View style={styles.statsGridAlt}>
             <StatCard
               title="Commissions Earned"
@@ -402,7 +373,6 @@ const AgentDashboard = () => {
             />
           </View>
 
-          {/* 4. PERFORMANCE TRACKING PROGRESS */}
           <View style={styles.targetTrackingSection}>
             <Text style={styles.sectionTitle}>
               Target & Performance Tracking
@@ -420,7 +390,6 @@ const AgentDashboard = () => {
                   </Text>
                 </View>
               </View>
-
               <View style={styles.progressTrack}>
                 <View
                   style={[
@@ -429,11 +398,9 @@ const AgentDashboard = () => {
                   ]}
                 />
               </View>
-
               <View style={styles.targetRowAlt}>
                 <Text style={styles.progressSubText}>
-                  Current Progress:{" "}
-                  <Text style={styles.boldText}>₦{currentSales}</Text>
+                  Current: <Text style={styles.boldText}>₦{currentSales}</Text>
                 </Text>
                 <Text style={styles.remainingText}>
                   Remaining:{" "}
@@ -443,7 +410,6 @@ const AgentDashboard = () => {
             </View>
           </View>
 
-          {/* 5. SERVICES GRID FOR AGENT TO SELL */}
           <Text style={styles.sectionLabel}>Agent Utilities Services</Text>
           <View style={styles.servicesContainer}>
             <View style={styles.grid}>
@@ -506,7 +472,6 @@ const AgentDashboard = () => {
             </View>
           </View>
 
-          {/* 6. SUPERVISOR INFO */}
           <View style={styles.supervisorSection}>
             <Text style={styles.sectionTitle}>Assigned Supervisor</Text>
             <View style={styles.infoBox}>
@@ -525,24 +490,22 @@ const AgentDashboard = () => {
             </View>
           </View>
 
-          {/* 7. QUICK ACTIONS */}
           <View style={styles.actionSection}>
             <Text style={styles.sectionTitle}>Quick Agent Actions</Text>
             <TouchableOpacity
-              style={styles.actionBtn}
+              style={styles.actionBtnFull}
               onPress={() => navigation.navigate("NewSale")}
             >
-              <Text style={styles.actionBtnText}>Process New Sale</Text>
+              <Text style={styles.actionBtnTextFull}>Process New Sale</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.actionBtn}
+              style={styles.actionBtnFull}
               onPress={() => navigation.navigate("SalesHistory")}
             >
-              <Text style={styles.actionBtnText}>View Sales History</Text>
+              <Text style={styles.actionBtnTextFull}>View Sales History</Text>
             </TouchableOpacity>
           </View>
 
-          {/* 8. BRANDING FOOTER */}
           <View style={styles.footerBranding}>
             <Text style={styles.footerHeadline}>Why Choose Ayax Xpress?</Text>
             <View style={styles.trustGrid}>
@@ -573,7 +536,6 @@ const AgentDashboard = () => {
         </ScrollView>
       </ImageBackground>
 
-      {/* BOTTOM NAVIGATION TAB */}
       <View style={styles.bottomTab}>
         <TabItem icon="home" label="Dashboard" active onPress={() => {}} />
         <TabItem
@@ -598,7 +560,7 @@ const AgentDashboard = () => {
   );
 };
 
-// Internal Sub-Components
+// Sub-components
 const BankCard = ({ bank, acc, code, onCopy }) => (
   <TouchableOpacity style={styles.bankBox} onPress={onCopy}>
     <View style={styles.bankInfo}>
@@ -621,6 +583,15 @@ const ServiceItem = ({ icon, label, color, onPress }) => (
     </View>
     <Text style={styles.gridLabel}>{label}</Text>
   </TouchableOpacity>
+);
+
+const StatCard = ({ title, value, unit, color }) => (
+  <View style={[styles.statCard, { borderLeftColor: color }]}>
+    <Text style={styles.statLabel}>{title}</Text>
+    <Text style={styles.statValue}>
+      {value} <Text style={styles.statUnit}>{unit}</Text>
+    </Text>
+  </View>
 );
 
 const TrustItem = ({ icon, color, bg, title, sub }) => (
@@ -646,23 +617,12 @@ const TabItem = ({ icon, label, active, onPress }) => (
   </TouchableOpacity>
 );
 
-// Unified Consistent Stylesheet
 const styles = StyleSheet.create({
-  mainContainer: {
-    flex: 1,
-    backgroundColor: isDarkMode ? "#0f172a" : "#f8fafc",
-  },
-  userName: {
-    color: isDarkMode ? "#f8fafc" : "#0f172a",
-    fontSize: 24,
-    fontWeight: "bold",
-  },
+  mainContainer: { flex: 1, backgroundColor: "#f8fafc" },
   backgroundImage: { flex: 1, width: "100%", height: "100%" },
   fullOverlayGradient: { ...StyleSheet.absoluteFillObject },
   fullOverlay: { flex: 1 },
   loaderContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-
-  // Header
   topHeader: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20 },
   navRow: {
     flexDirection: "row",
@@ -683,11 +643,7 @@ const styles = StyleSheet.create({
   welcomeSection: { marginBottom: 10 },
   welcomeText: { color: "#64748b", fontSize: 14, fontWeight: "500" },
   userName: { color: "#0f172a", fontSize: 24, fontWeight: "bold" },
-
-  // Scroll Content
   content: { flex: 1, paddingHorizontal: 16 },
-
-  // Wallet
   walletCard: {
     borderRadius: 24,
     padding: 22,
@@ -731,8 +687,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginLeft: 8,
   },
-
-  // Sections & Banks
   sectionLabel: {
     fontSize: 16,
     fontWeight: "700",
@@ -767,8 +721,6 @@ const styles = StyleSheet.create({
   bankLogoText: { color: "#1e40af", fontWeight: "bold", fontSize: 12 },
   bankTitle: { fontSize: 12, color: "#64748b" },
   accNo: { fontSize: 17, color: "#0f172a", fontWeight: "bold" },
-
-  // Stats & Progress
   statsGrid: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -795,7 +747,6 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   statUnit: { fontSize: 12, color: "#94a3b8" },
-
   targetTrackingSection: { marginTop: 10, marginBottom: 20 },
   sectionTitle: {
     fontSize: 16,
@@ -822,6 +773,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 12,
   },
+  targetLabel: { fontSize: 12, color: "#64748b" },
+  targetValue: { fontSize: 16, fontWeight: "bold", color: "#0f172a" },
+  rightAlign: { alignItems: "flex-end" },
   percentageText: { fontSize: 20, fontWeight: "800", color: "#059669" },
   progressTrack: {
     width: "100%",
@@ -832,10 +786,10 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   progressBar: { height: "100%", backgroundColor: "#059669", borderRadius: 5 },
+  progressSubText: { fontSize: 12, color: "#64748b" },
+  remainingText: { fontSize: 12, color: "#64748b" },
   boldText: { fontWeight: "700", color: "#0f172a" },
   boldTextRed: { fontWeight: "700", color: "#dc2626" },
-
-  // Services
   servicesContainer: {
     backgroundColor: "rgba(255,255,255,0.9)",
     borderRadius: 28,
@@ -865,8 +819,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontWeight: "600",
   },
-
-  // Settings & Menu (Sabo)
   menuSection: {
     backgroundColor: "#fff",
     borderRadius: 20,
@@ -887,8 +839,50 @@ const styles = StyleSheet.create({
     color: "#334155",
     fontWeight: "500",
   },
-
-  // Footer & Tab
+  supervisorSection: { marginBottom: 20 },
+  infoBox: {
+    backgroundColor: "#fff",
+    padding: 15,
+    borderRadius: 15,
+    elevation: 2,
+  },
+  infoText: { color: "#64748b" },
+  supName: { fontWeight: "bold", fontSize: 16 },
+  supPhone: { color: "#1e40af", marginTop: 4 },
+  actionSection: { marginBottom: 20 },
+  actionBtnFull: {
+    backgroundColor: "#1e40af",
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 10,
+    alignItems: "center",
+  },
+  actionBtnTextFull: { color: "#fff", fontWeight: "bold" },
+  footerBranding: {
+    marginTop: 10,
+    paddingBottom: 40,
+    backgroundColor: "#f8fafc",
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingTop: 20,
+  },
+  footerHeadline: {
+    textAlign: "center",
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 15,
+  },
+  trustGrid: { flexDirection: "row", justifyContent: "space-around" },
+  trustItem: { alignItems: "center" },
+  trustIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  trustTitle: { fontSize: 12, fontWeight: "bold", marginTop: 8 },
+  trustSub: { fontSize: 10, color: "#64748b" },
   bottomTab: {
     height: 85,
     backgroundColor: "#fff",
@@ -904,15 +898,6 @@ const styles = StyleSheet.create({
   },
   tabItem: { flex: 1, justifyContent: "center", alignItems: "center" },
   tabLabel: { fontSize: 10, marginTop: 4, fontWeight: "600" },
-  footerBranding: {
-    marginTop: 10,
-    paddingBottom: 40,
-    backgroundColor: "#f8fafc",
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    paddingTop: 20,
-  },
-  trustGrid: { flexDirection: "row", justifyContent: "space-around" },
 });
 
 export default AgentDashboard;
