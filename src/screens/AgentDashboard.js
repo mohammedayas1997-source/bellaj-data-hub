@@ -162,6 +162,19 @@ const AgentDashboard = () => {
     );
   }
 
+  const handleLogout = async () => {
+    Alert.alert("Logout", "Are you sure you want to exit?", [
+      { text: "Cancel" },
+      {
+        text: "Yes",
+        onPress: async () => {
+          await AsyncStorage.clear();
+          navigation.reset({ index: 0, routes: [{ name: "Login" }] });
+        },
+      },
+    ]);
+  };
+
   return (
     <View style={styles.mainContainer}>
       <StatusBar
@@ -459,6 +472,34 @@ const AgentDashboard = () => {
             </View>
           </View>
 
+          {/* 7. QUICK SETTINGS & ACCOUNT ACTIONS */}
+          <View style={styles.menuSection}>
+            <Text style={styles.sectionTitle}>Account</Text>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigation.navigate("Profile")}
+            >
+              <Ionicons name="person-outline" size={24} color="#1e40af" />
+              <Text style={styles.menuText}>Profile</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigation.navigate("Settings")}
+            >
+              <Ionicons name="settings-outline" size={24} color="#1e40af" />
+              <Text style={styles.menuText}>Settings</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
+              <Ionicons name="log-out-outline" size={24} color="#dc2626" />
+              <Text style={[styles.menuText, { color: "#dc2626" }]}>
+                Logout
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           {/* 6. SUPERVISOR INFO */}
           <View style={styles.supervisorSection}>
             <Text style={styles.sectionTitle}>Assigned Supervisor</Text>
@@ -606,6 +647,8 @@ const styles = StyleSheet.create({
   fullOverlayGradient: { ...StyleSheet.absoluteFillObject },
   fullOverlay: { flex: 1 },
   loaderContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
+
+  // Header
   topHeader: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20 },
   navRow: {
     flexDirection: "row",
@@ -626,7 +669,11 @@ const styles = StyleSheet.create({
   welcomeSection: { marginBottom: 10 },
   welcomeText: { color: "#64748b", fontSize: 14, fontWeight: "500" },
   userName: { color: "#0f172a", fontSize: 24, fontWeight: "bold" },
+
+  // Scroll Content
   content: { flex: 1, paddingHorizontal: 16 },
+
+  // Wallet
   walletCard: {
     borderRadius: 24,
     padding: 22,
@@ -670,6 +717,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginLeft: 8,
   },
+
+  // Sections & Banks
   sectionLabel: {
     fontSize: 16,
     fontWeight: "700",
@@ -692,7 +741,6 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: "#1e40af",
   },
-  bankInfo: { flexDirection: "row", alignItems: "center" },
   bankLogoCircle: {
     width: 38,
     height: 38,
@@ -705,6 +753,8 @@ const styles = StyleSheet.create({
   bankLogoText: { color: "#1e40af", fontWeight: "bold", fontSize: 12 },
   bankTitle: { fontSize: 12, color: "#64748b" },
   accNo: { fontSize: 17, color: "#0f172a", fontWeight: "bold" },
+
+  // Stats & Progress
   statsGrid: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -731,6 +781,7 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   statUnit: { fontSize: 12, color: "#94a3b8" },
+
   targetTrackingSection: { marginTop: 10, marginBottom: 20 },
   sectionTitle: {
     fontSize: 16,
@@ -767,10 +818,10 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   progressBar: { height: "100%", backgroundColor: "#059669", borderRadius: 5 },
-  progressSubText: { fontSize: 12, color: "#475569" },
-  remainingText: { fontSize: 12, color: "#475569" },
   boldText: { fontWeight: "700", color: "#0f172a" },
   boldTextRed: { fontWeight: "700", color: "#dc2626" },
+
+  // Services
   servicesContainer: {
     backgroundColor: "rgba(255,255,255,0.9)",
     borderRadius: 28,
@@ -800,28 +851,30 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontWeight: "600",
   },
-  supervisorSection: { marginBottom: 20 },
-  infoBox: {
+
+  // Settings & Menu (Sabo)
+  menuSection: {
     backgroundColor: "#fff",
+    borderRadius: 20,
     padding: 15,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
+    marginBottom: 20,
+    elevation: 2,
   },
-  infoText: { color: "#64748b" },
-  supName: { fontSize: 16, fontWeight: "bold", color: "#1e3a8a" },
-  supPhone: { fontSize: 14, color: "#475569", marginTop: 2 },
-  actionSection: { marginBottom: 20 },
-  actionBtn: {
-    backgroundColor: "#fff",
-    padding: 18,
-    borderRadius: 12,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
+  menuItem: {
+    flexDirection: "row",
     alignItems: "center",
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f1f5f9",
   },
-  actionBtnText: { fontSize: 15, color: "#1e3a8a", fontWeight: "600" },
+  menuText: {
+    marginLeft: 15,
+    fontSize: 16,
+    color: "#334155",
+    fontWeight: "500",
+  },
+
+  // Footer & Tab
   bottomTab: {
     height: 85,
     backgroundColor: "#fff",
@@ -845,37 +898,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 30,
     paddingTop: 20,
   },
-  footerHeadline: {
-    textAlign: "center",
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#64748b",
-    marginBottom: 20,
-    textTransform: "uppercase",
-  },
   trustGrid: { flexDirection: "row", justifyContent: "space-around" },
-  trustItem: { alignItems: "center", width: "30%" },
-  trustIconCircle: {
-    width: 55,
-    height: 55,
-    borderRadius: 27.5,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 8,
-    elevation: 3,
-  },
-  trustTitle: {
-    fontSize: 12,
-    fontWeight: "bold",
-    color: "#1e293b",
-    textAlign: "center",
-  },
-  trustSub: {
-    fontSize: 10,
-    color: "#94a3b8",
-    textAlign: "center",
-    marginTop: 2,
-  },
 });
 
 export default AgentDashboard;
