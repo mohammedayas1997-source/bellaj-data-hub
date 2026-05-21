@@ -137,7 +137,7 @@ const SignupScreen = ({ navigation }) => {
           "Content-Type": "application/json",
           Accept: "application/json",
         },
-        timeout: 60000,
+        timeout: 200000,
       });
 
       if (
