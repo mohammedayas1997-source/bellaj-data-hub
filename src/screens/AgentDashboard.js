@@ -26,8 +26,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
-import SettingsScreen from "./SettingsScreen"; // Ko inda fayil ɗin yake
-import CustomDrawerContent from "../components/CustomDrawerContent";
 import { useColorScheme } from "react-native";
 
 const { width } = Dimensions.get("window");
