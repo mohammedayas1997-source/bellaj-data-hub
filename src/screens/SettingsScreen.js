@@ -14,7 +14,6 @@ import * as LocalAuthentication from "expo-local-authentication";
 import { ThemeContext } from "../context/ThemeContext";
 
 const SettingsScreen = ({ navigation }) => {
-  const [isDarkMode, setIsDarkMode] = useState(false);
   const [isBiometricSupported, setIsBiometricSupported] = useState(false);
   const [useFingerprintLogin, setUseFingerprintLogin] = useState(false);
   const { isDarkMode, setIsDarkMode } = useContext(ThemeContext);
