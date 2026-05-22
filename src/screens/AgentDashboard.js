@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -17,38 +17,52 @@ import {
   ImageBackground,
   Linking,
   Platform,
+  Animated,
 } from "react-native";
 
 import * as Clipboard from "expo-clipboard";
 
 import { useNavigation } from "@react-navigation/native";
+
 import axios from "axios";
+
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import {
   Ionicons,
   MaterialCommunityIcons,
   FontAwesome5,
+  Feather,
 } from "@expo/vector-icons";
 
 import { LinearGradient } from "expo-linear-gradient";
 
 const { width } = Dimensions.get("window");
 
+const isTabletOrDesktop = width >= 768;
+
 const BASE_URL = "https://ayax-data-xpress-server.onrender.com/api/v1";
 
 const AgentDashboard = () => {
   const navigation = useNavigation();
 
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(40)).current;
+
   const [loading, setLoading] = useState(true);
+
   const [menuVisible, setMenuVisible] = useState(false);
+
   const [refreshing, setRefreshing] = useState(false);
 
   const colorScheme = useColorScheme();
+
   const isDarkMode = colorScheme === "dark";
 
   const [userData, setUserData] = useState(null);
+
   const [supervisor, setSupervisor] = useState(null);
+
   const [isBalanceVisible, setIsBalanceVisible] = useState(true);
 
   const [performance, setPerformance] = useState({
@@ -58,6 +72,25 @@ const AgentDashboard = () => {
     bonusEarned: 0,
     monthlyTargetSales: 0,
   });
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 900,
+        useNativeDriver: true,
+      }),
+
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 900,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    fetchUserData();
+    fetchAgentData();
+  }, []);
 
   const handleLogout = async () => {
     await AsyncStorage.removeItem("userToken");
@@ -133,15 +166,11 @@ const AgentDashboard = () => {
     }
   };
 
-  useEffect(() => {
-    fetchUserData();
-    fetchAgentData();
-  }, []);
-
   const onRefresh = () => {
     setRefreshing(true);
 
     fetchUserData();
+
     fetchAgentData();
   };
 
@@ -151,15 +180,14 @@ const AgentDashboard = () => {
     await Clipboard.setStringAsync(text);
 
     if (Platform.OS === "android") {
-      ToastAndroid.show("Copied to clipboard", ToastAndroid.SHORT);
+      ToastAndroid.show("Copied Successfully", ToastAndroid.SHORT);
     }
   };
 
   const openWhatsApp = () => {
     const phoneNumber = "+2349061244444";
 
-    const message =
-      "Hello Ayax Xpress Support, I need assistance with my account.";
+    const message = "Hello Ayax Support";
 
     const url = `whatsapp://send?phone=${phoneNumber}&text=${encodeURIComponent(
       message,
@@ -182,40 +210,124 @@ const AgentDashboard = () => {
       ? Math.min(Math.round((currentSales / targetSales) * 100), 100)
       : 0;
 
-  const StatCard = ({ title, value, unit, color }) => (
-    <View style={[styles.statCard, { borderLeftColor: color }]}>
-      <Text style={styles.statLabel}>{title}</Text>
+  const services = [
+    {
+      name: "Data",
+      icon: "wifi",
+      color: "#0ea5e9",
+      screen: "BuyData",
+      type: "FontAwesome5",
+    },
+
+    {
+      name: "Airtime",
+      icon: "phone-alt",
+      color: "#22c55e",
+      screen: "BuyAirtime",
+      type: "FontAwesome5",
+    },
+
+    {
+      name: "Power",
+      icon: "bolt",
+      color: "#eab308",
+      screen: "Electricity",
+      type: "FontAwesome5",
+    },
+
+    {
+      name: "Cable",
+      icon: "tv",
+      color: "#8b5cf6",
+      screen: "Cable",
+      type: "FontAwesome5",
+    },
+
+    {
+      name: "Wallet",
+      icon: "wallet",
+      color: "#2563eb",
+      screen: "FundWallet",
+      type: "Ionicons",
+    },
+
+    {
+      name: "History",
+      icon: "time-outline",
+      color: "#f97316",
+      screen: "Wallet History",
+      type: "Ionicons",
+    },
+
+    {
+      name: "Profile",
+      icon: "person-circle-outline",
+      color: "#ec4899",
+      screen: "Profile",
+      type: "Ionicons",
+    },
+
+    {
+      name: "Settings",
+      icon: "settings-outline",
+      color: "#475569",
+      screen: "Settings",
+      type: "Ionicons",
+    },
+  ];
+
+  const renderIcon = (item) => {
+    if (item.type === "FontAwesome5") {
+      return <FontAwesome5 name={item.icon} size={22} color={item.color} />;
+    }
+
+    return <Ionicons name={item.icon} size={24} color={item.color} />;
+  };
+
+  const StatCard = ({ title, value, unit, color, icon }) => (
+    <Animated.View
+      style={[
+        styles.statCard,
+        {
+          borderLeftColor: color,
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        },
+      ]}
+    >
+      <View style={styles.statTop}>
+        <Text style={styles.statLabel}>{title}</Text>
+
+        <Feather name={icon} size={18} color={color} />
+      </View>
 
       <Text style={styles.statValue}>
-        {value} <Text style={styles.statUnit}>{unit}</Text>
+        {value}
+
+        <Text style={styles.statUnit}> {unit}</Text>
       </Text>
-    </View>
+    </Animated.View>
   );
 
   if (loading) {
     return (
       <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#1e40af" />
+        <ActivityIndicator size="large" color="#1d4ed8" />
       </View>
     );
   }
 
   return (
     <View style={styles.mainContainer}>
-      <StatusBar
-        translucent
-        backgroundColor="transparent"
-        barStyle="dark-content"
-      />
+      <StatusBar translucent backgroundColor="transparent" />
 
       <ImageBackground
         source={require("../assets/ayax_promo_hijab.png")}
         style={styles.backgroundImage}
-        resizeMode="cover"
       >
         <LinearGradient
-          colors={["rgba(255,255,255,0.6)", "rgba(248,250,252,0.95)"]}
-          style={styles.fullOverlay}
+          colors={["rgba(255,255,255,0.7)", "rgba(248,250,252,0.95)"]}
+          style={styles.overlay}
         />
 
         <ScrollView
@@ -224,121 +336,110 @@ const AgentDashboard = () => {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         >
-          <View style={styles.topHeader}>
-            <View style={styles.navRow}>
-              <View style={styles.logoCircle}>
-                <Image
-                  source={require("../assets/Logo.png")}
-                  style={styles.logoImg}
-                />
+          <Animated.View
+            style={{
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            }}
+          >
+            <View style={styles.topHeader}>
+              <View style={styles.navRow}>
+                <View style={styles.logoCircle}>
+                  <Image
+                    source={require("../assets/Logo.png")}
+                    style={styles.logoImg}
+                  />
+                </View>
+
+                <TouchableOpacity onPress={() => setMenuVisible(true)}>
+                  <Ionicons
+                    name="notifications-outline"
+                    size={30}
+                    color="#0f172a"
+                  />
+                </TouchableOpacity>
               </View>
 
-              <TouchableOpacity onPress={() => setMenuVisible(true)}>
-                <Ionicons
-                  name="notifications-outline"
-                  size={28}
-                  color="#0f172a"
-                />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.welcomeSection}>
-              <Text style={styles.welcomeText}>Welcome back,</Text>
+              <Text style={styles.welcomeText}>Welcome Back</Text>
 
               <Text style={styles.userName}>
                 {userData
                   ? `${userData.firstName} ${userData.surname}`
-                  : "Loading..."}
+                  : "Agent"}
               </Text>
             </View>
-          </View>
 
-          <LinearGradient
-            colors={["#1e40af", "#1e3a8a"]}
-            style={styles.walletCard}
-          >
-            <View style={styles.walletTop}>
-              <Text style={styles.walletLabel}>Available Balance</Text>
+            <LinearGradient
+              colors={["#2563eb", "#1e3a8a"]}
+              style={styles.walletCard}
+            >
+              <View style={styles.walletTop}>
+                <Text style={styles.walletLabel}>Available Balance</Text>
 
-              <TouchableOpacity
-                onPress={() =>
-                  navigation.navigate("Main", {
-                    screen: "Wallet History",
-                  })
-                }
-              >
-                <Text style={styles.historyText}>Transactions</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.balanceContainer}>
-              <Text style={styles.currency}>₦</Text>
-
-              <Text style={styles.balanceText}>
-                {isBalanceVisible ? userData?.walletBalance || "0.00" : "****"}
-              </Text>
-
-              <TouchableOpacity
-                onPress={() => setIsBalanceVisible(!isBalanceVisible)}
-              >
-                <Ionicons
-                  name={isBalanceVisible ? "eye-outline" : "eye-off-outline"}
-                  size={24}
-                  color="#38bdf8"
-                  style={{
-                    marginLeft: 15,
-                  }}
-                />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.walletActions}>
-              <TouchableOpacity
-                style={styles.actionBtn}
-                onPress={() => navigation.navigate("FundWallet")}
-              >
-                <LinearGradient
-                  colors={["#38bdf8", "#0ea5e9"]}
-                  style={styles.innerBtnGradient}
+                <TouchableOpacity
+                  onPress={() =>
+                    navigation.navigate("Main", {
+                      screen: "Wallet History",
+                    })
+                  }
                 >
-                  <Ionicons name="add-circle" size={18} color="#fff" />
+                  <Text style={styles.historyText}>Transactions</Text>
+                </TouchableOpacity>
+              </View>
 
-                  <Text style={styles.actionBtnText}>FUND WALLET</Text>
-                </LinearGradient>
-              </TouchableOpacity>
+              <View style={styles.balanceContainer}>
+                <Text style={styles.currency}>₦</Text>
 
-              <TouchableOpacity
-                style={[
-                  styles.actionBtn,
-                  {
-                    backgroundColor: "rgba(255,255,255,0.15)",
-                  },
-                ]}
-                onPress={openWhatsApp}
-              >
-                <Ionicons name="logo-whatsapp" size={18} color="#22c55e" />
-
-                <Text
-                  style={[
-                    styles.actionBtnText,
-                    {
-                      color: "#fff",
-                    },
-                  ]}
-                >
-                  SUPPORT
+                <Text style={styles.balanceText}>
+                  {isBalanceVisible
+                    ? userData?.walletBalance || "0.00"
+                    : "******"}
                 </Text>
-              </TouchableOpacity>
-            </View>
-          </LinearGradient>
 
-          <Text style={styles.sectionLabel}>Automatic Funding Accounts</Text>
+                <TouchableOpacity
+                  onPress={() => setIsBalanceVisible(!isBalanceVisible)}
+                >
+                  <Ionicons
+                    name={isBalanceVisible ? "eye-outline" : "eye-off-outline"}
+                    size={24}
+                    color="#fff"
+                    style={{ marginLeft: 10 }}
+                  />
+                </TouchableOpacity>
+              </View>
 
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.bankScroll}
-          >
+              <View style={styles.walletActions}>
+                <TouchableOpacity
+                  style={styles.actionBtn}
+                  onPress={() => navigation.navigate("FundWallet")}
+                >
+                  <LinearGradient
+                    colors={["#38bdf8", "#0284c7"]}
+                    style={styles.gradientBtn}
+                  >
+                    <Ionicons
+                      name="add-circle-outline"
+                      size={18}
+                      color="#fff"
+                    />
+
+                    <Text style={styles.actionBtnText}>FUND</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.supportBtn}
+                  onPress={openWhatsApp}
+                >
+                  <Ionicons name="logo-whatsapp" size={20} color="#22c55e" />
+
+                  <Text style={styles.supportText}>SUPPORT</Text>
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
+
+            <Text style={styles.sectionLabel}>Automatic Funding Account</Text>
+
             <TouchableOpacity
               style={styles.bankBox}
               onPress={() => copyToClipboard(userData?.accountNumber)}
@@ -354,242 +455,175 @@ const AgentDashboard = () => {
                   </Text>
 
                   <Text style={styles.accNo}>
-                    {userData?.accountNumber || "Generating..."}
+                    {userData?.accountNumber || "Generating"}
                   </Text>
                 </View>
               </View>
 
-              <Ionicons name="copy-outline" size={18} color="#1e40af" />
+              <Ionicons name="copy-outline" size={22} color="#2563eb" />
             </TouchableOpacity>
-          </ScrollView>
 
-          <Text style={styles.sectionLabel}>Our Services</Text>
+            <Text style={styles.sectionLabel}>Services</Text>
 
-          <View style={styles.servicesContainer}>
-            <View style={styles.grid}>
-              <TouchableOpacity
-                style={styles.gridItem}
-                onPress={() => navigation.navigate("BuyData")}
-              >
-                <View style={styles.iconBox}>
-                  <FontAwesome5 name="wifi" size={20} color="#0ea5e9" />
-                </View>
+            <View style={styles.servicesContainer}>
+              {services.map((item, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.gridItem}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    if (item.screen === "Wallet History") {
+                      navigation.navigate("Main", {
+                        screen: "Wallet History",
+                      });
+                    } else {
+                      navigation.navigate(item.screen);
+                    }
+                  }}
+                >
+                  <View style={styles.iconBox}>{renderIcon(item)}</View>
 
-                <Text style={styles.gridLabel}>Data</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.gridItem}
-                onPress={() => navigation.navigate("BuyAirtime")}
-              >
-                <View style={styles.iconBox}>
-                  <FontAwesome5 name="phone-alt" size={20} color="#22c55e" />
-                </View>
-
-                <Text style={styles.gridLabel}>Airtime</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.gridItem}
-                onPress={() => navigation.navigate("Electricity")}
-              >
-                <View style={styles.iconBox}>
-                  <FontAwesome5 name="bolt" size={20} color="#eab308" />
-                </View>
-
-                <Text style={styles.gridLabel}>Power</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.gridItem}
-                onPress={() => navigation.navigate("Cable")}
-              >
-                <View style={styles.iconBox}>
-                  <FontAwesome5 name="tv" size={20} color="#8b5cf6" />
-                </View>
-
-                <Text style={styles.gridLabel}>Cable</Text>
-              </TouchableOpacity>
+                  <Text style={styles.gridLabel}>{item.name}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
-          </View>
 
-          <View style={styles.statsGrid}>
-            <StatCard
-              title="Monthly Volume"
-              value={performance.totalGB || 0}
-              unit="GB"
-              color="#2563eb"
-            />
+            <View style={styles.statsGrid}>
+              <StatCard
+                title="Monthly Volume"
+                value={performance.totalGB || 0}
+                unit="GB"
+                color="#2563eb"
+                icon="activity"
+              />
 
-            <StatCard
-              title="Monthly Revenue"
-              value={`₦${currentSales}`}
-              unit=""
-              color="#059669"
-            />
-          </View>
+              <StatCard
+                title="Monthly Revenue"
+                value={`₦${currentSales}`}
+                unit=""
+                color="#16a34a"
+                icon="dollar-sign"
+              />
+            </View>
 
-          <View style={styles.statsGridAlt}>
-            <StatCard
-              title="Commissions Earned"
-              value={`₦${performance.commissionsEarned || 0}`}
-              unit=""
-              color="#d4af37"
-            />
+            <View style={styles.statsGrid}>
+              <StatCard
+                title="Commissions"
+                value={`₦${performance.commissionsEarned || 0}`}
+                unit=""
+                color="#ca8a04"
+                icon="award"
+              />
 
-            <StatCard
-              title="Bonus Earned"
-              value={`₦${performance.bonusEarned || 0}`}
-              unit=""
-              color="#dc2626"
-            />
-          </View>
+              <StatCard
+                title="Bonus"
+                value={`₦${performance.bonusEarned || 0}`}
+                unit=""
+                color="#dc2626"
+                icon="gift"
+              />
+            </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Target & Performance</Text>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Target Performance</Text>
 
-            <View style={styles.targetCard}>
-              <View style={styles.targetRow}>
-                <View>
-                  <Text style={styles.targetLabel}>Monthly Target</Text>
+              <View style={styles.targetCard}>
+                <View style={styles.targetRow}>
+                  <View>
+                    <Text style={styles.targetLabel}>Monthly Target</Text>
 
-                  <Text style={styles.targetValue}>₦{targetSales}</Text>
+                    <Text style={styles.targetValue}>₦{targetSales}</Text>
+                  </View>
+
+                  <View style={styles.rightAlign}>
+                    <Text style={styles.targetLabel}>Achievement</Text>
+
+                    <Text style={styles.percentageText}>
+                      {achievementPercentage}%
+                    </Text>
+                  </View>
                 </View>
 
-                <View style={styles.rightAlign}>
-                  <Text style={styles.targetLabel}>Achievement</Text>
+                <View style={styles.progressTrack}>
+                  <Animated.View
+                    style={[
+                      styles.progressBar,
+                      {
+                        width: `${achievementPercentage}%`,
+                      },
+                    ]}
+                  />
+                </View>
 
-                  <Text style={styles.percentageText}>
-                    {achievementPercentage}%
+                <View style={styles.targetRowAlt}>
+                  <Text style={styles.progressSubText}>
+                    Current ₦{currentSales}
+                  </Text>
+
+                  <Text style={styles.remainingText}>
+                    Remaining ₦{remainingToTarget}
                   </Text>
                 </View>
               </View>
+            </View>
 
-              <View style={styles.progressTrack}>
-                <View
-                  style={[
-                    styles.progressBar,
-                    {
-                      width: `${achievementPercentage}%`,
-                    },
-                  ]}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Assigned Supervisor</Text>
+
+              <View style={styles.infoBox}>
+                {typeof supervisor === "string" ? (
+                  <Text style={styles.infoText}>{supervisor}</Text>
+                ) : (
+                  <View>
+                    <Text style={styles.supName}>
+                      {supervisor?.name || "N/A"}
+                    </Text>
+
+                    <Text style={styles.supPhone}>
+                      {supervisor?.phone || "No Contact"}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            <View style={styles.footerBranding}>
+              <View style={styles.trustItem}>
+                <MaterialCommunityIcons
+                  name="shield-check"
+                  size={28}
+                  color="#16a34a"
                 />
-              </View>
 
-              <View style={styles.targetRowAlt}>
-                <Text style={styles.progressSubText}>
-                  Current: ₦{currentSales}
-                </Text>
-
-                <Text style={styles.remainingText}>
-                  Remaining: ₦{remainingToTarget}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Assigned Supervisor</Text>
-
-            <View style={styles.infoBox}>
-              {typeof supervisor === "string" ? (
-                <Text style={styles.infoText}>{supervisor}</Text>
-              ) : (
-                <View>
-                  <Text style={styles.supName}>
-                    {supervisor?.name || "N/A"}
-                  </Text>
-
-                  <Text style={styles.supPhone}>
-                    {supervisor?.phone || "No Contact"}
-                  </Text>
-                </View>
-              )}
-            </View>
-          </View>
-
-          <View style={styles.footerBranding}>
-            <Text style={styles.footerHeadline}>Why Choose Ayax Xpress?</Text>
-
-            <View style={styles.trustGrid}>
-              <View style={styles.trustItem}>
-                <View
-                  style={[
-                    styles.trustIconCircle,
-                    {
-                      backgroundColor: "#dcfce7",
-                    },
-                  ]}
-                >
-                  <MaterialCommunityIcons
-                    name="shield-check"
-                    size={28}
-                    color="#16a34a"
-                  />
-                </View>
-
-                <Text style={styles.trustTitle}>100% Secure</Text>
-
-                <Text style={styles.trustSub}>Encrypted</Text>
+                <Text style={styles.trustTitle}>Secure</Text>
               </View>
 
               <View style={styles.trustItem}>
-                <View
-                  style={[
-                    styles.trustIconCircle,
-                    {
-                      backgroundColor: "#fef9c3",
-                    },
-                  ]}
-                >
-                  <Ionicons name="flash" size={28} color="#ca8a04" />
-                </View>
+                <Ionicons name="flash" size={28} color="#eab308" />
 
-                <Text style={styles.trustTitle}>Instant</Text>
-
-                <Text style={styles.trustSub}>Automated</Text>
+                <Text style={styles.trustTitle}>Fast</Text>
               </View>
 
               <View style={styles.trustItem}>
-                <View
-                  style={[
-                    styles.trustIconCircle,
-                    {
-                      backgroundColor: "#e0f2fe",
-                    },
-                  ]}
-                >
-                  <MaterialCommunityIcons
-                    name="headset"
-                    size={28}
-                    color="#0284c7"
-                  />
-                </View>
+                <MaterialCommunityIcons
+                  name="headset"
+                  size={28}
+                  color="#0284c7"
+                />
 
                 <Text style={styles.trustTitle}>24/7 Support</Text>
-
-                <Text style={styles.trustSub}>Reliable</Text>
               </View>
             </View>
-          </View>
 
-          <View style={{ height: 120 }} />
+            <View style={{ height: 120 }} />
+          </Animated.View>
         </ScrollView>
 
         <View style={styles.bottomTab}>
           <TouchableOpacity style={styles.tabItem}>
-            <Ionicons name="home" size={24} color="#1e40af" />
+            <Ionicons name="home" size={24} color="#2563eb" />
 
-            <Text
-              style={[
-                styles.tabLabel,
-                {
-                  color: "#1e40af",
-                },
-              ]}
-            >
-              Home
-            </Text>
+            <Text style={[styles.tabLabel, { color: "#2563eb" }]}>Home</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -602,16 +636,7 @@ const AgentDashboard = () => {
           >
             <Ionicons name="time-outline" size={24} color="#94a3b8" />
 
-            <Text
-              style={[
-                styles.tabLabel,
-                {
-                  color: "#94a3b8",
-                },
-              ]}
-            >
-              History
-            </Text>
+            <Text style={styles.tabLabel}>History</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -620,16 +645,16 @@ const AgentDashboard = () => {
           >
             <Ionicons name="person-outline" size={24} color="#94a3b8" />
 
-            <Text
-              style={[
-                styles.tabLabel,
-                {
-                  color: "#94a3b8",
-                },
-              ]}
-            >
-              Profile
-            </Text>
+            <Text style={styles.tabLabel}>Profile</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.tabItem}
+            onPress={() => navigation.navigate("Settings")}
+          >
+            <Ionicons name="settings-outline" size={24} color="#94a3b8" />
+
+            <Text style={styles.tabLabel}>Settings</Text>
           </TouchableOpacity>
         </View>
 
@@ -649,7 +674,7 @@ const AgentDashboard = () => {
               >
                 <Ionicons
                   name="close"
-                  size={24}
+                  size={26}
                   color={isDarkMode ? "#fff" : "#000"}
                 />
               </TouchableOpacity>
@@ -662,73 +687,33 @@ const AgentDashboard = () => {
                   },
                 ]}
               >
-                Menu
+                Dashboard Menu
               </Text>
 
               <TouchableOpacity
-                onPress={() => {
-                  setMenuVisible(false);
-
-                  navigation.navigate("Profile");
-                }}
+                style={styles.menuButton}
+                onPress={() => navigation.navigate("Profile")}
               >
-                <Text
-                  style={[
-                    styles.menuItem,
-                    {
-                      color: isDarkMode ? "#cbd5e1" : "#334155",
-                    },
-                  ]}
-                >
-                  👤 My Profile
-                </Text>
+                <Ionicons name="person-outline" size={22} color="#2563eb" />
+
+                <Text style={styles.menuText}>Profile</Text>
               </TouchableOpacity>
 
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginVertical: 10,
-                }}
+              <TouchableOpacity
+                style={styles.menuButton}
+                onPress={() => navigation.navigate("Settings")}
               >
-                <TouchableOpacity
-                  onPress={() => {
-                    setMenuVisible(false);
+                <Ionicons name="settings-outline" size={22} color="#2563eb" />
 
-                    navigation.navigate("Settings");
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.menuItem,
-                      {
-                        color: isDarkMode ? "#fff" : "#000",
-                      },
-                    ]}
-                  >
-                    ⚙️ Settings
-                  </Text>
-                </TouchableOpacity>
+                <Text style={styles.menuText}>Settings</Text>
 
                 <Switch value={isDarkMode} disabled />
-              </View>
+              </TouchableOpacity>
 
-              <TouchableOpacity
-                onPress={handleLogout}
-                style={{ marginTop: 30 }}
-              >
-                <Text
-                  style={[
-                    styles.menuItem,
-                    {
-                      color: "red",
-                      fontWeight: "bold",
-                    },
-                  ]}
-                >
-                  🚪 Logout
-                </Text>
+              <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+                <Ionicons name="log-out-outline" size={22} color="#fff" />
+
+                <Text style={styles.logoutText}>Logout</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -746,11 +731,9 @@ const styles = StyleSheet.create({
 
   backgroundImage: {
     flex: 1,
-    width: "100%",
-    height: "100%",
   },
 
-  fullOverlay: {
+  overlay: {
     position: "absolute",
     width: "100%",
     height: "100%",
@@ -763,62 +746,56 @@ const styles = StyleSheet.create({
   },
 
   topHeader: {
-    paddingHorizontal: 20,
     paddingTop: 60,
-    paddingBottom: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 10,
   },
 
   navRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 20,
   },
 
   logoCircle: {
-    width: 45,
-    height: 45,
-    backgroundColor: "#0f172a",
-    borderRadius: 23,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "#fff",
     justifyContent: "center",
     alignItems: "center",
-    elevation: 4,
+    elevation: 5,
   },
 
   logoImg: {
-    width: 32,
-    height: 32,
+    width: 34,
+    height: 34,
     resizeMode: "contain",
   },
 
-  welcomeSection: {
-    marginBottom: 10,
-  },
-
   welcomeText: {
+    marginTop: 20,
     color: "#64748b",
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 15,
   },
 
   userName: {
-    color: "#0f172a",
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: "bold",
+    color: "#0f172a",
   },
 
   walletCard: {
+    marginHorizontal: 16,
+    marginTop: 20,
     borderRadius: 24,
     padding: 22,
-    marginBottom: 25,
-    elevation: 10,
-    marginHorizontal: 16,
+    elevation: 6,
   },
 
   walletTop: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
   },
 
   walletLabel: {
@@ -827,85 +804,89 @@ const styles = StyleSheet.create({
   },
 
   historyText: {
-    color: "#38bdf8",
-    fontSize: 12,
+    color: "#93c5fd",
     fontWeight: "600",
   },
 
   balanceContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginVertical: 15,
+    marginTop: 18,
   },
 
   currency: {
     color: "#fff",
-    fontSize: 24,
-    fontWeight: "600",
+    fontSize: 26,
+    fontWeight: "bold",
   },
 
   balanceText: {
     color: "#fff",
-    fontSize: 34,
+    fontSize: width > 500 ? 40 : 32,
     fontWeight: "bold",
-    marginLeft: 8,
+    marginLeft: 5,
   },
 
   walletActions: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 10,
+    marginTop: 22,
   },
 
   actionBtn: {
-    flex: 0.48,
+    width: "48%",
     height: 48,
     borderRadius: 14,
     overflow: "hidden",
+  },
+
+  gradientBtn: {
+    flex: 1,
+    flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
   },
 
-  innerBtnGradient: {
-    flex: 1,
-    width: "100%",
-    flexDirection: "row",
+  supportBtn: {
+    width: "48%",
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: "rgba(255,255,255,0.12)",
     justifyContent: "center",
     alignItems: "center",
+    flexDirection: "row",
+  },
+
+  supportText: {
+    color: "#fff",
+    marginLeft: 6,
+    fontWeight: "bold",
   },
 
   actionBtnText: {
     color: "#fff",
+    marginLeft: 6,
     fontWeight: "bold",
-    fontSize: 12,
-    marginLeft: 8,
   },
 
   sectionLabel: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#1e293b",
+    marginTop: 24,
     marginBottom: 15,
-    paddingLeft: 20,
-  },
-
-  bankScroll: {
-    marginBottom: 25,
+    paddingHorizontal: 20,
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#1e293b",
   },
 
   bankBox: {
     backgroundColor: "#fff",
-    width: width * 0.75,
-    padding: 16,
+    marginHorizontal: 20,
     borderRadius: 20,
+    padding: 18,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginLeft: 20,
-    marginRight: 15,
-    elevation: 3,
-    borderLeftWidth: 4,
-    borderLeftColor: "#1e40af",
+    elevation: 4,
   },
 
   bankInfo: {
@@ -914,104 +895,98 @@ const styles = StyleSheet.create({
   },
 
   bankLogoCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: "#f1f5f9",
+    width: 45,
+    height: 45,
+    borderRadius: 22,
+    backgroundColor: "#eff6ff",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
   },
 
   bankLogoText: {
-    color: "#1e40af",
+    color: "#2563eb",
     fontWeight: "bold",
-    fontSize: 12,
   },
 
   bankTitle: {
-    fontSize: 12,
     color: "#64748b",
+    fontSize: 12,
   },
 
   accNo: {
-    fontSize: 17,
     color: "#0f172a",
+    fontSize: 18,
     fontWeight: "bold",
   },
 
   servicesContainer: {
-    backgroundColor: "rgba(255,255,255,0.9)",
-    borderRadius: 28,
-    padding: 20,
-    elevation: 4,
     marginHorizontal: 16,
-  },
-
-  grid: {
+    backgroundColor: "#fff",
+    borderRadius: 24,
+    padding: 20,
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
+    elevation: 4,
   },
 
   gridItem: {
-    width: "23%",
+    width: isTabletOrDesktop ? "22%" : "23%",
     alignItems: "center",
     marginBottom: 22,
   },
 
   iconBox: {
-    width: 54,
-    height: 54,
+    width: 58,
+    height: 58,
     borderRadius: 18,
     backgroundColor: "#f8fafc",
     justifyContent: "center",
     alignItems: "center",
+    elevation: 2,
     marginBottom: 8,
-    elevation: 1,
   },
 
   gridLabel: {
-    color: "#475569",
-    fontSize: 11,
-    textAlign: "center",
+    fontSize: 12,
+    color: "#334155",
     fontWeight: "600",
   },
 
   statsGrid: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-
-  statsGridAlt: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingHorizontal: 16,
+    marginTop: 18,
     flexDirection: "row",
     justifyContent: "space-between",
   },
 
   statCard: {
-    backgroundColor: "#fff",
     width: "48%",
-    padding: 15,
-    borderRadius: 12,
-    borderLeftWidth: 6,
-    elevation: 3,
+    backgroundColor: "#fff",
+    borderRadius: 18,
+    padding: 16,
+    borderLeftWidth: 5,
+    elevation: 4,
+  },
+
+  statTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
 
   statLabel: {
-    fontSize: 12,
     color: "#64748b",
+    fontSize: 12,
     fontWeight: "600",
   },
 
   statValue: {
-    fontSize: 18,
+    marginTop: 12,
+    fontSize: width > 500 ? 24 : 18,
     fontWeight: "bold",
-    color: "#1e293b",
-    marginTop: 5,
+    color: "#0f172a",
   },
 
   statUnit: {
@@ -1020,47 +995,39 @@ const styles = StyleSheet.create({
   },
 
   section: {
-    paddingHorizontal: 20,
-    marginTop: 20,
+    paddingHorizontal: 16,
+    marginTop: 22,
   },
 
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "bold",
-    color: "#334155",
-    marginBottom: 10,
+    color: "#0f172a",
+    marginBottom: 12,
   },
 
   targetCard: {
     backgroundColor: "#fff",
+    borderRadius: 20,
     padding: 20,
-    borderRadius: 12,
-    elevation: 3,
+    elevation: 4,
   },
 
   targetRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-  },
-
-  targetRowAlt: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 12,
   },
 
   targetLabel: {
-    fontSize: 12,
     color: "#64748b",
-    fontWeight: "600",
+    fontSize: 12,
   },
 
   targetValue: {
-    fontSize: 20,
-    fontWeight: "800",
+    fontSize: 24,
+    fontWeight: "bold",
     color: "#1e3a8a",
-    marginTop: 2,
+    marginTop: 4,
   },
 
   rightAlign: {
@@ -1068,39 +1035,48 @@ const styles = StyleSheet.create({
   },
 
   percentageText: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#059669",
+    color: "#16a34a",
+    fontSize: 24,
+    fontWeight: "bold",
+    marginTop: 4,
   },
 
   progressTrack: {
-    width: "100%",
-    height: 10,
+    height: 12,
     backgroundColor: "#e2e8f0",
-    borderRadius: 5,
-    marginTop: 15,
+    borderRadius: 20,
     overflow: "hidden",
+    marginTop: 18,
   },
 
   progressBar: {
     height: "100%",
-    backgroundColor: "#059669",
+    backgroundColor: "#16a34a",
+    borderRadius: 20,
+  },
+
+  targetRowAlt: {
+    marginTop: 14,
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
 
   progressSubText: {
+    color: "#64748b",
     fontSize: 12,
-    color: "#475569",
   },
 
   remainingText: {
+    color: "#dc2626",
     fontSize: 12,
-    color: "#475569",
+    fontWeight: "600",
   },
 
   infoBox: {
     backgroundColor: "#fff",
-    padding: 15,
-    borderRadius: 12,
+    borderRadius: 20,
+    padding: 18,
+    elevation: 4,
   },
 
   infoText: {
@@ -1108,77 +1084,46 @@ const styles = StyleSheet.create({
   },
 
   supName: {
-    fontSize: 16,
-    fontWeight: "bold",
     color: "#1e3a8a",
+    fontWeight: "bold",
+    fontSize: 18,
   },
 
   supPhone: {
-    fontSize: 14,
+    marginTop: 5,
     color: "#475569",
-    marginTop: 2,
   },
 
   footerBranding: {
     marginTop: 30,
-    paddingBottom: 40,
-    backgroundColor: "#f8fafc",
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    paddingTop: 20,
-  },
-
-  footerHeadline: {
-    textAlign: "center",
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#64748b",
-    marginBottom: 20,
-    textTransform: "uppercase",
-  },
-
-  trustGrid: {
     flexDirection: "row",
     justifyContent: "space-around",
+    backgroundColor: "#fff",
+    paddingVertical: 24,
+    marginHorizontal: 16,
+    borderRadius: 24,
+    elevation: 4,
   },
 
   trustItem: {
     alignItems: "center",
-    width: "30%",
-  },
-
-  trustIconCircle: {
-    width: 55,
-    height: 55,
-    borderRadius: 27.5,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 8,
-    elevation: 3,
   },
 
   trustTitle: {
-    fontSize: 12,
+    marginTop: 8,
+    color: "#334155",
     fontWeight: "bold",
-    color: "#1e293b",
-    textAlign: "center",
-  },
-
-  trustSub: {
-    fontSize: 10,
-    color: "#94a3b8",
-    textAlign: "center",
-    marginTop: 2,
+    fontSize: 12,
   },
 
   bottomTab: {
-    height: 85,
+    height: 82,
     backgroundColor: "#fff",
     flexDirection: "row",
     borderTopWidth: 1,
-    borderTopColor: "#f1f5f9",
-    paddingBottom: 20,
-    elevation: 20,
+    borderTopColor: "#e2e8f0",
+    elevation: 10,
+    paddingBottom: 10,
   },
 
   tabItem: {
@@ -1188,9 +1133,10 @@ const styles = StyleSheet.create({
   },
 
   tabLabel: {
-    fontSize: 10,
     marginTop: 4,
+    fontSize: 11,
     fontWeight: "600",
+    color: "#94a3b8",
   },
 
   modalOverlay: {
@@ -1200,25 +1146,54 @@ const styles = StyleSheet.create({
   },
 
   modalContent: {
-    padding: 30,
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
-    height: "40%",
-  },
-
-  menuTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 20,
-  },
-
-  menuItem: {
-    fontSize: 18,
-    marginVertical: 10,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    padding: 24,
+    minHeight: 320,
   },
 
   closeBtn: {
     alignSelf: "flex-end",
+  },
+
+  menuTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    marginBottom: 20,
+  },
+
+  menuButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 18,
+    backgroundColor: "#f8fafc",
+    padding: 16,
+    borderRadius: 14,
+  },
+
+  menuText: {
+    flex: 1,
+    marginLeft: 12,
+    color: "#0f172a",
+    fontWeight: "600",
+    fontSize: 15,
+  },
+
+  logoutBtn: {
+    marginTop: 20,
+    backgroundColor: "#dc2626",
+    padding: 16,
+    borderRadius: 14,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  logoutText: {
+    color: "#fff",
+    fontWeight: "bold",
+    marginLeft: 8,
   },
 });
 
