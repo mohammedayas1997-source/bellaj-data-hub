@@ -179,7 +179,7 @@ const AgentDashboard = () => {
               </Text>
             </TouchableOpacity>
 
-            {/* Settings da Dark Mode Toggle a tare */}
+            {/* Wannan shine yadda ya kamata a tsara Settings da Switch */}
             <View
               style={{
                 flexDirection: "row",
@@ -194,40 +194,16 @@ const AgentDashboard = () => {
                   navigation.navigate("Settings");
                 }}
               >
-                // A cikin Modal din AgentDashboard
-                <View style={styles.menuRow}>
-                  <TouchableOpacity
-                    onPress={() => navigation.navigate("Settings")}
-                  >
-                    <Text
-                      style={[
-                        styles.menuItem,
-                        { color: isDarkMode ? "#fff" : "#000" },
-                      ]}
-                    >
-                      ⚙️ Settings
-                    </Text>
-                  </TouchableOpacity>
-
-                  <Switch value={isDarkMode} onValueChange={setIsDarkMode} />
-                </View>
                 <Text
                   style={[
                     styles.menuItem,
-                    {
-                      color: isDarkMode ? "#cbd5e1" : "#334155",
-                      marginBottom: 0,
-                    },
+                    { color: isDarkMode ? "#fff" : "#000" },
                   ]}
                 >
                   ⚙️ Settings
                 </Text>
               </TouchableOpacity>
-              <Text
-                style={{ fontSize: 12, color: isDarkMode ? "#aaa" : "#666" }}
-              >
-                {isDarkMode ? "Dark Mode ON" : "Dark Mode OFF"}
-              </Text>
+              <Switch value={isDarkMode} disabled={true} />
             </View>
 
             <TouchableOpacity onPress={handleLogout} style={{ marginTop: 30 }}>
