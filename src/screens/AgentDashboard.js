@@ -12,6 +12,7 @@ import {
   ToastAndroid,
   ImageBackground,
   Linking,
+  Switch,
   Alert,
   Platform,
   ActivityIndicator,
