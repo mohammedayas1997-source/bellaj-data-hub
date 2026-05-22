@@ -21,7 +21,7 @@ import ContactScreen from "./src/screens/ContactScreen";
 import SupervisorDashboard from "./src/screens/SupervisorDashboard";
 import AdminControlScreen from "./src/screens/AdminControlScreen";
 import AssignTargetScreen from "./src/screens/AssignTargetScreen";
-
+import { ThemeProvider } from "./src/context/ThemeContext";
 // --- AGENT CODES IMPORT (AN GYARA - AN DAURA SHI) ---
 import AgentDashboard from "./src/screens/AgentDashboard";
 // --- SETTINGS IMPORT ---
@@ -108,200 +108,202 @@ function DrawerNavigator() {
 export default function App() {
   const scheme = useColorScheme();
   return (
-    <NavigationContainer>
-      <Stack.Navigator
-        initialRouteName="Onboarding"
-        screenOptions={{
-          headerStyle: {
-            backgroundColor: "#0f172a",
-            elevation: 0,
-            shadowOpacity: 0,
-          },
-          headerTintColor: "#38bdf8",
-          headerTitleStyle: {
-            fontWeight: "bold",
-          },
-        }}
-      >
-        <Stack.Screen
-          name="Onboarding"
-          component={OnboardingScreen}
-          options={{ headerShown: false }}
-        />
+    <ThemeProvider>
+      <NavigationContainer>
+        <Stack.Navigator
+          initialRouteName="Onboarding"
+          screenOptions={{
+            headerStyle: {
+              backgroundColor: "#0f172a",
+              elevation: 0,
+              shadowOpacity: 0,
+            },
+            headerTintColor: "#38bdf8",
+            headerTitleStyle: {
+              fontWeight: "bold",
+            },
+          }}
+        >
+          <Stack.Screen
+            name="Onboarding"
+            component={OnboardingScreen}
+            options={{ headerShown: false }}
+          />
 
-        {/* Auth Stack - Fixed Duplicate Entry */}
-        <Stack.Screen
-          name="Login"
-          component={LoginScreen}
-          options={{ headerShown: false }}
-        />
+          {/* Auth Stack - Fixed Duplicate Entry */}
+          <Stack.Screen
+            name="Login"
+            component={LoginScreen}
+            options={{ headerShown: false }}
+          />
 
-        <Stack.Screen
-          name="Signup"
-          component={SignupScreen}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="Success"
-          component={SuccessScreen}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="ForgotPassword"
-          component={ForgotPasswordScreen}
-          options={{ title: "Reset Password" }}
-        />
+          <Stack.Screen
+            name="Signup"
+            component={SignupScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Success"
+            component={SuccessScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="ForgotPassword"
+            component={ForgotPasswordScreen}
+            options={{ title: "Reset Password" }}
+          />
 
-        {/* Main App Entry Point */}
-        <Stack.Screen
-          name="Main"
-          component={DrawerNavigator}
-          options={{ headerShown: false }}
-        />
+          {/* Main App Entry Point */}
+          <Stack.Screen
+            name="Main"
+            component={DrawerNavigator}
+            options={{ headerShown: false }}
+          />
 
-        {/* Other Stack Screens */}
-        <Stack.Screen
-          name="BuyAirtime"
-          component={AirtimeScreen}
-          options={{ title: "Buy Airtime" }}
-        />
-        <Stack.Screen
-          name="FundWallet"
-          component={FundWalletScreen}
-          options={{ title: "Fund Your Wallet" }}
-        />
-        <Stack.Screen
-          name="BuyData"
-          component={BuyDataScreen}
-          options={{ title: "Data Services" }}
-        />
-        <Stack.Screen
-          name="Electricity"
-          component={ElectricityScreen}
-          options={{ title: "Utility Bills" }}
-        />
-        <Stack.Screen
-          name="NIMC"
-          component={NIMCScreen}
-          options={{ title: "NIMC Services" }}
-        />
-        <Stack.Screen
-          name="BVNScreen"
-          component={BVNScreen}
-          options={{ title: "BVN Verification" }}
-        />
-        <Stack.Screen
-          name="Cable"
-          component={CableScreen}
-          options={{ title: "Cable TV Subscription" }}
-        />
-        <Stack.Screen
-          name="Profile"
-          component={ProfileScreen}
-          options={{ title: "My Profile" }}
-        />
-        <Stack.Screen
-          name="Contact"
-          component={ContactScreen}
-          options={{ title: "Help & Support" }}
-        />
+          {/* Other Stack Screens */}
+          <Stack.Screen
+            name="BuyAirtime"
+            component={AirtimeScreen}
+            options={{ title: "Buy Airtime" }}
+          />
+          <Stack.Screen
+            name="FundWallet"
+            component={FundWalletScreen}
+            options={{ title: "Fund Your Wallet" }}
+          />
+          <Stack.Screen
+            name="BuyData"
+            component={BuyDataScreen}
+            options={{ title: "Data Services" }}
+          />
+          <Stack.Screen
+            name="Electricity"
+            component={ElectricityScreen}
+            options={{ title: "Utility Bills" }}
+          />
+          <Stack.Screen
+            name="NIMC"
+            component={NIMCScreen}
+            options={{ title: "NIMC Services" }}
+          />
+          <Stack.Screen
+            name="BVNScreen"
+            component={BVNScreen}
+            options={{ title: "BVN Verification" }}
+          />
+          <Stack.Screen
+            name="Cable"
+            component={CableScreen}
+            options={{ title: "Cable TV Subscription" }}
+          />
+          <Stack.Screen
+            name="Profile"
+            component={ProfileScreen}
+            options={{ title: "My Profile" }}
+          />
+          <Stack.Screen
+            name="Contact"
+            component={ContactScreen}
+            options={{ title: "Help & Support" }}
+          />
 
-        {/* Admin & Management Screens */}
-        <Stack.Screen
-          name="AdminControl"
-          component={AdminControlScreen}
-          options={{ title: "Admin Panel" }}
-        />
-        <Stack.Screen
-          name="SupervisorDashboard"
-          component={SupervisorDashboard}
-          options={{ title: "Supervisor Panel" }}
-        />
+          {/* Admin & Management Screens */}
+          <Stack.Screen
+            name="AdminControl"
+            component={AdminControlScreen}
+            options={{ title: "Admin Panel" }}
+          />
+          <Stack.Screen
+            name="SupervisorDashboard"
+            component={SupervisorDashboard}
+            options={{ title: "Supervisor Panel" }}
+          />
 
-        {/* AGENT DASHBOARD REGISTERED */}
-        <Stack.Screen
-          name="AgentDashboard"
-          component={AgentDashboard}
-          options={{ title: "Agent Control Panel" }}
-        />
+          {/* AGENT DASHBOARD REGISTERED */}
+          <Stack.Screen
+            name="AgentDashboard"
+            component={AgentDashboard}
+            options={{ title: "Agent Control Panel" }}
+          />
 
-        <Stack.Screen name="Settings" component={SettingsScreen} />
+          <Stack.Screen name="Settings" component={SettingsScreen} />
 
-        <Stack.Screen
-          name="AssignTarget"
-          component={AssignTargetScreen}
-          options={{ title: "Set Target" }}
-        />
-        <Stack.Screen
-          name="LeaderDashboard"
-          component={LeaderDashboard}
-          options={{ title: "Leader Control Center" }}
-        />
-        <Stack.Screen
-          name="CreateSupervisor"
-          component={CreateSupervisorScreen}
-          options={{ title: "Add New Supervisor" }}
-        />
-        <Stack.Screen
-          name="ManageAgents"
-          component={ManageAgentsScreen}
-          options={{ title: "Manage Agents" }}
-        />
-        <Stack.Screen
-          name="SuperAdminUsers"
-          component={UserManagement}
-          options={{ title: "Global User Management" }}
-        />
-        <Stack.Screen
-          name="SuperAdminDashboard"
-          component={SuperAdminDashboard}
-          options={{ title: "SuperAdmin Control" }}
-        />
-        <Stack.Screen
-          name="SupportDashboard"
-          component={SupportDashboard}
-          options={{ title: "Support & Tracing" }}
-        />
-        <Stack.Screen
-          name="NIMCRequests"
-          component={NIMCRequests}
-          options={{ title: "NIMC Pending Tasks" }}
-        />
-        <Stack.Screen
-          name="NIMCModification"
-          component={NIMCModificationScreen}
-          options={{ title: "NIMC Modification", headerShown: false }}
-        />
-        <Stack.Screen
-          name="UpdatePin"
-          component={UpdatePin}
-          options={{ headerShown: false }}
-        />
+          <Stack.Screen
+            name="AssignTarget"
+            component={AssignTargetScreen}
+            options={{ title: "Set Target" }}
+          />
+          <Stack.Screen
+            name="LeaderDashboard"
+            component={LeaderDashboard}
+            options={{ title: "Leader Control Center" }}
+          />
+          <Stack.Screen
+            name="CreateSupervisor"
+            component={CreateSupervisorScreen}
+            options={{ title: "Add New Supervisor" }}
+          />
+          <Stack.Screen
+            name="ManageAgents"
+            component={ManageAgentsScreen}
+            options={{ title: "Manage Agents" }}
+          />
+          <Stack.Screen
+            name="SuperAdminUsers"
+            component={UserManagement}
+            options={{ title: "Global User Management" }}
+          />
+          <Stack.Screen
+            name="SuperAdminDashboard"
+            component={SuperAdminDashboard}
+            options={{ title: "SuperAdmin Control" }}
+          />
+          <Stack.Screen
+            name="SupportDashboard"
+            component={SupportDashboard}
+            options={{ title: "Support & Tracing" }}
+          />
+          <Stack.Screen
+            name="NIMCRequests"
+            component={NIMCRequests}
+            options={{ title: "NIMC Pending Tasks" }}
+          />
+          <Stack.Screen
+            name="NIMCModification"
+            component={NIMCModificationScreen}
+            options={{ title: "NIMC Modification", headerShown: false }}
+          />
+          <Stack.Screen
+            name="UpdatePin"
+            component={UpdatePin}
+            options={{ headerShown: false }}
+          />
 
-        {/* Legal & Info Stack */}
-        <Stack.Screen
-          name="About"
-          component={AboutScreen}
-          options={{ title: "About Us" }}
-        />
-        <Stack.Screen
-          name="PrivacyPolicy"
-          component={PrivacyPolicyScreen}
-          options={{ title: "Privacy Policy" }}
-        />
-        <Stack.Screen
-          name="Terms"
-          component={TermsScreen}
-          options={{ title: "Terms & Conditions" }}
-        />
+          {/* Legal & Info Stack */}
+          <Stack.Screen
+            name="About"
+            component={AboutScreen}
+            options={{ title: "About Us" }}
+          />
+          <Stack.Screen
+            name="PrivacyPolicy"
+            component={PrivacyPolicyScreen}
+            options={{ title: "Privacy Policy" }}
+          />
+          <Stack.Screen
+            name="Terms"
+            component={TermsScreen}
+            options={{ title: "Terms & Conditions" }}
+          />
 
-        {/* NIN VALIDATION SCREEN REGISTRATION */}
-        <Stack.Screen
-          name="NINValidation"
-          component={NINValidation}
-          options={{ title: "NIN Validation" }}
-        />
-      </Stack.Navigator>
-    </NavigationContainer>
+          {/* NIN VALIDATION SCREEN REGISTRATION */}
+          <Stack.Screen
+            name="NINValidation"
+            component={NINValidation}
+            options={{ title: "NIN Validation" }}
+          />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </ThemeProvider>
   );
 }

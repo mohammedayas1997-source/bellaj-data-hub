@@ -11,10 +11,13 @@ import {
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as LocalAuthentication from "expo-local-authentication";
+import { ThemeContext } from "../context/ThemeContext";
+
 const SettingsScreen = ({ navigation }) => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isBiometricSupported, setIsBiometricSupported] = useState(false);
   const [useFingerprintLogin, setUseFingerprintLogin] = useState(false);
+  const { isDarkMode, setIsDarkMode } = useContext(ThemeContext);
   const [useFingerprintTransaction, setUseFingerprintTransaction] =
     useState(false);
 
@@ -22,17 +25,6 @@ const SettingsScreen = ({ navigation }) => {
     checkDeviceSupport();
     loadSettings();
   }, []);
-
-  export const ThemeContext = createContext();
-
-  export const ThemeProvider = ({ children }) => {
-    const [isDarkMode, setIsDarkMode] = useState(false);
-    return (
-      <ThemeContext.Provider value={{ isDarkMode, setIsDarkMode }}>
-        {children}
-      </ThemeContext.Provider>
-    );
-  };
 
   // Check if hardware supports biometrics
   const checkDeviceSupport = async () => {
