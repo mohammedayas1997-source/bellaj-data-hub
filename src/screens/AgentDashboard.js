@@ -8,7 +8,7 @@ import {
   Image,
   StatusBar,
   Dimensions,
-  Clipboard,
+  //Clipboard,
   ToastAndroid,
   ImageBackground,
   Linking,
@@ -152,14 +152,14 @@ const AgentDashboard = () => {
     fetchAgentAndProfileData();
   };
 
-  const copyToClipboard = (text) => {
+  const copyToClipboard = async (text) => {
+    // Ƙara 'async'
     if (!text) return;
-    Clipboard.setStringAsync(text);
+    await Clipboard.setStringAsync(text); // Canja zuwa setStringAsync
     if (Platform.OS === "android") {
       ToastAndroid.show("Copied to clipboard", ToastAndroid.SHORT);
     }
   };
-
   const openWhatsApp = () => {
     const phoneNumber = "+2349061244444";
     const message = `Hello Ayax Xpress Support, I need assistance with my Agent account.`;
