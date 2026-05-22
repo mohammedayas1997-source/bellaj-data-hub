@@ -8,14 +8,19 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  useColorScheme,
+  Modal,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
+import { Ionicons } from "@expo/vector-icons";
 const AgentDashboard = () => {
   const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
+  const colorScheme = useColorScheme();
+  const isDarkMode = colorScheme === "dark";
+  const [menuVisible, setMenuVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [performance, setPerformance] = useState({
     totalGB: 0,
@@ -24,6 +29,12 @@ const AgentDashboard = () => {
     bonusEarned: 0,
     monthlyTargetSales: 0,
   });
+
+  // Logout Function
+  const handleLogout = async () => {
+    await AsyncStorage.removeItem("userToken");
+    navigation.reset({ index: 0, routes: [{ name: "Login" }] });
+  };
   const [supervisor, setSupervisor] = useState(null);
 
   const fetchAgentData = async () => {
@@ -114,10 +125,48 @@ const AgentDashboard = () => {
       }
     >
       <View style={styles.header}>
-        <Text style={styles.welcome}>Agent Portal</Text>
-        <Text style={styles.subText}>Track your sales and performance</Text>
+        <View>
+          <Text style={styles.welcome}>Agent Portal</Text>
+          <Text style={styles.subText}>Track your sales</Text>
+        </View>
+        <TouchableOpacity onPress={() => setMenuVisible(true)}>
+          <Ionicons name="menu" size={30} color="#fff" />
+        </TouchableOpacity>
       </View>
 
+      {/* MENU MODAL */}
+      <Modal visible={menuVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: isDarkMode ? "#1e293b" : "#fff" },
+            ]}
+          >
+            <TouchableOpacity
+              onPress={() => setMenuVisible(false)}
+              style={styles.closeBtn}
+            >
+              <Ionicons
+                name="close"
+                size={24}
+                color={isDarkMode ? "#fff" : "#000"}
+              />
+            </TouchableOpacity>
+
+            <Text style={styles.menuTitle}>Menu</Text>
+            <TouchableOpacity onPress={() => navigation.navigate("Profile")}>
+              <Text style={styles.menuItem}>👤 My Profile</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate("Settings")}>
+              <Text style={styles.menuItem}>⚙️ Settings</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleLogout} style={{ marginTop: 20 }}>
+              <Text style={[styles.menuItem, { color: "red" }]}>🚪 Logout</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
       {/* CORE PERFORMANCE METRICS */}
       <View style={styles.statsGrid}>
         <StatCard
@@ -356,6 +405,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   actionBtnText: { fontSize: 15, color: "#1e3a8a", fontWeight: "600" },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    padding: 30,
+    borderTopLeftRadius: 25,
+    borderTopRightRadius: 25,
+    height: "40%",
+  },
+  menuTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 20,
+    color: "#64748b",
+  },
+  menuItem: { fontSize: 18, marginVertical: 10, color: "#334155" },
+  closeBtn: { alignSelf: "flex-end" },
 });
 
 export default AgentDashboard;
