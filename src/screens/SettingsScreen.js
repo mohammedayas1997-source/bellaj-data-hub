@@ -11,6 +11,7 @@ import {
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as LocalAuthentication from "expo-local-authentication";
+import React, { createContext, useState } from "react";
 
 const SettingsScreen = ({ navigation }) => {
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -23,6 +24,17 @@ const SettingsScreen = ({ navigation }) => {
     checkDeviceSupport();
     loadSettings();
   }, []);
+
+  export const ThemeContext = createContext();
+
+  export const ThemeProvider = ({ children }) => {
+    const [isDarkMode, setIsDarkMode] = useState(false);
+    return (
+      <ThemeContext.Provider value={{ isDarkMode, setIsDarkMode }}>
+        {children}
+      </ThemeContext.Provider>
+    );
+  };
 
   // Check if hardware supports biometrics
   const checkDeviceSupport = async () => {
@@ -273,6 +285,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 1,
   },
+  darkItem: { backgroundColor: "#1e293b" },
+  lightItem: { backgroundColor: "#fff" },
+  darkItemText: { color: "#f1f5f9" },
   itemLeft: { flexDirection: "row", alignItems: "center" },
   itemText: {
     marginLeft: 15,

@@ -106,6 +106,7 @@ function DrawerNavigator() {
 
 // --- MAIN APP COMPONENT ---
 export default function App() {
+  const scheme = useColorScheme();
   return (
     <NavigationContainer>
       <Stack.Navigator
@@ -223,6 +224,8 @@ export default function App() {
           component={AgentDashboard}
           options={{ title: "Agent Control Panel" }}
         />
+
+        <Stack.Screen name="Settings" component={SettingsScreen} />
 
         <Stack.Screen
           name="AssignTarget"

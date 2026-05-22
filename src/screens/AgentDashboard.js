@@ -163,7 +163,6 @@ const AgentDashboard = () => {
               Menu
             </Text>
 
-            {/* My Profile */}
             <TouchableOpacity
               onPress={() => {
                 setMenuVisible(false);
@@ -173,32 +172,65 @@ const AgentDashboard = () => {
               <Text
                 style={[
                   styles.menuItem,
-                  { color: isDarkMode ? "#e2e8f0" : "#334155" },
+                  { color: isDarkMode ? "#cbd5e1" : "#334155" },
                 ]}
               >
                 👤 My Profile
               </Text>
             </TouchableOpacity>
 
-            {/* Settings */}
-            <TouchableOpacity
-              onPress={() => {
-                setMenuVisible(false);
-                navigation.navigate("Settings");
+            {/* Settings da Dark Mode Toggle a tare */}
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginVertical: 10,
               }}
             >
-              <Text
-                style={[
-                  styles.menuItem,
-                  { color: isDarkMode ? "#e2e8f0" : "#334155" },
-                ]}
+              <TouchableOpacity
+                onPress={() => {
+                  setMenuVisible(false);
+                  navigation.navigate("Settings");
+                }}
               >
-                ⚙️ Settings
-              </Text>
-            </TouchableOpacity>
+                // A cikin Modal din AgentDashboard
+                <View style={styles.menuRow}>
+                  <TouchableOpacity
+                    onPress={() => navigation.navigate("Settings")}
+                  >
+                    <Text
+                      style={[
+                        styles.menuItem,
+                        { color: isDarkMode ? "#fff" : "#000" },
+                      ]}
+                    >
+                      ⚙️ Settings
+                    </Text>
+                  </TouchableOpacity>
 
-            {/* Logout */}
-            <TouchableOpacity onPress={handleLogout} style={{ marginTop: 20 }}>
+                  <Switch value={isDarkMode} onValueChange={setIsDarkMode} />
+                </View>
+                <Text
+                  style={[
+                    styles.menuItem,
+                    {
+                      color: isDarkMode ? "#cbd5e1" : "#334155",
+                      marginBottom: 0,
+                    },
+                  ]}
+                >
+                  ⚙️ Settings
+                </Text>
+              </TouchableOpacity>
+              <Text
+                style={{ fontSize: 12, color: isDarkMode ? "#aaa" : "#666" }}
+              >
+                {isDarkMode ? "Dark Mode ON" : "Dark Mode OFF"}
+              </Text>
+            </View>
+
+            <TouchableOpacity onPress={handleLogout} style={{ marginTop: 30 }}>
               <Text
                 style={[styles.menuItem, { color: "red", fontWeight: "bold" }]}
               >
