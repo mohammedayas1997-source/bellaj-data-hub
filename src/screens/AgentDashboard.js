@@ -24,7 +24,6 @@ import {
   FontAwesome5,
 } from "@expo/vector-icons";
 import Modal from "react-native-modal";
-import Switch from "react-native/Libraries/Components/Switch/Switch";
 import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
