@@ -318,9 +318,9 @@ const AgentDashboard = () => {
 
           <Text style={styles.sectionLabel}>Automatic Funding Accounts</Text>
           <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.bankScroll}
+            style={styles.content}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
           >
             {userData?.accountNumber &&
             userData?.accountNumber !== "Initialization Pending" ? (
