@@ -731,21 +731,25 @@ const AgentDashboard = () => {
 };
 
 // Sub-components
-const BankCard = ({ bank, acc, code, onCopy }) => (
-  <TouchableOpacity style={styles.bankBox} onPress={onCopy}>
+const BankCard = ({ bank, acc, code, onCopy, isDarkMode }) => (
+  <TouchableOpacity
+    style={[styles.bankBox, isDarkMode && { backgroundColor: "#1e293b" }]}
+    onPress={onCopy}
+  >
     <View style={styles.bankInfo}>
       <View style={styles.bankLogoCircle}>
         <Text style={styles.bankLogoText}>{code}</Text>
       </View>
       <View>
         <Text style={styles.bankTitle}>{bank}</Text>
-        <Text style={styles.accNo}>{acc}</Text>
+        <Text style={[styles.accNo, isDarkMode && { color: "#fff" }]}>
+          {acc}
+        </Text>
       </View>
     </View>
     <Ionicons name="copy-outline" size={18} color="#1e40af" />
   </TouchableOpacity>
 );
-
 const ServiceItem = ({ icon, label, color, onPress }) => (
   <TouchableOpacity style={styles.gridItem} onPress={onPress}>
     <View style={styles.iconBox}>
@@ -867,7 +871,7 @@ const styles = StyleSheet.create({
   },
   bankScroll: { marginBottom: 25 },
   bankBox: {
-    backgroundColor: isDarkMode ? "#1e293b" : "#fff",
+    backgroundColor: "#fff", // Default
     width: width * 0.75,
     padding: 16,
     borderRadius: 20,
