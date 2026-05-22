@@ -242,35 +242,15 @@ const AgentDashboard = () => {
 
         <ScrollView
           style={styles.content}
+          contentContainerStyle={{
+            paddingBottom: 150, // Kara wannan don ganin kasan dashboard din
+            flexGrow: 1, // Wannan yana ba ScrollView damar fadada yadda ya kamata
+          }}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         >
-          <View style={styles.menuSection}>
-            <Text style={styles.sectionTitle}>Account</Text>
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => navigation.navigate("Profile")}
-            >
-              <Ionicons name="person-outline" size={24} color="#1e40af" />
-              <Text style={styles.menuText}>Profile</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => navigation.navigate("Settings")}
-            >
-              <Ionicons name="settings-outline" size={24} color="#1e40af" />
-              <Text style={styles.menuText}>Settings</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
-              <Ionicons name="log-out-outline" size={24} color="#dc2626" />
-              <Text style={[styles.menuText, { color: "#dc2626" }]}>
-                Logout
-              </Text>
-            </TouchableOpacity>
-          </View>
-
           <LinearGradient
             colors={["#1e40af", "#1e3a8a"]}
             style={styles.walletCard}
@@ -817,7 +797,10 @@ const styles = StyleSheet.create({
   welcomeSection: { marginBottom: 10 },
   welcomeText: { color: "#64748b", fontSize: 14, fontWeight: "500" },
   userName: { color: "#0f172a", fontSize: 24, fontWeight: "bold" },
-  content: { flex: 1, paddingHorizontal: 16 },
+  content: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
   walletCard: {
     borderRadius: 24,
     padding: 22,
