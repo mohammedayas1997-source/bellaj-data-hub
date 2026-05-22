@@ -16,6 +16,8 @@ import {
   Platform,
   ActivityIndicator,
   RefreshControl,
+  Modal,
+  TouchableWithoutFeedback,
 } from "react-native";
 import {
   MaterialCommunityIcons,
@@ -37,6 +39,7 @@ const AgentDashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [userData, setUserData] = useState(null);
   const [isBalanceVisible, setIsBalanceVisible] = useState(true);
+  const [showMenu, setShowMenu] = useState(false); // Menu state
   const colorScheme = useColorScheme();
   const isDarkMode = colorScheme === "dark";
 
@@ -98,7 +101,7 @@ const AgentDashboard = () => {
         setSupervisor("No Supervisor Assigned Yet");
       }
     } catch (err) {
-      console.log("Comprehensive Agent Dashboard Fetch Error:", err);
+      console.log("Error:", err);
       if (err.response && err.response.status === 401) {
         await AsyncStorage.clear();
         navigation.reset({ index: 0, routes: [{ name: "Login" }] });
@@ -172,6 +175,42 @@ const AgentDashboard = () => {
         translucent
         backgroundColor="transparent"
       />
+
+      {/* --- MENU MODAL --- */}
+      <Modal visible={showMenu} transparent animationType="fade">
+        <TouchableWithoutFeedback onPress={() => setShowMenu(false)}>
+          <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)" }} />
+        </TouchableWithoutFeedback>
+        <View style={styles.menuDrawer}>
+          <TouchableOpacity
+            style={styles.drawerItem}
+            onPress={() => {
+              setShowMenu(false);
+              navigation.navigate("Profile");
+            }}
+          >
+            <Ionicons name="person-outline" size={24} color="#1e40af" />
+            <Text style={styles.drawerText}>Profile</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.drawerItem}
+            onPress={() => {
+              setShowMenu(false);
+              navigation.navigate("Settings");
+            }}
+          >
+            <Ionicons name="settings-outline" size={24} color="#1e40af" />
+            <Text style={styles.drawerText}>Settings</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.drawerItem} onPress={handleLogout}>
+            <Ionicons name="log-out-outline" size={24} color="#dc2626" />
+            <Text style={[styles.drawerText, { color: "#dc2626" }]}>
+              Logout
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
       <ImageBackground
         source={require("../assets/ayax_promo_hijab.png")}
         style={styles.backgroundImage}
@@ -192,12 +231,8 @@ const AgentDashboard = () => {
                 style={styles.logoImg}
               />
             </View>
-            <TouchableOpacity onPress={() => navigation.navigate("Settings")}>
-              <Ionicons
-                name="notifications-outline"
-                size={28}
-                color="#0f172a"
-              />
+            <TouchableOpacity onPress={() => setShowMenu(true)}>
+              <Ionicons name="menu" size={32} color="#0f172a" />
             </TouchableOpacity>
           </View>
           <View style={styles.welcomeSection}>
@@ -217,30 +252,7 @@ const AgentDashboard = () => {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         >
-          <View style={styles.menuSection}>
-            <Text style={styles.sectionTitle}>Account</Text>
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => navigation.navigate("Profile")}
-            >
-              <Ionicons name="person-outline" size={24} color="#1e40af" />
-              <Text style={styles.menuText}>Profile</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => navigation.navigate("Settings")}
-            >
-              <Ionicons name="settings-outline" size={24} color="#1e40af" />
-              <Text style={styles.menuText}>Settings</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
-              <Ionicons name="log-out-outline" size={24} color="#dc2626" />
-              <Text style={[styles.menuText, { color: "#dc2626" }]}>
-                Logout
-              </Text>
-            </TouchableOpacity>
-          </View>
-
+          {/* --- WALLET SECTION --- */}
           <LinearGradient
             colors={["#1e40af", "#1e3a8a"]}
             style={styles.walletCard}
@@ -303,6 +315,7 @@ const AgentDashboard = () => {
             </View>
           </LinearGradient>
 
+          {/* --- BANK ACCOUNTS --- */}
           <Text style={styles.sectionLabel}>Automatic Funding Accounts</Text>
           <ScrollView
             horizontal
@@ -322,27 +335,18 @@ const AgentDashboard = () => {
                 bank="Wema Bank (Pending)"
                 acc="Generating..."
                 code=".."
-                onCopy={() =>
-                  Alert.alert(
-                    "Wait",
-                    "Your unique virtual agent account is being provisioned automatically.",
-                  )
-                }
+                onCopy={() => Alert.alert("Wait", "Provisioning...")}
               />
             )}
             <BankCard
               bank="Paystack Terminal"
               acc="Automated Funding"
               code="PAY"
-              onCopy={() =>
-                Alert.alert(
-                  "Note",
-                  "Transfer to your assigned Wema account for instant automated wallet credit.",
-                )
-              }
+              onCopy={() => Alert.alert("Note", "Use Wema Account")}
             />
           </ScrollView>
 
+          {/* --- PERFORMANCE METRICS --- */}
           <Text style={styles.sectionLabel}>Performance Metrics</Text>
           <View style={styles.statsGrid}>
             <StatCard
@@ -373,6 +377,7 @@ const AgentDashboard = () => {
             />
           </View>
 
+          {/* --- TARGET TRACKING --- */}
           <View style={styles.targetTrackingSection}>
             <Text style={styles.sectionTitle}>
               Target & Performance Tracking
@@ -410,6 +415,7 @@ const AgentDashboard = () => {
             </View>
           </View>
 
+          {/* --- SERVICES --- */}
           <Text style={styles.sectionLabel}>Agent Utilities Services</Text>
           <View style={styles.servicesContainer}>
             <View style={styles.grid}>
@@ -472,6 +478,7 @@ const AgentDashboard = () => {
             </View>
           </View>
 
+          {/* --- SUPERVISOR & ACTIONS --- */}
           <View style={styles.supervisorSection}>
             <Text style={styles.sectionTitle}>Assigned Supervisor</Text>
             <View style={styles.infoBox}>
@@ -506,38 +513,13 @@ const AgentDashboard = () => {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.footerBranding}>
-            <Text style={styles.footerHeadline}>Why Choose Ayax Xpress?</Text>
-            <View style={styles.trustGrid}>
-              <TrustItem
-                icon="shield-check"
-                color="#16a34a"
-                bg="#dcfce7"
-                title="100% Secure"
-                sub="Encrypted"
-              />
-              <TrustItem
-                icon="flash"
-                color="#ca8a04"
-                bg="#fef9c3"
-                title="Instant"
-                sub="Automated"
-              />
-              <TrustItem
-                icon="headset"
-                color="#0284c7"
-                bg="#e0f2fe"
-                title="24/7 Support"
-                sub="Reliable"
-              />
-            </View>
-          </View>
           <View style={{ height: 120 }} />
         </ScrollView>
       </ImageBackground>
 
+      {/* --- BOTTOM TABS --- */}
       <View style={styles.bottomTab}>
-        <TabItem icon="home" label="Dashboard" active onPress={() => {}} />
+        <TabItem icon="home" label="Dashboard" active />
         <TabItem
           icon="time-outline"
           label="History"
@@ -560,7 +542,7 @@ const AgentDashboard = () => {
   );
 };
 
-// Sub-components
+// --- SUB-COMPONENTS & STYLES --- (Kamar yadda suke a da)
 const BankCard = ({ bank, acc, code, onCopy }) => (
   <TouchableOpacity style={styles.bankBox} onPress={onCopy}>
     <View style={styles.bankInfo}>
@@ -594,20 +576,6 @@ const StatCard = ({ title, value, unit, color }) => (
   </View>
 );
 
-const TrustItem = ({ icon, color, bg, title, sub }) => (
-  <View style={styles.trustItem}>
-    <View style={[styles.trustIconCircle, { backgroundColor: bg }]}>
-      {icon === "flash" ? (
-        <Ionicons name={icon} size={28} color={color} />
-      ) : (
-        <MaterialCommunityIcons name={icon} size={28} color={color} />
-      )}
-    </View>
-    <Text style={styles.trustTitle}>{title}</Text>
-    <Text style={styles.trustSub}>{sub}</Text>
-  </View>
-);
-
 const TabItem = ({ icon, label, active, onPress }) => (
   <TouchableOpacity style={styles.tabItem} onPress={onPress}>
     <Ionicons name={icon} size={24} color={active ? "#1e40af" : "#94a3b8"} />
@@ -619,6 +587,24 @@ const TabItem = ({ icon, label, active, onPress }) => (
 
 const styles = StyleSheet.create({
   mainContainer: { flex: 1, backgroundColor: "#f8fafc" },
+  menuDrawer: {
+    position: "absolute",
+    top: 100,
+    right: 20,
+    width: 180,
+    backgroundColor: "#fff",
+    borderRadius: 15,
+    padding: 10,
+    elevation: 5,
+  },
+  drawerItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f1f5f9",
+  },
+  drawerText: { marginLeft: 10, fontSize: 16, color: "#334155" },
   backgroundImage: { flex: 1, width: "100%", height: "100%" },
   fullOverlayGradient: { ...StyleSheet.absoluteFillObject },
   fullOverlay: { flex: 1 },
@@ -819,26 +805,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontWeight: "600",
   },
-  menuSection: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 15,
-    marginBottom: 20,
-    elevation: 2,
-  },
-  menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f1f5f9",
-  },
-  menuText: {
-    marginLeft: 15,
-    fontSize: 16,
-    color: "#334155",
-    fontWeight: "500",
-  },
   supervisorSection: { marginBottom: 20 },
   infoBox: {
     backgroundColor: "#fff",
@@ -858,31 +824,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   actionBtnTextFull: { color: "#fff", fontWeight: "bold" },
-  footerBranding: {
-    marginTop: 10,
-    paddingBottom: 40,
-    backgroundColor: "#f8fafc",
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    paddingTop: 20,
-  },
-  footerHeadline: {
-    textAlign: "center",
-    fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 15,
-  },
-  trustGrid: { flexDirection: "row", justifyContent: "space-around" },
-  trustItem: { alignItems: "center" },
-  trustIconCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  trustTitle: { fontSize: 12, fontWeight: "bold", marginTop: 8 },
-  trustSub: { fontSize: 10, color: "#64748b" },
   bottomTab: {
     height: 85,
     backgroundColor: "#fff",
