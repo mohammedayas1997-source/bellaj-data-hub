@@ -55,7 +55,10 @@ const AgentDashboard = () => {
   const fetchAgentAndProfileData = async () => {
     try {
       const token = await AsyncStorage.getItem("userToken");
+
       if (!token) {
+        // Idan babu token, mu kashe loading din kafin mu tura mai amfani zuwa Login
+        setLoading(false);
         navigation.reset({ index: 0, routes: [{ name: "Login" }] });
         return;
       }
@@ -799,6 +802,7 @@ const styles = StyleSheet.create({
   userName: { color: "#0f172a", fontSize: 24, fontWeight: "bold" },
   content: {
     flex: 1,
+    backgroundColor: "red",
     paddingHorizontal: 16,
   },
   walletCard: {
