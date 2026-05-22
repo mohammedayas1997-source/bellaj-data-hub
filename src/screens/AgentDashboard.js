@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import {
   View,
   Text,
@@ -29,7 +29,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
-import { useColorScheme } from "react-native";
+import { ThemeContext } from "../context/ThemeContext";
 
 const { width } = Dimensions.get("window");
 const BASE_URL = "https://ayax-data-xpress-server.onrender.com/api/v1";
@@ -40,9 +40,7 @@ const AgentDashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [userData, setUserData] = useState(null);
   const [isBalanceVisible, setIsBalanceVisible] = useState(true);
-  const systemTheme = useColorScheme();
-  const [isDarkMode, setIsDarkMode] = useState(systemTheme === "dark");
-
+  const { isDarkMode, toggleTheme } = useContext(ThemeContext);
   const [menuVisible, setMenuVisible] = useState(false);
   const [performance, setPerformance] = useState({
     totalGB: 0,
@@ -122,31 +120,6 @@ const AgentDashboard = () => {
   useEffect(() => {
     loadTheme();
   }, []);
-
-  const loadTheme = async () => {
-    try {
-      const savedTheme = await AsyncStorage.getItem("darkMode");
-
-      if (savedTheme !== null) {
-        setIsDarkMode(savedTheme === "true");
-      }
-    } catch (e) {
-      console.log(e);
-    }
-  };
-
-  const toggleDarkMode = async () => {
-    try {
-      const newValue = !isDarkMode;
-
-      setIsDarkMode(newValue);
-
-      await AsyncStorage.setItem("darkMode", newValue.toString());
-    } catch (e) {
-      console.log(e);
-    }
-  };
-
   const onRefresh = () => {
     setRefreshing(true);
     fetchAgentAndProfileData();
@@ -179,28 +152,43 @@ const AgentDashboard = () => {
       : 0;
 
   const handleLogout = async () => {
-    Alert.alert("Logout", "Are you sure you want to exit?", [
-      { text: "Cancel" },
-      {
-        text: "Yes",
-        onPress: async () => {
-          await AsyncStorage.clear();
-          navigation.reset({ index: 0, routes: [{ name: "Login" }] });
+    try {
+      Alert.alert("Logout", "Are you sure you want to logout?", [
+        {
+          text: "Cancel",
+          style: "cancel",
         },
-      },
-    ]);
+        {
+          text: "Logout",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await AsyncStorage.multiRemove(["userToken", "userData"]);
+
+              navigation.reset({
+                index: 0,
+                routes: [{ name: "Login" }],
+              });
+            } catch (error) {
+              console.log(error);
+            }
+          },
+        },
+      ]);
+    } catch (error) {
+      console.log(error);
+    }
   };
 
-  if (loading) {
-    return (
-      <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#1e3a8a" />
-      </View>
-    );
-  }
-
   return (
-    <View style={styles.mainContainer}>
+    <View
+      style={[
+        styles.mainContainer,
+        {
+          backgroundColor: isDarkMode ? "#020617" : "#f8fafc",
+        },
+      ]}
+    >
       <StatusBar
         barStyle="dark-content"
         translucent
@@ -244,6 +232,9 @@ const AgentDashboard = () => {
           </View>
         </View>
         <ScrollView
+          style={{
+            backgroundColor: isDarkMode ? "#020617" : "#f8fafc",
+          }}
           style={styles.content}
           contentContainerStyle={{
             paddingBottom: 180,
@@ -677,7 +668,7 @@ const AgentDashboard = () => {
 
                 <View style={{ flex: 1 }} />
 
-                <Switch value={isDarkMode} onValueChange={toggleDarkMode} />
+                <Switch value={isDarkMode} onValueChange={toggleTheme} />
               </View>
 
               <TouchableOpacity
@@ -882,7 +873,7 @@ const styles = StyleSheet.create({
   },
   bankScroll: { marginBottom: 25 },
   bankBox: {
-    backgroundColor: "#fff", // Default
+    backgroundColor: isDarkMode ? "#1e293b" : "#fff",
     width: width * 0.75,
     padding: 16,
     borderRadius: 20,
