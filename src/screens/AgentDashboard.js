@@ -356,196 +356,203 @@ const AgentDashboard = () => {
             />
           </ScrollView>
 
-          <Text style={styles.sectionLabel}>Performance Metrics</Text>
-          <View style={styles.statsGrid}>
-            <StatCard
-              title="Monthly Volume"
-              value={performance.totalGB || 0}
-              unit="GB"
-              color="#2563eb"
-            />
-            <StatCard
-              title="Monthly Revenue"
-              value={`₦${currentSales}`}
-              unit=""
-              color="#059669"
-            />
-          </View>
-          <View style={styles.statsGridAlt}>
-            <StatCard
-              title="Commissions Earned"
-              value={`₦${performance.commissionsEarned || 0}`}
-              unit=""
-              color="#d4af37"
-            />
-            <StatCard
-              title="Bonus Earned"
-              value={`₦${performance.bonusEarned || 0}`}
-              unit=""
-              color="#dc2626"
-            />
-          </View>
+          <ScrollView
+            style={styles.content}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <Text style={styles.sectionLabel}>Performance Metrics</Text>
+            <View style={styles.statsGrid}>
+              <StatCard
+                title="Monthly Volume"
+                value={performance.totalGB || 0}
+                unit="GB"
+                color="#2563eb"
+              />
+              <StatCard
+                title="Monthly Revenue"
+                value={`₦${currentSales}`}
+                unit=""
+                color="#059669"
+              />
+            </View>
+            <View style={styles.statsGridAlt}>
+              <StatCard
+                title="Commissions Earned"
+                value={`₦${performance.commissionsEarned || 0}`}
+                unit=""
+                color="#d4af37"
+              />
+              <StatCard
+                title="Bonus Earned"
+                value={`₦${performance.bonusEarned || 0}`}
+                unit=""
+                color="#dc2626"
+              />
+            </View>
 
-          <View style={styles.targetTrackingSection}>
-            <Text style={styles.sectionTitle}>
-              Target & Performance Tracking
-            </Text>
-            <View style={styles.targetCard}>
-              <View style={styles.targetRow}>
-                <View>
-                  <Text style={styles.targetLabel}>Monthly Target</Text>
-                  <Text style={styles.targetValue}>₦{targetSales}</Text>
+            <View style={styles.targetTrackingSection}>
+              <Text style={styles.sectionTitle}>
+                Target & Performance Tracking
+              </Text>
+              <View style={styles.targetCard}>
+                <View style={styles.targetRow}>
+                  <View>
+                    <Text style={styles.targetLabel}>Monthly Target</Text>
+                    <Text style={styles.targetValue}>₦{targetSales}</Text>
+                  </View>
+                  <View style={styles.rightAlign}>
+                    <Text style={styles.targetLabel}>Achievement</Text>
+                    <Text style={styles.percentageText}>
+                      {achievementPercentage}%
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.rightAlign}>
-                  <Text style={styles.targetLabel}>Achievement</Text>
-                  <Text style={styles.percentageText}>
-                    {achievementPercentage}%
+                <View style={styles.progressTrack}>
+                  <View
+                    style={[
+                      styles.progressBar,
+                      { width: `${achievementPercentage}%` },
+                    ]}
+                  />
+                </View>
+                <View style={styles.targetRowAlt}>
+                  <Text style={styles.progressSubText}>
+                    Current:{" "}
+                    <Text style={styles.boldText}>₦{currentSales}</Text>
+                  </Text>
+                  <Text style={styles.remainingText}>
+                    Remaining:{" "}
+                    <Text style={styles.boldTextRed}>₦{remainingToTarget}</Text>
                   </Text>
                 </View>
               </View>
-              <View style={styles.progressTrack}>
-                <View
-                  style={[
-                    styles.progressBar,
-                    { width: `${achievementPercentage}%` },
-                  ]}
+            </View>
+
+            <Text style={styles.sectionLabel}>Agent Utilities Services</Text>
+            <View style={styles.servicesContainer}>
+              <View style={styles.grid}>
+                <ServiceItem
+                  icon="wifi"
+                  color="#0ea5e9"
+                  label="Data"
+                  onPress={() => navigation.navigate("BuyData")}
+                />
+                <ServiceItem
+                  icon="phone-alt"
+                  color="#22c55e"
+                  label="Airtime"
+                  onPress={() => navigation.navigate("BuyAirtime")}
+                />
+                <ServiceItem
+                  icon="bolt"
+                  color="#eab308"
+                  label="Power"
+                  onPress={() => navigation.navigate("Electricity")}
+                />
+                <ServiceItem
+                  icon="tv"
+                  color="#8b5cf6"
+                  label="Cable"
+                  onPress={() => navigation.navigate("Cable")}
+                />
+                <ServiceItem
+                  icon="id-card"
+                  color="#f43f5e"
+                  label="NIMC Verify"
+                  onPress={() => navigation.navigate("NIMC")}
+                />
+                <ServiceItem
+                  icon="fingerprint"
+                  color="#ec4899"
+                  label="NIMC Mod"
+                  onPress={() => navigation.navigate("NIMCModification")}
+                />
+                <ServiceItem
+                  icon="user-shield"
+                  color="#64748b"
+                  label="BVN"
+                  onPress={() => navigation.navigate("BVNScreen")}
+                />
+                <ServiceItem
+                  icon="shield-alt"
+                  color="#1e40af"
+                  label="NIN Valid"
+                  onPress={() => navigation.navigate("NINValidation")}
+                />
+                <ServiceItem
+                  icon="history"
+                  color="#f97316"
+                  label="History"
+                  onPress={() =>
+                    navigation.navigate("Main", { screen: "Wallet History" })
+                  }
                 />
               </View>
-              <View style={styles.targetRowAlt}>
-                <Text style={styles.progressSubText}>
-                  Current: <Text style={styles.boldText}>₦{currentSales}</Text>
-                </Text>
-                <Text style={styles.remainingText}>
-                  Remaining:{" "}
-                  <Text style={styles.boldTextRed}>₦{remainingToTarget}</Text>
-                </Text>
+            </View>
+
+            <View style={styles.supervisorSection}>
+              <Text style={styles.sectionTitle}>Assigned Supervisor</Text>
+              <View style={styles.infoBox}>
+                {typeof supervisor === "string" ? (
+                  <Text style={styles.infoText}>{supervisor}</Text>
+                ) : (
+                  <View>
+                    <Text style={styles.supName}>
+                      {supervisor?.name || "N/A"}
+                    </Text>
+                    <Text style={styles.supPhone}>
+                      {supervisor?.phone || "No Contact"}
+                    </Text>
+                  </View>
+                )}
               </View>
             </View>
-          </View>
 
-          <Text style={styles.sectionLabel}>Agent Utilities Services</Text>
-          <View style={styles.servicesContainer}>
-            <View style={styles.grid}>
-              <ServiceItem
-                icon="wifi"
-                color="#0ea5e9"
-                label="Data"
-                onPress={() => navigation.navigate("BuyData")}
-              />
-              <ServiceItem
-                icon="phone-alt"
-                color="#22c55e"
-                label="Airtime"
-                onPress={() => navigation.navigate("BuyAirtime")}
-              />
-              <ServiceItem
-                icon="bolt"
-                color="#eab308"
-                label="Power"
-                onPress={() => navigation.navigate("Electricity")}
-              />
-              <ServiceItem
-                icon="tv"
-                color="#8b5cf6"
-                label="Cable"
-                onPress={() => navigation.navigate("Cable")}
-              />
-              <ServiceItem
-                icon="id-card"
-                color="#f43f5e"
-                label="NIMC Verify"
-                onPress={() => navigation.navigate("NIMC")}
-              />
-              <ServiceItem
-                icon="fingerprint"
-                color="#ec4899"
-                label="NIMC Mod"
-                onPress={() => navigation.navigate("NIMCModification")}
-              />
-              <ServiceItem
-                icon="user-shield"
-                color="#64748b"
-                label="BVN"
-                onPress={() => navigation.navigate("BVNScreen")}
-              />
-              <ServiceItem
-                icon="shield-alt"
-                color="#1e40af"
-                label="NIN Valid"
-                onPress={() => navigation.navigate("NINValidation")}
-              />
-              <ServiceItem
-                icon="history"
-                color="#f97316"
-                label="History"
-                onPress={() =>
-                  navigation.navigate("Main", { screen: "Wallet History" })
-                }
-              />
+            <View style={styles.actionSection}>
+              <Text style={styles.sectionTitle}>Quick Agent Actions</Text>
+              <TouchableOpacity
+                style={styles.actionBtnFull}
+                onPress={() => navigation.navigate("NewSale")}
+              >
+                <Text style={styles.actionBtnTextFull}>Process New Sale</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.actionBtnFull}
+                onPress={() => navigation.navigate("SalesHistory")}
+              >
+                <Text style={styles.actionBtnTextFull}>View Sales History</Text>
+              </TouchableOpacity>
             </View>
-          </View>
 
-          <View style={styles.supervisorSection}>
-            <Text style={styles.sectionTitle}>Assigned Supervisor</Text>
-            <View style={styles.infoBox}>
-              {typeof supervisor === "string" ? (
-                <Text style={styles.infoText}>{supervisor}</Text>
-              ) : (
-                <View>
-                  <Text style={styles.supName}>
-                    {supervisor?.name || "N/A"}
-                  </Text>
-                  <Text style={styles.supPhone}>
-                    {supervisor?.phone || "No Contact"}
-                  </Text>
-                </View>
-              )}
+            <View style={styles.footerBranding}>
+              <Text style={styles.footerHeadline}>Why Choose Ayax Xpress?</Text>
+              <View style={styles.trustGrid}>
+                <TrustItem
+                  icon="shield-check"
+                  color="#16a34a"
+                  bg="#dcfce7"
+                  title="100% Secure"
+                  sub="Encrypted"
+                />
+                <TrustItem
+                  icon="flash"
+                  color="#ca8a04"
+                  bg="#fef9c3"
+                  title="Instant"
+                  sub="Automated"
+                />
+                <TrustItem
+                  icon="headset"
+                  color="#0284c7"
+                  bg="#e0f2fe"
+                  title="24/7 Support"
+                  sub="Reliable"
+                />
+              </View>
             </View>
-          </View>
-
-          <View style={styles.actionSection}>
-            <Text style={styles.sectionTitle}>Quick Agent Actions</Text>
-            <TouchableOpacity
-              style={styles.actionBtnFull}
-              onPress={() => navigation.navigate("NewSale")}
-            >
-              <Text style={styles.actionBtnTextFull}>Process New Sale</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.actionBtnFull}
-              onPress={() => navigation.navigate("SalesHistory")}
-            >
-              <Text style={styles.actionBtnTextFull}>View Sales History</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.footerBranding}>
-            <Text style={styles.footerHeadline}>Why Choose Ayax Xpress?</Text>
-            <View style={styles.trustGrid}>
-              <TrustItem
-                icon="shield-check"
-                color="#16a34a"
-                bg="#dcfce7"
-                title="100% Secure"
-                sub="Encrypted"
-              />
-              <TrustItem
-                icon="flash"
-                color="#ca8a04"
-                bg="#fef9c3"
-                title="Instant"
-                sub="Automated"
-              />
-              <TrustItem
-                icon="headset"
-                color="#0284c7"
-                bg="#e0f2fe"
-                title="24/7 Support"
-                sub="Reliable"
-              />
-            </View>
-          </View>
-          <View style={{ height: 120 }} />
+            <View style={{ height: 120 }} />
+          </ScrollView>
         </ScrollView>
       </ImageBackground>
 
