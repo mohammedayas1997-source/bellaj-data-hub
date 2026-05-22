@@ -1,156 +1,98 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
-  ScrollView,
-  TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
-  Switch,
-  RefreshControl,
-  useColorScheme,
-  Modal,
+  TouchableOpacity,
+  ScrollView,
+  Image,
   StatusBar,
   Dimensions,
+  Clipboard,
   ToastAndroid,
-  Image,
   ImageBackground,
   Linking,
+  Alert,
   Platform,
-  Animated,
+  ActivityIndicator,
+  RefreshControl,
 } from "react-native";
-
-import * as Clipboard from "expo-clipboard";
-
-import { useNavigation } from "@react-navigation/native";
-
-import axios from "axios";
-
-import AsyncStorage from "@react-native-async-storage/async-storage";
-
 import {
-  Ionicons,
   MaterialCommunityIcons,
+  Ionicons,
   FontAwesome5,
-  Feather,
 } from "@expo/vector-icons";
-
+import Modal from "react-native-modal";
+import Switch from "react-native/Libraries/Components/Switch/Switch";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNavigation } from "@react-navigation/native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
+import { useColorScheme } from "react-native";
 
 const { width } = Dimensions.get("window");
-
-const isTabletOrDesktop = width >= 768;
-
 const BASE_URL = "https://ayax-data-xpress-server.onrender.com/api/v1";
 
 const AgentDashboard = () => {
   const navigation = useNavigation();
-
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(40)).current;
-
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [userData, setUserData] = useState(null);
+  const [isBalanceVisible, setIsBalanceVisible] = useState(true);
+  const systemTheme = useColorScheme();
+  const [isDarkMode, setIsDarkMode] = useState(systemTheme === "dark");
 
   const [menuVisible, setMenuVisible] = useState(false);
-
-  const [refreshing, setRefreshing] = useState(false);
-
-  const colorScheme = useColorScheme();
-
-  const isDarkMode = colorScheme === "dark";
-
-  const [userData, setUserData] = useState(null);
-
-  const [supervisor, setSupervisor] = useState(null);
-
-  const [isBalanceVisible, setIsBalanceVisible] = useState(true);
-
   const [performance, setPerformance] = useState({
     totalGB: 0,
     totalSalesValue: 0,
     commissionsEarned: 0,
     bonusEarned: 0,
-    monthlyTargetSales: 0,
+    monthlyTargetSales: 100000,
   });
+  const [supervisor, setSupervisor] = useState(null);
 
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 900,
-        useNativeDriver: true,
-      }),
-
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 900,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    fetchUserData();
-    fetchAgentData();
-  }, []);
-
-  const handleLogout = async () => {
-    await AsyncStorage.removeItem("userToken");
-
-    navigation.reset({
-      index: 0,
-      routes: [{ name: "Login" }],
-    });
-  };
-
-  const fetchUserData = async () => {
+  const fetchAgentAndProfileData = async () => {
     try {
       const token = await AsyncStorage.getItem("userToken");
-
       if (!token) {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: "Login" }],
-        });
-
+        navigation.reset({ index: 0, routes: [{ name: "Login" }] });
         return;
       }
-
-      const response = await axios.get(`${BASE_URL}/user/profile`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/json",
-        },
-      });
-
-      if (response.data?.success) {
-        setUserData(response.data.user || response.data.data);
-      }
-    } catch (err) {
-      console.log(err);
-    }
-  };
-
-  const fetchAgentData = async () => {
-    try {
-      const token = await AsyncStorage.getItem("userToken");
 
       const config = {
         headers: {
           Authorization: `Bearer ${token}`,
+          Accept: "application/json",
         },
       };
 
-      const [perfRes, supRes] = await Promise.all([
+      const [profileRes, perfRes, supRes] = await Promise.all([
+        axios
+          .get(`${BASE_URL}/user/profile`, config)
+          .catch((e) => ({ data: { success: false } })),
         axios
           .get(`${BASE_URL}/agent/performance`, config)
-          .catch(() => ({ data: { data: null } })),
-
+          .catch((e) => ({ data: { data: null } })),
         axios
           .get(`${BASE_URL}/agent/my-supervisor`, config)
-          .catch(() => ({ data: { data: null } })),
+          .catch((e) => ({ data: { data: null } })),
       ]);
+
+      if (profileRes.data && profileRes.data.success) {
+        setUserData(profileRes.data.user || profileRes.data.data);
+      }
 
       if (perfRes.data?.data) {
         setPerformance(perfRes.data.data);
+      } else {
+        setPerformance({
+          totalGB: 0,
+          totalSalesValue: 0,
+          commissionsEarned: 0,
+          bonusEarned: 0,
+          monthlyTargetSales: 100000,
+        });
       }
 
       if (supRes.data?.data) {
@@ -159,1032 +101,1047 @@ const AgentDashboard = () => {
         setSupervisor("No Supervisor Assigned Yet");
       }
     } catch (err) {
-      console.log(err);
+      console.log("Comprehensive Agent Dashboard Fetch Error:", err);
+      if (err.response && err.response.status === 401) {
+        await AsyncStorage.clear();
+        navigation.reset({ index: 0, routes: [{ name: "Login" }] });
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  const onRefresh = () => {
-    setRefreshing(true);
+  useEffect(() => {
+    fetchAgentAndProfileData();
+  }, []);
+  useEffect(() => {
+    loadTheme();
+  }, []);
 
-    fetchUserData();
+  const loadTheme = async () => {
+    try {
+      const savedTheme = await AsyncStorage.getItem("darkMode");
 
-    fetchAgentData();
+      if (savedTheme !== null) {
+        setIsDarkMode(savedTheme === "true");
+      }
+    } catch (e) {
+      console.log(e);
+    }
   };
 
-  const copyToClipboard = async (text) => {
+  const toggleDarkMode = async () => {
+    try {
+      const newValue = !isDarkMode;
+
+      setIsDarkMode(newValue);
+
+      await AsyncStorage.setItem("darkMode", newValue.toString());
+    } catch (e) {
+      console.log(e);
+    }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchAgentAndProfileData();
+  };
+
+  const copyToClipboard = (text) => {
     if (!text) return;
-
-    await Clipboard.setStringAsync(text);
-
+    Clipboard.setString(text);
     if (Platform.OS === "android") {
-      ToastAndroid.show("Copied Successfully", ToastAndroid.SHORT);
+      ToastAndroid.show("Copied to clipboard", ToastAndroid.SHORT);
     }
   };
 
   const openWhatsApp = () => {
     const phoneNumber = "+2349061244444";
-
-    const message = "Hello Ayax Support";
-
-    const url = `whatsapp://send?phone=${phoneNumber}&text=${encodeURIComponent(
-      message,
-    )}`;
-
+    const message = `Hello Ayax Xpress Support, I need assistance with my Agent account.`;
+    const url = `whatsapp://send?phone=${phoneNumber}&text=${encodeURIComponent(message)}`;
     Linking.openURL(url).catch(() =>
       Linking.openURL(`https://wa.me/${phoneNumber.replace("+", "")}`),
     );
   };
 
   const currentSales = performance.totalSalesValue || 0;
-
   const targetSales = performance.monthlyTargetSales || 0;
-
   const remainingToTarget =
     targetSales - currentSales > 0 ? targetSales - currentSales : 0;
-
   const achievementPercentage =
     targetSales > 0
       ? Math.min(Math.round((currentSales / targetSales) * 100), 100)
       : 0;
 
-  const services = [
-    {
-      name: "Data",
-      icon: "wifi",
-      color: "#0ea5e9",
-      screen: "BuyData",
-      type: "FontAwesome5",
-    },
-
-    {
-      name: "Airtime",
-      icon: "phone-alt",
-      color: "#22c55e",
-      screen: "BuyAirtime",
-      type: "FontAwesome5",
-    },
-
-    {
-      name: "Power",
-      icon: "bolt",
-      color: "#eab308",
-      screen: "Electricity",
-      type: "FontAwesome5",
-    },
-
-    {
-      name: "Cable",
-      icon: "tv",
-      color: "#8b5cf6",
-      screen: "Cable",
-      type: "FontAwesome5",
-    },
-
-    {
-      name: "Wallet",
-      icon: "wallet",
-      color: "#2563eb",
-      screen: "FundWallet",
-      type: "Ionicons",
-    },
-
-    {
-      name: "History",
-      icon: "time-outline",
-      color: "#f97316",
-      screen: "Wallet History",
-      type: "Ionicons",
-    },
-
-    {
-      name: "Profile",
-      icon: "person-circle-outline",
-      color: "#ec4899",
-      screen: "Profile",
-      type: "Ionicons",
-    },
-
-    {
-      name: "Settings",
-      icon: "settings-outline",
-      color: "#475569",
-      screen: "Settings",
-      type: "Ionicons",
-    },
-  ];
-
-  const renderIcon = (item) => {
-    if (item.type === "FontAwesome5") {
-      return <FontAwesome5 name={item.icon} size={22} color={item.color} />;
-    }
-
-    return <Ionicons name={item.icon} size={24} color={item.color} />;
-  };
-
-  const StatCard = ({ title, value, unit, color, icon }) => (
-    <Animated.View
-      style={[
-        styles.statCard,
-        {
-          borderLeftColor: color,
-          opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }],
+  const handleLogout = async () => {
+    Alert.alert("Logout", "Are you sure you want to exit?", [
+      { text: "Cancel" },
+      {
+        text: "Yes",
+        onPress: async () => {
+          await AsyncStorage.clear();
+          navigation.reset({ index: 0, routes: [{ name: "Login" }] });
         },
-      ]}
-    >
-      <View style={styles.statTop}>
-        <Text style={styles.statLabel}>{title}</Text>
-
-        <Feather name={icon} size={18} color={color} />
-      </View>
-
-      <Text style={styles.statValue}>
-        {value}
-
-        <Text style={styles.statUnit}> {unit}</Text>
-      </Text>
-    </Animated.View>
-  );
+      },
+    ]);
+  };
 
   if (loading) {
     return (
       <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#1d4ed8" />
+        <ActivityIndicator size="large" color="#1e3a8a" />
       </View>
     );
   }
 
   return (
     <View style={styles.mainContainer}>
-      <StatusBar translucent backgroundColor="transparent" />
-
+      <StatusBar
+        barStyle="dark-content"
+        translucent
+        backgroundColor="transparent"
+      />
       <ImageBackground
         source={require("../assets/ayax_promo_hijab.png")}
         style={styles.backgroundImage}
+        resizeMode="cover"
       >
-        <LinearGradient
-          colors={["rgba(255,255,255,0.7)", "rgba(248,250,252,0.95)"]}
-          style={styles.overlay}
-        />
+        <View style={styles.fullOverlayGradient}>
+          <LinearGradient
+            colors={["rgba(255,255,255,0.6)", "rgba(248,250,252,0.95)"]}
+            style={styles.fullOverlay}
+          />
+        </View>
+
+        <View style={styles.topHeader}>
+          <View style={styles.navRow}>
+            <View style={styles.logoCircle}>
+              <Image
+                source={require("../assets/Logo.png")}
+                style={styles.logoImg}
+              />
+            </View>
+            <TouchableOpacity onPress={() => setMenuVisible(true)}>
+              <Ionicons
+                name="menu"
+                size={32}
+                color={isDarkMode ? "#fff" : "#0f172a"}
+              />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.welcomeSection}>
+            <Text style={styles.welcomeText}>Agent Control Panel,</Text>
+            <Text style={styles.userName}>
+              {userData
+                ? `${userData.firstName || userData.name || ""} ${userData.surname || ""}`
+                : "Loading..."}
+            </Text>
+          </View>
+        </View>
 
         <ScrollView
+          style={styles.content}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         >
-          <Animated.View
-            style={{
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            }}
+          <View style={styles.menuSection}>
+            <Text style={styles.sectionTitle}>Account</Text>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigation.navigate("Profile")}
+            >
+              <Ionicons name="person-outline" size={24} color="#1e40af" />
+              <Text style={styles.menuText}>Profile</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigation.navigate("Settings")}
+            >
+              <Ionicons name="settings-outline" size={24} color="#1e40af" />
+              <Text style={styles.menuText}>Settings</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
+              <Ionicons name="log-out-outline" size={24} color="#dc2626" />
+              <Text style={[styles.menuText, { color: "#dc2626" }]}>
+                Logout
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <LinearGradient
+            colors={["#1e40af", "#1e3a8a"]}
+            style={styles.walletCard}
           >
-            <View style={styles.topHeader}>
-              <View style={styles.navRow}>
-                <View style={styles.logoCircle}>
-                  <Image
-                    source={require("../assets/Logo.png")}
-                    style={styles.logoImg}
-                  />
+            <View style={styles.walletTop}>
+              <Text style={styles.walletLabel}>Agent Available Balance</Text>
+              <TouchableOpacity
+                onPress={() =>
+                  navigation.navigate("Main", { screen: "Wallet History" })
+                }
+              >
+                <Text style={styles.historyText}>
+                  Transactions <Ionicons name="chevron-forward" size={12} />
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.balanceContainer}>
+              <Text style={styles.currency}>₦</Text>
+              <Text style={styles.balanceText}>
+                {isBalanceVisible
+                  ? userData?.walletBalance || userData?.balance || "0.00"
+                  : "****"}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setIsBalanceVisible(!isBalanceVisible)}
+              >
+                <Ionicons
+                  name={isBalanceVisible ? "eye-outline" : "eye-off-outline"}
+                  size={24}
+                  color="#38bdf8"
+                  style={{ marginLeft: 15 }}
+                />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.walletActions}>
+              <TouchableOpacity
+                style={styles.actionBtn}
+                onPress={() => navigation.navigate("FundWallet")}
+              >
+                <LinearGradient
+                  colors={["#38bdf8", "#0ea5e9"]}
+                  style={styles.innerBtnGradient}
+                >
+                  <Ionicons name="add-circle" size={18} color="#fff" />
+                  <Text style={styles.actionBtnText}>FUND WALLET</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.actionBtn,
+                  { backgroundColor: "rgba(255,255,255,0.15)" },
+                ]}
+                onPress={openWhatsApp}
+              >
+                <Ionicons name="logo-whatsapp" size={18} color="#22c55e" />
+                <Text style={[styles.actionBtnText, { color: "#fff" }]}>
+                  SUPPORT
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </LinearGradient>
+
+          <Text style={styles.sectionLabel}>Automatic Funding Accounts</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.bankScroll}
+          >
+            {userData?.accountNumber &&
+            userData?.accountNumber !== "Initialization Pending" ? (
+              <BankCard
+                bank={userData.bankName || "Wema Bank"}
+                acc={userData.accountNumber}
+                code="WB"
+                onCopy={() => copyToClipboard(userData.accountNumber)}
+              />
+            ) : (
+              <BankCard
+                bank="Wema Bank (Pending)"
+                acc="Generating..."
+                code=".."
+                onCopy={() =>
+                  Alert.alert(
+                    "Wait",
+                    "Your unique virtual agent account is being provisioned automatically.",
+                  )
+                }
+              />
+            )}
+            <BankCard
+              bank="Paystack Terminal"
+              acc="Automated Funding"
+              code="PAY"
+              onCopy={() =>
+                Alert.alert(
+                  "Note",
+                  "Transfer to your assigned Wema account for instant automated wallet credit.",
+                )
+              }
+            />
+          </ScrollView>
+
+          <Text style={styles.sectionLabel}>Performance Metrics</Text>
+          <View style={styles.statsGrid}>
+            <StatCard
+              title="Monthly Volume"
+              value={performance.totalGB || 0}
+              unit="GB"
+              color="#2563eb"
+            />
+            <StatCard
+              title="Monthly Revenue"
+              value={`₦${currentSales}`}
+              unit=""
+              color="#059669"
+            />
+          </View>
+          <View style={styles.statsGridAlt}>
+            <StatCard
+              title="Commissions Earned"
+              value={`₦${performance.commissionsEarned || 0}`}
+              unit=""
+              color="#d4af37"
+            />
+            <StatCard
+              title="Bonus Earned"
+              value={`₦${performance.bonusEarned || 0}`}
+              unit=""
+              color="#dc2626"
+            />
+          </View>
+
+          <View style={styles.targetTrackingSection}>
+            <Text style={styles.sectionTitle}>
+              Target & Performance Tracking
+            </Text>
+            <View style={styles.targetCard}>
+              <View style={styles.targetRow}>
+                <View>
+                  <Text style={styles.targetLabel}>Monthly Target</Text>
+                  <Text style={styles.targetValue}>₦{targetSales}</Text>
                 </View>
-
-                <TouchableOpacity onPress={() => setMenuVisible(true)}>
-                  <Ionicons
-                    name="notifications-outline"
-                    size={30}
-                    color="#0f172a"
-                  />
-                </TouchableOpacity>
+                <View style={styles.rightAlign}>
+                  <Text style={styles.targetLabel}>Achievement</Text>
+                  <Text style={styles.percentageText}>
+                    {achievementPercentage}%
+                  </Text>
+                </View>
               </View>
+              <View style={styles.progressTrack}>
+                <View
+                  style={[
+                    styles.progressBar,
+                    { width: `${achievementPercentage}%` },
+                  ]}
+                />
+              </View>
+              <View style={styles.targetRowAlt}>
+                <Text style={styles.progressSubText}>
+                  Current: <Text style={styles.boldText}>₦{currentSales}</Text>
+                </Text>
+                <Text style={styles.remainingText}>
+                  Remaining:{" "}
+                  <Text style={styles.boldTextRed}>₦{remainingToTarget}</Text>
+                </Text>
+              </View>
+            </View>
+          </View>
 
-              <Text style={styles.welcomeText}>Welcome Back</Text>
+          <Text style={styles.sectionLabel}>Agent Utilities Services</Text>
+          <View style={styles.servicesContainer}>
+            <View style={styles.grid}>
+              <ServiceItem
+                icon="wifi"
+                color="#0ea5e9"
+                label="Data"
+                onPress={() => navigation.navigate("BuyData")}
+              />
+              <ServiceItem
+                icon="phone-alt"
+                color="#22c55e"
+                label="Airtime"
+                onPress={() => navigation.navigate("BuyAirtime")}
+              />
+              <ServiceItem
+                icon="bolt"
+                color="#eab308"
+                label="Power"
+                onPress={() => navigation.navigate("Electricity")}
+              />
+              <ServiceItem
+                icon="tv"
+                color="#8b5cf6"
+                label="Cable"
+                onPress={() => navigation.navigate("Cable")}
+              />
+              <ServiceItem
+                icon="id-card"
+                color="#f43f5e"
+                label="NIMC Verify"
+                onPress={() => navigation.navigate("NIMC")}
+              />
+              <ServiceItem
+                icon="fingerprint"
+                color="#ec4899"
+                label="NIMC Mod"
+                onPress={() => navigation.navigate("NIMCModification")}
+              />
+              <ServiceItem
+                icon="user-shield"
+                color="#64748b"
+                label="BVN"
+                onPress={() => navigation.navigate("BVNScreen")}
+              />
+              <ServiceItem
+                icon="shield-alt"
+                color="#1e40af"
+                label="NIN Valid"
+                onPress={() => navigation.navigate("NINValidation")}
+              />
+              <ServiceItem
+                icon="history"
+                color="#f97316"
+                label="History"
+                onPress={() =>
+                  navigation.navigate("Main", { screen: "Wallet History" })
+                }
+              />
+            </View>
+          </View>
 
-              <Text style={styles.userName}>
-                {userData
-                  ? `${userData.firstName} ${userData.surname}`
-                  : "Agent"}
+          <View style={styles.supervisorSection}>
+            <Text style={styles.sectionTitle}>Assigned Supervisor</Text>
+            <View style={styles.infoBox}>
+              {typeof supervisor === "string" ? (
+                <Text style={styles.infoText}>{supervisor}</Text>
+              ) : (
+                <View>
+                  <Text style={styles.supName}>
+                    {supervisor?.name || "N/A"}
+                  </Text>
+                  <Text style={styles.supPhone}>
+                    {supervisor?.phone || "No Contact"}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+
+          <View style={styles.actionSection}>
+            <Text style={styles.sectionTitle}>Quick Agent Actions</Text>
+            <TouchableOpacity
+              style={styles.actionBtnFull}
+              onPress={() => navigation.navigate("NewSale")}
+            >
+              <Text style={styles.actionBtnTextFull}>Process New Sale</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.actionBtnFull}
+              onPress={() => navigation.navigate("SalesHistory")}
+            >
+              <Text style={styles.actionBtnTextFull}>View Sales History</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.footerBranding}>
+            <Text style={styles.footerHeadline}>Why Choose Ayax Xpress?</Text>
+            <View style={styles.trustGrid}>
+              <TrustItem
+                icon="shield-check"
+                color="#16a34a"
+                bg="#dcfce7"
+                title="100% Secure"
+                sub="Encrypted"
+              />
+              <TrustItem
+                icon="flash"
+                color="#ca8a04"
+                bg="#fef9c3"
+                title="Instant"
+                sub="Automated"
+              />
+              <TrustItem
+                icon="headset"
+                color="#0284c7"
+                bg="#e0f2fe"
+                title="24/7 Support"
+                sub="Reliable"
+              />
+            </View>
+          </View>
+          <View style={{ height: 120 }} />
+        </ScrollView>
+      </ImageBackground>
+
+      {/* SIDE MENU MODAL START */}
+      <Modal
+        isVisible={menuVisible}
+        animationIn="slideInRight"
+        animationOut="slideOutRight"
+        backdropOpacity={0.4}
+        onBackdropPress={() => setMenuVisible(false)}
+        style={{ margin: 0 }}
+      >
+        <View
+          style={[
+            styles.sideMenu,
+            {
+              backgroundColor: isDarkMode ? "#0f172a" : "#ffffff",
+            },
+          ]}
+        >
+          <View style={styles.menuHeader}>
+            <Image
+              source={require("../assets/Logo.png")}
+              style={styles.menuLogo}
+            />
+
+            <TouchableOpacity onPress={() => setMenuVisible(false)}>
+              <Ionicons
+                name="close"
+                size={30}
+                color={isDarkMode ? "#fff" : "#000"}
+              />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.profileArea}>
+            <View style={styles.avatarCircle}>
+              <Text style={styles.avatarText}>
+                {userData?.firstName?.charAt(0) || "A"}
               </Text>
             </View>
 
-            <LinearGradient
-              colors={["#2563eb", "#1e3a8a"]}
-              style={styles.walletCard}
-            >
-              <View style={styles.walletTop}>
-                <Text style={styles.walletLabel}>Available Balance</Text>
-
-                <TouchableOpacity
-                  onPress={() =>
-                    navigation.navigate("Main", {
-                      screen: "Wallet History",
-                    })
-                  }
-                >
-                  <Text style={styles.historyText}>Transactions</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.balanceContainer}>
-                <Text style={styles.currency}>₦</Text>
-
-                <Text style={styles.balanceText}>
-                  {isBalanceVisible
-                    ? userData?.walletBalance || "0.00"
-                    : "******"}
-                </Text>
-
-                <TouchableOpacity
-                  onPress={() => setIsBalanceVisible(!isBalanceVisible)}
-                >
-                  <Ionicons
-                    name={isBalanceVisible ? "eye-outline" : "eye-off-outline"}
-                    size={24}
-                    color="#fff"
-                    style={{ marginLeft: 10 }}
-                  />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.walletActions}>
-                <TouchableOpacity
-                  style={styles.actionBtn}
-                  onPress={() => navigation.navigate("FundWallet")}
-                >
-                  <LinearGradient
-                    colors={["#38bdf8", "#0284c7"]}
-                    style={styles.gradientBtn}
-                  >
-                    <Ionicons
-                      name="add-circle-outline"
-                      size={18}
-                      color="#fff"
-                    />
-
-                    <Text style={styles.actionBtnText}>FUND</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.supportBtn}
-                  onPress={openWhatsApp}
-                >
-                  <Ionicons name="logo-whatsapp" size={20} color="#22c55e" />
-
-                  <Text style={styles.supportText}>SUPPORT</Text>
-                </TouchableOpacity>
-              </View>
-            </LinearGradient>
-
-            <Text style={styles.sectionLabel}>Automatic Funding Account</Text>
-
-            <TouchableOpacity
-              style={styles.bankBox}
-              onPress={() => copyToClipboard(userData?.accountNumber)}
-            >
-              <View style={styles.bankInfo}>
-                <View style={styles.bankLogoCircle}>
-                  <Text style={styles.bankLogoText}>WB</Text>
-                </View>
-
-                <View>
-                  <Text style={styles.bankTitle}>
-                    {userData?.bankName || "Wema Bank"}
-                  </Text>
-
-                  <Text style={styles.accNo}>
-                    {userData?.accountNumber || "Generating"}
-                  </Text>
-                </View>
-              </View>
-
-              <Ionicons name="copy-outline" size={22} color="#2563eb" />
-            </TouchableOpacity>
-
-            <Text style={styles.sectionLabel}>Services</Text>
-
-            <View style={styles.servicesContainer}>
-              {services.map((item, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.gridItem}
-                  activeOpacity={0.8}
-                  onPress={() => {
-                    if (item.screen === "Wallet History") {
-                      navigation.navigate("Main", {
-                        screen: "Wallet History",
-                      });
-                    } else {
-                      navigation.navigate(item.screen);
-                    }
-                  }}
-                >
-                  <View style={styles.iconBox}>{renderIcon(item)}</View>
-
-                  <Text style={styles.gridLabel}>{item.name}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <View style={styles.statsGrid}>
-              <StatCard
-                title="Monthly Volume"
-                value={performance.totalGB || 0}
-                unit="GB"
-                color="#2563eb"
-                icon="activity"
-              />
-
-              <StatCard
-                title="Monthly Revenue"
-                value={`₦${currentSales}`}
-                unit=""
-                color="#16a34a"
-                icon="dollar-sign"
-              />
-            </View>
-
-            <View style={styles.statsGrid}>
-              <StatCard
-                title="Commissions"
-                value={`₦${performance.commissionsEarned || 0}`}
-                unit=""
-                color="#ca8a04"
-                icon="award"
-              />
-
-              <StatCard
-                title="Bonus"
-                value={`₦${performance.bonusEarned || 0}`}
-                unit=""
-                color="#dc2626"
-                icon="gift"
-              />
-            </View>
-
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Target Performance</Text>
-
-              <View style={styles.targetCard}>
-                <View style={styles.targetRow}>
-                  <View>
-                    <Text style={styles.targetLabel}>Monthly Target</Text>
-
-                    <Text style={styles.targetValue}>₦{targetSales}</Text>
-                  </View>
-
-                  <View style={styles.rightAlign}>
-                    <Text style={styles.targetLabel}>Achievement</Text>
-
-                    <Text style={styles.percentageText}>
-                      {achievementPercentage}%
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.progressTrack}>
-                  <Animated.View
-                    style={[
-                      styles.progressBar,
-                      {
-                        width: `${achievementPercentage}%`,
-                      },
-                    ]}
-                  />
-                </View>
-
-                <View style={styles.targetRowAlt}>
-                  <Text style={styles.progressSubText}>
-                    Current ₦{currentSales}
-                  </Text>
-
-                  <Text style={styles.remainingText}>
-                    Remaining ₦{remainingToTarget}
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Assigned Supervisor</Text>
-
-              <View style={styles.infoBox}>
-                {typeof supervisor === "string" ? (
-                  <Text style={styles.infoText}>{supervisor}</Text>
-                ) : (
-                  <View>
-                    <Text style={styles.supName}>
-                      {supervisor?.name || "N/A"}
-                    </Text>
-
-                    <Text style={styles.supPhone}>
-                      {supervisor?.phone || "No Contact"}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </View>
-
-            <View style={styles.footerBranding}>
-              <View style={styles.trustItem}>
-                <MaterialCommunityIcons
-                  name="shield-check"
-                  size={28}
-                  color="#16a34a"
-                />
-
-                <Text style={styles.trustTitle}>Secure</Text>
-              </View>
-
-              <View style={styles.trustItem}>
-                <Ionicons name="flash" size={28} color="#eab308" />
-
-                <Text style={styles.trustTitle}>Fast</Text>
-              </View>
-
-              <View style={styles.trustItem}>
-                <MaterialCommunityIcons
-                  name="headset"
-                  size={28}
-                  color="#0284c7"
-                />
-
-                <Text style={styles.trustTitle}>24/7 Support</Text>
-              </View>
-            </View>
-
-            <View style={{ height: 120 }} />
-          </Animated.View>
-        </ScrollView>
-
-        <View style={styles.bottomTab}>
-          <TouchableOpacity style={styles.tabItem}>
-            <Ionicons name="home" size={24} color="#2563eb" />
-
-            <Text style={[styles.tabLabel, { color: "#2563eb" }]}>Home</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.tabItem}
-            onPress={() =>
-              navigation.navigate("Main", {
-                screen: "Wallet History",
-              })
-            }
-          >
-            <Ionicons name="time-outline" size={24} color="#94a3b8" />
-
-            <Text style={styles.tabLabel}>History</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.tabItem}
-            onPress={() => navigation.navigate("Profile")}
-          >
-            <Ionicons name="person-outline" size={24} color="#94a3b8" />
-
-            <Text style={styles.tabLabel}>Profile</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.tabItem}
-            onPress={() => navigation.navigate("Settings")}
-          >
-            <Ionicons name="settings-outline" size={24} color="#94a3b8" />
-
-            <Text style={styles.tabLabel}>Settings</Text>
-          </TouchableOpacity>
-        </View>
-
-        <Modal visible={menuVisible} transparent animationType="slide">
-          <View style={styles.modalOverlay}>
-            <View
+            <Text
               style={[
-                styles.modalContent,
+                styles.profileName,
                 {
-                  backgroundColor: isDarkMode ? "#1e293b" : "#fff",
+                  color: isDarkMode ? "#fff" : "#0f172a",
                 },
               ]}
             >
-              <TouchableOpacity
-                onPress={() => setMenuVisible(false)}
-                style={styles.closeBtn}
-              >
-                <Ionicons
-                  name="close"
-                  size={26}
-                  color={isDarkMode ? "#fff" : "#000"}
-                />
-              </TouchableOpacity>
+              {userData?.firstName} {userData?.surname}
+            </Text>
 
-              <Text
-                style={[
-                  styles.menuTitle,
-                  {
-                    color: isDarkMode ? "#fff" : "#000",
-                  },
-                ]}
-              >
-                Dashboard Menu
-              </Text>
-
-              <TouchableOpacity
-                style={styles.menuButton}
-                onPress={() => navigation.navigate("Profile")}
-              >
-                <Ionicons name="person-outline" size={22} color="#2563eb" />
-
-                <Text style={styles.menuText}>Profile</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.menuButton}
-                onPress={() => navigation.navigate("Settings")}
-              >
-                <Ionicons name="settings-outline" size={22} color="#2563eb" />
-
-                <Text style={styles.menuText}>Settings</Text>
-
-                <Switch value={isDarkMode} disabled />
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-                <Ionicons name="log-out-outline" size={22} color="#fff" />
-
-                <Text style={styles.logoutText}>Logout</Text>
-              </TouchableOpacity>
-            </View>
+            <Text style={styles.profileEmail}>
+              {userData?.email || "No Email"}
+            </Text>
           </View>
-        </Modal>
-      </ImageBackground>
+
+          <TouchableOpacity
+            style={styles.menuOption}
+            onPress={() => {
+              setMenuVisible(false);
+              navigation.navigate("Profile");
+            }}
+          >
+            <Ionicons name="person-circle-outline" size={24} color="#2563eb" />
+
+            <Text
+              style={[
+                styles.menuOptionText,
+                {
+                  color: isDarkMode ? "#fff" : "#0f172a",
+                },
+              ]}
+            >
+              Profile
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuOption}
+            onPress={() => {
+              setMenuVisible(false);
+              navigation.navigate("Settings");
+            }}
+          >
+            <Ionicons name="settings-outline" size={24} color="#7c3aed" />
+
+            <Text
+              style={[
+                styles.menuOptionText,
+                {
+                  color: isDarkMode ? "#fff" : "#0f172a",
+                },
+              ]}
+            >
+              Settings
+            </Text>
+          </TouchableOpacity>
+
+          <View style={styles.menuOption}>
+            <Ionicons name="moon-outline" size={24} color="#f59e0b" />
+
+            <Text
+              style={[
+                styles.menuOptionText,
+                {
+                  color: isDarkMode ? "#fff" : "#0f172a",
+                },
+              ]}
+            >
+              Dark Mode
+            </Text>
+
+            <View style={{ flex: 1 }} />
+
+            <Switch value={isDarkMode} onValueChange={toggleDarkMode} />
+          </View>
+
+          <TouchableOpacity style={styles.menuOption} onPress={openWhatsApp}>
+            <Ionicons name="logo-whatsapp" size={24} color="#22c55e" />
+
+            <Text
+              style={[
+                styles.menuOptionText,
+                {
+                  color: isDarkMode ? "#fff" : "#0f172a",
+                },
+              ]}
+            >
+              Contact Support
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+            <Ionicons name="log-out-outline" size={24} color="#fff" />
+
+            <Text style={styles.logoutText}>Logout</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+      {/* SIDE MENU MODAL END */}
+
+      <View style={styles.bottomTab}>
+        <TabItem icon="home" label="Dashboard" active onPress={() => {}} />
+        <TabItem
+          icon="time-outline"
+          label="History"
+          onPress={() =>
+            navigation.navigate("Main", { screen: "Wallet History" })
+          }
+        />
+        <TabItem
+          icon="person-outline"
+          label="Profile"
+          onPress={() => navigation.navigate("Profile")}
+        />
+        <TabItem
+          icon="help-buoy-outline"
+          label="Support"
+          onPress={() => navigation.navigate("Contact")}
+        />
+      </View>
     </View>
   );
 };
 
+// Sub-components
+const BankCard = ({ bank, acc, code, onCopy }) => (
+  <TouchableOpacity style={styles.bankBox} onPress={onCopy}>
+    <View style={styles.bankInfo}>
+      <View style={styles.bankLogoCircle}>
+        <Text style={styles.bankLogoText}>{code}</Text>
+      </View>
+      <View>
+        <Text style={styles.bankTitle}>{bank}</Text>
+        <Text style={styles.accNo}>{acc}</Text>
+      </View>
+    </View>
+    <Ionicons name="copy-outline" size={18} color="#1e40af" />
+  </TouchableOpacity>
+);
+
+const ServiceItem = ({ icon, label, color, onPress }) => (
+  <TouchableOpacity style={styles.gridItem} onPress={onPress}>
+    <View style={styles.iconBox}>
+      <FontAwesome5 name={icon} size={20} color={color} />
+    </View>
+    <Text style={styles.gridLabel}>{label}</Text>
+  </TouchableOpacity>
+);
+
+const StatCard = ({ title, value, unit, color }) => (
+  <View style={[styles.statCard, { borderLeftColor: color }]}>
+    <Text style={styles.statLabel}>{title}</Text>
+    <Text style={styles.statValue}>
+      {value} <Text style={styles.statUnit}>{unit}</Text>
+    </Text>
+  </View>
+);
+
+const TrustItem = ({ icon, color, bg, title, sub }) => (
+  <View style={styles.trustItem}>
+    <View style={[styles.trustIconCircle, { backgroundColor: bg }]}>
+      {icon === "flash" ? (
+        <Ionicons name={icon} size={28} color={color} />
+      ) : (
+        <MaterialCommunityIcons name={icon} size={28} color={color} />
+      )}
+    </View>
+    <Text style={styles.trustTitle}>{title}</Text>
+    <Text style={styles.trustSub}>{sub}</Text>
+  </View>
+);
+
+const TabItem = ({ icon, label, active, onPress }) => (
+  <TouchableOpacity style={styles.tabItem} onPress={onPress}>
+    <Ionicons name={icon} size={24} color={active ? "#1e40af" : "#94a3b8"} />
+    <Text style={[styles.tabLabel, { color: active ? "#1e40af" : "#94a3b8" }]}>
+      {label}
+    </Text>
+  </TouchableOpacity>
+);
+
 const styles = StyleSheet.create({
-  mainContainer: {
-    flex: 1,
-    backgroundColor: "#f8fafc",
-  },
-
-  backgroundImage: {
-    flex: 1,
-  },
-
-  overlay: {
-    position: "absolute",
-    width: "100%",
-    height: "100%",
-  },
-
-  loaderContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  topHeader: {
-    paddingTop: 60,
-    paddingHorizontal: 20,
-    paddingBottom: 10,
-  },
-
+  mainContainer: { flex: 1, backgroundColor: "#f8fafc" },
+  backgroundImage: { flex: 1, width: "100%", height: "100%" },
+  fullOverlayGradient: { ...StyleSheet.absoluteFillObject },
+  fullOverlay: { flex: 1 },
+  loaderContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
+  topHeader: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20 },
   navRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    marginBottom: 20,
   },
-
   logoCircle: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: "#fff",
+    width: 45,
+    height: 45,
+    backgroundColor: "#0f172a",
+    borderRadius: 22.5,
     justifyContent: "center",
     alignItems: "center",
-    elevation: 5,
+    elevation: 4,
   },
-
-  logoImg: {
-    width: 34,
-    height: 34,
-    resizeMode: "contain",
-  },
-
-  welcomeText: {
-    marginTop: 20,
-    color: "#64748b",
-    fontSize: 15,
-  },
-
-  userName: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#0f172a",
-  },
-
+  logoImg: { width: 32, height: 32, resizeMode: "contain" },
+  welcomeSection: { marginBottom: 10 },
+  welcomeText: { color: "#64748b", fontSize: 14, fontWeight: "500" },
+  userName: { color: "#0f172a", fontSize: 24, fontWeight: "bold" },
+  content: { flex: 1, paddingHorizontal: 16 },
   walletCard: {
-    marginHorizontal: 16,
-    marginTop: 20,
     borderRadius: 24,
     padding: 22,
-    elevation: 6,
+    marginBottom: 25,
+    elevation: 10,
   },
-
   walletTop: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
   },
-
-  walletLabel: {
-    color: "#dbeafe",
-    fontSize: 13,
-  },
-
-  historyText: {
-    color: "#93c5fd",
-    fontWeight: "600",
-  },
-
+  walletLabel: { color: "#dbeafe", fontSize: 13 },
+  historyText: { color: "#38bdf8", fontSize: 12, fontWeight: "600" },
   balanceContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 18,
+    marginVertical: 15,
   },
-
-  currency: {
-    color: "#fff",
-    fontSize: 26,
-    fontWeight: "bold",
-  },
-
+  currency: { color: "#fff", fontSize: 24, fontWeight: "600" },
   balanceText: {
     color: "#fff",
-    fontSize: width > 500 ? 40 : 32,
+    fontSize: 34,
     fontWeight: "bold",
-    marginLeft: 5,
+    marginLeft: 8,
   },
-
   walletActions: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 22,
+    marginTop: 10,
   },
-
-  actionBtn: {
-    width: "48%",
-    height: 48,
-    borderRadius: 14,
-    overflow: "hidden",
-  },
-
-  gradientBtn: {
+  actionBtn: { flex: 0.48, height: 48, borderRadius: 14, overflow: "hidden" },
+  innerBtnGradient: {
     flex: 1,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
   },
-
-  supportBtn: {
-    width: "48%",
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: "rgba(255,255,255,0.12)",
-    justifyContent: "center",
-    alignItems: "center",
-    flexDirection: "row",
-  },
-
-  supportText: {
-    color: "#fff",
-    marginLeft: 6,
-    fontWeight: "bold",
-  },
-
   actionBtnText: {
     color: "#fff",
-    marginLeft: 6,
     fontWeight: "bold",
+    fontSize: 12,
+    marginLeft: 8,
   },
-
   sectionLabel: {
-    marginTop: 24,
-    marginBottom: 15,
-    paddingHorizontal: 20,
-    fontSize: 18,
-    fontWeight: "bold",
+    fontSize: 16,
+    fontWeight: "700",
     color: "#1e293b",
+    marginTop: 15,
+    marginBottom: 15,
+    paddingLeft: 4,
   },
-
+  bankScroll: { marginBottom: 25 },
   bankBox: {
-    backgroundColor: "#fff",
-    marginHorizontal: 20,
+    backgroundColor: isDarkMode ? "#1e293b" : "#fff",
+    width: width * 0.75,
+    padding: 16,
     borderRadius: 20,
-    padding: 18,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    elevation: 4,
+    marginRight: 15,
+    elevation: 3,
+    borderLeftWidth: 4,
+    borderLeftColor: "#1e40af",
   },
-
-  bankInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-
   bankLogoCircle: {
-    width: 45,
-    height: 45,
-    borderRadius: 22,
-    backgroundColor: "#eff6ff",
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#f1f5f9",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
   },
-
-  bankLogoText: {
-    color: "#2563eb",
-    fontWeight: "bold",
-  },
-
-  bankTitle: {
-    color: "#64748b",
-    fontSize: 12,
-  },
-
-  accNo: {
-    color: "#0f172a",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-
-  servicesContainer: {
-    marginHorizontal: 16,
-    backgroundColor: "#fff",
-    borderRadius: 24,
-    padding: 20,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    elevation: 4,
-  },
-
-  gridItem: {
-    width: isTabletOrDesktop ? "22%" : "23%",
-    alignItems: "center",
-    marginBottom: 22,
-  },
-
-  iconBox: {
-    width: 58,
-    height: 58,
-    borderRadius: 18,
-    backgroundColor: "#f8fafc",
-    justifyContent: "center",
-    alignItems: "center",
-    elevation: 2,
-    marginBottom: 8,
-  },
-
-  gridLabel: {
-    fontSize: 12,
-    color: "#334155",
-    fontWeight: "600",
-  },
-
+  bankLogoText: { color: "#1e40af", fontWeight: "bold", fontSize: 12 },
+  bankTitle: { fontSize: 12, color: "#64748b" },
+  accNo: { fontSize: 17, color: "#0f172a", fontWeight: "bold" },
   statsGrid: {
-    paddingHorizontal: 16,
-    marginTop: 18,
     flexDirection: "row",
     justifyContent: "space-between",
-  },
-
-  statCard: {
-    width: "48%",
-    backgroundColor: "#fff",
-    borderRadius: 18,
-    padding: 16,
-    borderLeftWidth: 5,
-    elevation: 4,
-  },
-
-  statTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-
-  statLabel: {
-    color: "#64748b",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-
-  statValue: {
-    marginTop: 12,
-    fontSize: width > 500 ? 24 : 18,
-    fontWeight: "bold",
-    color: "#0f172a",
-  },
-
-  statUnit: {
-    fontSize: 12,
-    color: "#94a3b8",
-  },
-
-  section: {
-    paddingHorizontal: 16,
-    marginTop: 22,
-  },
-
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#0f172a",
     marginBottom: 12,
   },
-
+  statsGridAlt: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 15,
+  },
+  statCard: {
+    backgroundColor: "#fff",
+    width: "48%",
+    padding: 15,
+    borderRadius: 12,
+    borderLeftWidth: 6,
+    elevation: 3,
+  },
+  statLabel: { fontSize: 12, color: "#64748b", fontWeight: "600" },
+  statValue: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#1e293b",
+    marginTop: 5,
+  },
+  statUnit: { fontSize: 12, color: "#94a3b8" },
+  targetTrackingSection: { marginTop: 10, marginBottom: 20 },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#334155",
+    marginBottom: 10,
+  },
   targetCard: {
     backgroundColor: "#fff",
-    borderRadius: 20,
     padding: 20,
-    elevation: 4,
+    borderRadius: 12,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
   },
-
   targetRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-  },
-
-  targetLabel: {
-    color: "#64748b",
-    fontSize: 12,
-  },
-
-  targetValue: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#1e3a8a",
-    marginTop: 4,
-  },
-
-  rightAlign: {
-    alignItems: "flex-end",
-  },
-
-  percentageText: {
-    color: "#16a34a",
-    fontSize: 24,
-    fontWeight: "bold",
-    marginTop: 4,
-  },
-
-  progressTrack: {
-    height: 12,
-    backgroundColor: "#e2e8f0",
-    borderRadius: 20,
-    overflow: "hidden",
-    marginTop: 18,
-  },
-
-  progressBar: {
-    height: "100%",
-    backgroundColor: "#16a34a",
-    borderRadius: 20,
-  },
-
-  targetRowAlt: {
-    marginTop: 14,
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-
-  progressSubText: {
-    color: "#64748b",
-    fontSize: 12,
-  },
-
-  remainingText: {
-    color: "#dc2626",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-
-  infoBox: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 18,
-    elevation: 4,
-  },
-
-  infoText: {
-    color: "#64748b",
-  },
-
-  supName: {
-    color: "#1e3a8a",
-    fontWeight: "bold",
-    fontSize: 18,
-  },
-
-  supPhone: {
-    marginTop: 5,
-    color: "#475569",
-  },
-
-  footerBranding: {
-    marginTop: 30,
-    flexDirection: "row",
-    justifyContent: "space-around",
-    backgroundColor: "#fff",
-    paddingVertical: 24,
-    marginHorizontal: 16,
-    borderRadius: 24,
-    elevation: 4,
-  },
-
-  trustItem: {
     alignItems: "center",
   },
-
-  trustTitle: {
-    marginTop: 8,
-    color: "#334155",
-    fontWeight: "bold",
-    fontSize: 12,
-  },
-
-  bottomTab: {
-    height: 82,
-    backgroundColor: "#fff",
+  targetRowAlt: {
     flexDirection: "row",
-    borderTopWidth: 1,
-    borderTopColor: "#e2e8f0",
-    elevation: 10,
-    paddingBottom: 10,
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 12,
   },
-
-  tabItem: {
-    flex: 1,
+  targetLabel: { fontSize: 12, color: "#64748b" },
+  targetValue: { fontSize: 16, fontWeight: "bold", color: "#0f172a" },
+  rightAlign: { alignItems: "flex-end" },
+  percentageText: { fontSize: 20, fontWeight: "800", color: "#059669" },
+  progressTrack: {
+    width: "100%",
+    height: 10,
+    backgroundColor: "#e2e8f0",
+    borderRadius: 5,
+    marginTop: 15,
+    overflow: "hidden",
+  },
+  progressBar: { height: "100%", backgroundColor: "#059669", borderRadius: 5 },
+  progressSubText: { fontSize: 12, color: "#64748b" },
+  remainingText: { fontSize: 12, color: "#64748b" },
+  boldText: { fontWeight: "700", color: "#0f172a" },
+  boldTextRed: { fontWeight: "700", color: "#dc2626" },
+  servicesContainer: {
+    backgroundColor: "rgba(255,255,255,0.9)",
+    borderRadius: 28,
+    padding: 20,
+    elevation: 4,
+    marginBottom: 20,
+  },
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+  gridItem: { width: "23%", alignItems: "center", marginBottom: 22 },
+  iconBox: {
+    width: 54,
+    height: 54,
+    borderRadius: 18,
+    backgroundColor: "#f8fafc",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+    elevation: 1,
+  },
+  gridLabel: {
+    color: "#475569",
+    fontSize: 11,
+    textAlign: "center",
+    fontWeight: "600",
+  },
+  menuSection: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 15,
+    marginBottom: 20,
+    elevation: 2,
+  },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f1f5f9",
+  },
+  menuText: {
+    marginLeft: 15,
+    fontSize: 16,
+    color: "#334155",
+    fontWeight: "500",
+  },
+  supervisorSection: { marginBottom: 20 },
+  infoBox: {
+    backgroundColor: "#fff",
+    padding: 15,
+    borderRadius: 15,
+    elevation: 2,
+  },
+  infoText: { color: "#64748b" },
+  supName: { fontWeight: "bold", fontSize: 16 },
+  supPhone: { color: "#1e40af", marginTop: 4 },
+  actionSection: { marginBottom: 20 },
+  actionBtnFull: {
+    backgroundColor: "#1e40af",
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 10,
+    alignItems: "center",
+  },
+  actionBtnTextFull: { color: "#fff", fontWeight: "bold" },
+  footerBranding: {
+    marginTop: 10,
+    paddingBottom: 40,
+    backgroundColor: "#f8fafc",
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingTop: 20,
+  },
+  footerHeadline: {
+    textAlign: "center",
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 15,
+  },
+  trustGrid: { flexDirection: "row", justifyContent: "space-around" },
+  trustItem: { alignItems: "center" },
+  trustIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     justifyContent: "center",
     alignItems: "center",
   },
-
-  tabLabel: {
-    marginTop: 4,
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#94a3b8",
+  trustTitle: { fontSize: 12, fontWeight: "bold", marginTop: 8 },
+  trustSub: { fontSize: 10, color: "#64748b" },
+  bottomTab: {
+    height: 85,
+    backgroundColor: "#fff",
+    flexDirection: "row",
+    borderTopWidth: 1,
+    borderTopColor: "#f1f5f9",
+    paddingBottom: 20,
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    elevation: 20,
+  },
+  tabItem: { flex: 1, justifyContent: "center", alignItems: "center" },
+  tabLabel: { fontSize: 10, marginTop: 4, fontWeight: "600" },
+  sideMenu: {
+    width: "80%",
+    height: "100%",
+    position: "absolute",
+    right: 0,
+    top: 0,
+    paddingTop: 60,
+    paddingHorizontal: 20,
+    elevation: 20,
   },
 
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "flex-end",
+  menuHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 30,
   },
 
-  modalContent: {
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    padding: 24,
-    minHeight: 320,
+  menuLogo: {
+    width: 50,
+    height: 50,
+    resizeMode: "contain",
   },
 
-  closeBtn: {
-    alignSelf: "flex-end",
+  profileArea: {
+    alignItems: "center",
+    marginBottom: 40,
   },
 
-  menuTitle: {
-    fontSize: 22,
+  avatarCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#2563eb",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+
+  avatarText: {
+    color: "#fff",
+    fontSize: 32,
     fontWeight: "bold",
-    marginBottom: 20,
   },
 
-  menuButton: {
+  profileName: {
+    fontSize: 20,
+    fontWeight: "bold",
+  },
+
+  profileEmail: {
+    color: "#94a3b8",
+    marginTop: 5,
+  },
+
+  menuOption: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 18,
-    backgroundColor: "#f8fafc",
-    padding: 16,
-    borderRadius: 14,
+    paddingVertical: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e2e8f0",
   },
 
-  menuText: {
-    flex: 1,
-    marginLeft: 12,
-    color: "#0f172a",
+  menuOptionText: {
+    marginLeft: 15,
+    fontSize: 16,
     fontWeight: "600",
-    fontSize: 15,
   },
 
   logoutBtn: {
-    marginTop: 20,
+    marginTop: 40,
     backgroundColor: "#dc2626",
-    padding: 16,
-    borderRadius: 14,
+    padding: 18,
+    borderRadius: 16,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
@@ -1193,7 +1150,8 @@ const styles = StyleSheet.create({
   logoutText: {
     color: "#fff",
     fontWeight: "bold",
-    marginLeft: 8,
+    marginLeft: 10,
+    fontSize: 16,
   },
 });
 
