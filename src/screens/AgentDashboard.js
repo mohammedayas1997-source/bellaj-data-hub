@@ -802,7 +802,6 @@ const styles = StyleSheet.create({
   userName: { color: "#0f172a", fontSize: 24, fontWeight: "bold" },
   content: {
     flex: 1,
-    backgroundColor: "red",
     paddingHorizontal: 16,
   },
   walletCard: {
