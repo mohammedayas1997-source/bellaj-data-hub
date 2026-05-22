@@ -117,9 +117,7 @@ const AgentDashboard = () => {
   useEffect(() => {
     fetchAgentAndProfileData();
   }, []);
-  useEffect(() => {
-    loadTheme();
-  }, []);
+
   const onRefresh = () => {
     setRefreshing(true);
     fetchAgentAndProfileData();
@@ -322,6 +320,7 @@ const AgentDashboard = () => {
               bank={userData.bankName || "Wema Bank"}
               acc={userData.accountNumber}
               code="WB"
+              isDarkMode={isDarkMode}
               onCopy={() => copyToClipboard(userData.accountNumber)}
             />
           ) : (
