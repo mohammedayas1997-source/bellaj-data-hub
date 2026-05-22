@@ -154,15 +154,56 @@ const AgentDashboard = () => {
               />
             </TouchableOpacity>
 
-            <Text style={styles.menuTitle}>Menu</Text>
-            <TouchableOpacity onPress={() => navigation.navigate("Profile")}>
-              <Text style={styles.menuItem}>👤 My Profile</Text>
+            <Text
+              style={[
+                styles.menuTitle,
+                { color: isDarkMode ? "#fff" : "#000" },
+              ]}
+            >
+              Menu
+            </Text>
+
+            {/* My Profile */}
+            <TouchableOpacity
+              onPress={() => {
+                setMenuVisible(false);
+                navigation.navigate("Profile");
+              }}
+            >
+              <Text
+                style={[
+                  styles.menuItem,
+                  { color: isDarkMode ? "#e2e8f0" : "#334155" },
+                ]}
+              >
+                👤 My Profile
+              </Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => navigation.navigate("Settings")}>
-              <Text style={styles.menuItem}>⚙️ Settings</Text>
+
+            {/* Settings */}
+            <TouchableOpacity
+              onPress={() => {
+                setMenuVisible(false);
+                navigation.navigate("Settings");
+              }}
+            >
+              <Text
+                style={[
+                  styles.menuItem,
+                  { color: isDarkMode ? "#e2e8f0" : "#334155" },
+                ]}
+              >
+                ⚙️ Settings
+              </Text>
             </TouchableOpacity>
+
+            {/* Logout */}
             <TouchableOpacity onPress={handleLogout} style={{ marginTop: 20 }}>
-              <Text style={[styles.menuItem, { color: "red" }]}>🚪 Logout</Text>
+              <Text
+                style={[styles.menuItem, { color: "red", fontWeight: "bold" }]}
+              >
+                🚪 Logout
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
