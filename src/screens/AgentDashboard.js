@@ -180,6 +180,14 @@ const AgentDashboard = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <View style={styles.loaderContainer}>
+        <ActivityIndicator size="large" color="#2563eb" />
+      </View>
+    );
+  }
+
   return (
     <View
       style={[
@@ -232,14 +240,12 @@ const AgentDashboard = () => {
           </View>
         </View>
         <ScrollView
-          style={{
-            backgroundColor: isDarkMode ? "#020617" : "#f8fafc",
-          }}
-          style={styles.content}
-          contentContainerStyle={{
-            paddingBottom: 180,
-            flexGrow: 1,
-          }}
+          style={[
+            styles.content,
+            {
+              backgroundColor: isDarkMode ? "#020617" : "#f8fafc",
+            },
+          ]}
           showsVerticalScrollIndicator={false}
           nestedScrollEnabled={true}
           refreshControl={
@@ -873,7 +879,7 @@ const styles = StyleSheet.create({
   },
   bankScroll: { marginBottom: 25 },
   bankBox: {
-    backgroundColor: isDarkMode ? "#1e293b" : "#fff",
+    backgroundColor: "#fff",
     width: width * 0.75,
     padding: 16,
     borderRadius: 20,
