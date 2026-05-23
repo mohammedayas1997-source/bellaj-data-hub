@@ -795,6 +795,11 @@ const TabItem = ({ icon, label, active, onPress }) => (
 const styles = StyleSheet.create({
   mainContainer: {
     flex: 1,
+    width: "100%",
+  },
+  content: {
+    flex: 1,
+    width: "100%", // Wannan yana da mahimmanci don kada ya matse
   },
   fullOverlayGradient: { ...StyleSheet.absoluteFillObject },
   fullOverlay: { flex: 1 },
@@ -823,7 +828,8 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 20,
-    paddingBottom: 150, // Wannan yana bawa kasan dashboard damar fita
+    paddingBottom: 150,
+    width: "100%",
   },
   walletCard: {
     borderRadius: 24,
