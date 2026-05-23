@@ -148,8 +148,9 @@ const LoginScreen = ({ navigation }) => {
     }
 
     setLoading(true);
+
     try {
-      console.log("🚀 Attemping Login for:", email.trim().toLowerCase());
+      console.log("🚀 Attempting Login for:", email.trim().toLowerCase());
 
       const response = await axios.post(
         "https://ayax-data-xpress-server.onrender.com/api/v1/auth/login",
@@ -159,93 +160,94 @@ const LoginScreen = ({ navigation }) => {
         },
       );
 
-      console.log(
-        "📥 Raw Server Response Structure:",
-        JSON.stringify(response.data),
-      );
+      console.log("📥 Raw Server Response:", JSON.stringify(response.data));
 
-      if (
-        response.data.success ||
-        response.data.status === "success" ||
-        response.data.token
-      ) {
-        const token = response.data.token;
+      // =========================
+      // FIXED TOKEN EXTRACTION
+      // =========================
 
-        // AN GYARA: Matataccen tsarin dauko user object ta kowane siga
-        const userPayload =
-          response.data.user ||
-          response.data.data?.user ||
-          response.data.data ||
-          {};
+      const token =
+        response?.data?.token ||
+        response?.data?.accessToken ||
+        response?.data?.data?.token ||
+        "";
 
-        // AN GYARA: Matataccen tsarin gano Role na ainihi daga response dinnan
-        const finalRole =
-          userPayload?.role ||
-          response.data.role ||
-          response.data.data?.role ||
-          "";
+      // =========================
+      // FIXED USER EXTRACTION
+      // =========================
 
-        const normalizedRole = finalRole.trim().toLowerCase();
-        console.log("🎯 Final Resolved Role for Navigation:", normalizedRole);
+      const userPayload =
+        response?.data?.user ||
+        response?.data?.data?.user ||
+        response?.data?.data ||
+        {};
 
-        // Tabbatar muna adana duka bayanan a storage domin amfanin gaba
-        await AsyncStorage.setItem("userToken", token);
-        await AsyncStorage.setItem("userData", JSON.stringify(userPayload));
+      // =========================
+      // FIXED ROLE EXTRACTION
+      // =========================
 
+      const finalRole =
+        userPayload?.role ||
+        response?.data?.role ||
+        response?.data?.data?.role ||
+        "";
+
+      const normalizedRole = finalRole.trim().toLowerCase();
+
+      console.log("🎯 FINAL ROLE:", normalizedRole);
+
+      // =========================
+      // VALIDATE TOKEN
+      // =========================
+
+      if (!token) {
+        setErrorMessage("Authentication token missing from server.");
+        return;
+      }
+
+      // =========================
+      // SAVE DATA
+      // =========================
+
+      await AsyncStorage.setItem("userToken", token);
+
+      await AsyncStorage.setItem("userData", JSON.stringify(userPayload));
+
+      console.log("✅ TOKEN SAVED SUCCESSFULLY");
+
+      // =========================
+      // NAVIGATION
+      // =========================
+
+      setTimeout(() => {
         if (normalizedRole === "agent") {
           navigation.replace("AgentDashboard");
         } else {
           navigation.replace("Main");
         }
-      } else {
-        setErrorMessage(
-          response.data.message ||
-            "Invalid credentials. Please verify details.",
-        );
-      }
+      }, 300);
     } catch (error) {
-      console.log(
-        "❌ Login Error Details Caught:",
-        error.response?.data || error.message,
-      );
+      console.log("❌ Login Error:", error?.response?.data || error.message);
 
       if (error.response) {
         const status = error.response.status;
         const backendMessage = error.response.data?.message || "";
 
         if (status === 401) {
-          if (backendMessage.toLowerCase().includes("password")) {
-            setErrorMessage(
-              "Incorrect password. Please try again or reset it.",
-            );
-          } else if (
-            backendMessage.toLowerCase().includes("user") ||
-            backendMessage.toLowerCase().includes("found") ||
-            backendMessage.toLowerCase().includes("exist")
-          ) {
-            setErrorMessage(
-              "This email address is not registered. Create an account below.",
-            );
-          } else {
-            setErrorMessage(
-              "Invalid email or password. Please double-check your credentials.",
-            );
-          }
+          setErrorMessage(
+            backendMessage || "Invalid email or password. Please try again.",
+          );
         } else if (status === 404) {
-          setErrorMessage(
-            "Account not found. Please verify your email or sign up.",
-          );
+          setErrorMessage("Account not found.");
         } else {
-          setErrorMessage(
-            backendMessage || "Server error encountered during authentication.",
-          );
+          setErrorMessage(backendMessage || "Server error encountered.");
         }
       } else if (error.request) {
         setErrorMessage(
-          "Network error. Please verify your internet connection and try again.",
+          "Network error. Please check your internet connection.",
         );
       } else {
-        setErrorMessage("An unexpected error occurred. Please try again.");
+        setErrorMessage("Unexpected error occurred.");
       }
     } finally {
       setLoading(false);
