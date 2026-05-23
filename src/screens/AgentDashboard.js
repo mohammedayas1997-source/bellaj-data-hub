@@ -165,45 +165,27 @@ const AgentDashboard = () => {
       ? Math.min(Math.round((currentSales / targetSales) * 100), 100)
       : 0;
 
-  const handleLogout = () => {
-    Alert.alert("Logout", "Are you sure you want to logout?", [
-      {
-        text: "Cancel",
-        style: "cancel",
-      },
+  const handleLogout = async () => {
+    console.log("Logout function triggered");
 
-      {
-        text: "Logout",
-        style: "destructive",
+    try {
+      // 1. Share dukkan bayanan sirri nan take ba tare da jiran Alert ba
+      // Wannan zai hana wancan kiran API din (Profile) ya sake faruwa
+      await AsyncStorage.clear();
 
-        onPress: async () => {
-          try {
-            // CLEAR EVERYTHING
-            await AsyncStorage.clear();
+      // 2. Yi amfani da Reset don komawa Login
+      props.navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: "Login" }],
+        }),
+      );
 
-            // CLOSE ANY MODALS
-            setPinModalVisible(false);
-            setChangePinModalVisible(false);
-
-            // SMALL DELAY
-            setTimeout(() => {
-              navigation.reset({
-                index: 0,
-                routes: [
-                  {
-                    name: "Login",
-                  },
-                ],
-              });
-            }, 300);
-          } catch (error) {
-            console.log("Logout Error:", error);
-
-            Alert.alert("Error", "Failed to logout");
-          }
-        },
-      },
-    ]);
+      console.log("Navigation to Login executed");
+    } catch (error) {
+      console.error("Logout Error:", error);
+      props.navigation.navigate("Login");
+    }
   };
   if (loading) {
     return (
