@@ -157,6 +157,7 @@ const LoginScreen = ({ navigation }) => {
         {
           email: email.trim().toLowerCase(),
           password: password,
+          role: "supervisor",
         },
       );
 
