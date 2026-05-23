@@ -89,7 +89,7 @@ const LoginScreen = ({ navigation }) => {
   };
 
   const openEmail = () => {
-    Linking.openURL("mailto:support@ayaxxpress.com");
+    Linking.openURL("mailto:support@ayaxdata.online");
   };
 
   const makeCall = () => {
@@ -152,14 +152,16 @@ const LoginScreen = ({ navigation }) => {
     try {
       console.log("🚀 Attempting Login for:", email.trim().toLowerCase());
 
+      // GYARA: Cire 'role: "supervisor"' daga nan
       const response = await axios.post(
         "https://ayax-data-xpress-server.onrender.com/api/v1/auth/login",
         {
           email: email.trim().toLowerCase(),
           password: password,
-          role: "supervisor",
         },
       );
+
+      // ... sauran code ɗin naka ...
 
       console.log("📥 Raw Server Response:", JSON.stringify(response.data));
 
