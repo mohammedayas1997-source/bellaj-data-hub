@@ -69,86 +69,44 @@ const AgentDashboard = ({ navigation }) => {
 
   const [supervisor, setSupervisor] = useState(null);
 
-  const fetchAgentAndProfileData = async () => {
+  const fetchData = async () => {
     try {
       const token = await AsyncStorage.getItem("userToken");
 
       if (!token) {
-        // Idan babu token, mu kashe loading din kafin mu tura mai amfani zuwa Login
-
-        setLoading(false);
-
-        navigation.reset({ index: 0, routes: [{ name: "Login" }] });
-
+        // Idan babu token, tura zuwa Login nan take
+        navigation.dispatch(
+          CommonActions.reset({ index: 0, routes: [{ name: "Login" }] }),
+        );
         return;
       }
 
+      // Tabbatar cewa ana saka Bearer token
       const config = {
         headers: {
-          Authorization: `Bearer ${token}`,
-
+          Authorization: `Bearer ${token}`, // Tabbatar da sarari bayan Bearer
           Accept: "application/json",
         },
       };
 
-      const [profileRes, perfRes, supRes] = await Promise.all([
-        axios
-
-          .get(`${BASE_URL}/user/profile`, config)
-
-          .catch((e) => ({ data: { success: false } })),
-
-        axios
-
-          .get(`${BASE_URL}/agent/performance`, config)
-
-          .catch((e) => ({ data: { data: null } })),
-
-        axios
-
-          .get(`${BASE_URL}/agent/my-supervisor`, config)
-
-          .catch((e) => ({ data: { data: null } })),
+      // Yanzu muna kiran endpoints ɗin
+      const [performanceRes, supervisorRes] = await Promise.all([
+        axios.get(`${BASE_URL}/agent/performance`, config),
+        axios.get(`${BASE_URL}/agent/my-supervisor`, config),
       ]);
 
-      if (profileRes.data && profileRes.data.success) {
-        setUserData(profileRes.data.user || profileRes.data.data);
+      // ... sauran code ɗinka ...
+    } catch (error) {
+      if (error.response?.status === 401) {
+        // IDAN 401: Token ya ƙare ko invalid
+        await AsyncStorage.removeItem("userToken"); // Goge token ɗin da ya lalace
+        Alert.alert("Session Expired", "Please login again.");
+        navigation.dispatch(
+          CommonActions.reset({ index: 0, routes: [{ name: "Login" }] }),
+        );
       }
-
-      if (perfRes.data?.data) {
-        setPerformance(perfRes.data.data);
-      } else {
-        setPerformance({
-          totalGB: 0,
-
-          totalSalesValue: 0,
-
-          commissionsEarned: 0,
-
-          bonusEarned: 0,
-
-          monthlyTargetSales: 100000,
-        });
-      }
-
-      if (supRes.data?.data) {
-        setSupervisor(supRes.data.data);
-      } else {
-        setSupervisor("No Supervisor Assigned Yet");
-      }
-    } catch (err) {
-      console.log("Comprehensive Agent Dashboard Fetch Error:", err);
-
-      if (err.response && err.response.status === 401) {
-        navigation.reset({ index: 0, routes: [{ name: "Login" }] });
-      }
-    } finally {
-      setLoading(false);
-
-      setRefreshing(false);
     }
   };
-
   useEffect(() => {
     fetchAgentAndProfileData();
   }, []);
