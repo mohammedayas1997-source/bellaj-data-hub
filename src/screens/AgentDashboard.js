@@ -149,35 +149,41 @@ const AgentDashboard = () => {
       ? Math.min(Math.round((currentSales / targetSales) * 100), 100)
       : 0;
 
-  const handleLogout = async () => {
-    try {
-      Alert.alert("Logout", "Are you sure you want to logout?", [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-        {
-          text: "Logout",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await AsyncStorage.multiRemove(["userToken", "userData"]);
+  const handleLogout = () => {
+    Alert.alert("Logout", "Are you sure you want to logout?", [
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+      {
+        text: "Logout",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            // Clear ALL storage
+            await AsyncStorage.clear();
 
-              navigation.reset({
-                index: 0,
-                routes: [{ name: "Login" }],
-              });
-            } catch (error) {
-              console.log(error);
-            }
-          },
+            // Close menu first
+            setMenuVisible(false);
+
+            // Reset all states
+            setUserData(null);
+            setSupervisor(null);
+
+            // Navigate to Login and remove history
+            navigation.reset({
+              index: 0,
+              routes: [{ name: "Login" }],
+            });
+          } catch (error) {
+            console.log("Logout Error:", error);
+
+            Alert.alert("Error", "Something went wrong while logging out.");
+          }
         },
-      ]);
-    } catch (error) {
-      console.log(error);
-    }
+      },
+    ]);
   };
-
   if (loading) {
     return (
       <View style={styles.loaderContainer}>
