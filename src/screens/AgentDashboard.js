@@ -6,10 +6,8 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
-  Modal,
   StatusBar,
   Dimensions,
-  //Clipboard,
   ToastAndroid,
   ImageBackground,
   Linking,
@@ -18,6 +16,7 @@ import {
   Platform,
   ActivityIndicator,
   RefreshControl,
+  Modal,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import {
@@ -26,7 +25,6 @@ import {
   FontAwesome5,
 } from "@expo/vector-icons";
 import { CommonActions } from "@react-navigation/native";
-import { Modal } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
