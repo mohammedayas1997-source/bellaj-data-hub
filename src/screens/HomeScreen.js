@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import {
   View,
   Text,
@@ -8,13 +8,13 @@ import {
   Image,
   StatusBar,
   Dimensions,
-  Clipboard,
   ToastAndroid,
   ImageBackground,
   Linking,
   Alert,
   Platform,
 } from "react-native";
+import * as Clipboard from "expo-clipboard";
 import {
   MaterialCommunityIcons,
   Ionicons,
@@ -23,12 +23,15 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
+import { ThemeContext } from "../context/ThemeContext";
 
 const { width } = Dimensions.get("window");
 const BASE_URL = "https://ayax-data-xpress-server.onrender.com/api/v1";
 
 const HomeScreen = ({ navigation }) => {
+  const { isDarkMode } = useContext(ThemeContext);
   const [userData, setUserData] = useState(null);
+
   const [isBalanceVisible, setIsBalanceVisible] = useState(true);
 
   useEffect(() => {
@@ -66,7 +69,7 @@ const HomeScreen = ({ navigation }) => {
 
   const copyToClipboard = (text) => {
     if (!text) return;
-    Clipboard.setString(text);
+    Clipboard.setStringAsync(text);
     if (Platform.OS === "android") {
       ToastAndroid.show("Copied to clipboard", ToastAndroid.SHORT);
     }
@@ -82,9 +85,16 @@ const HomeScreen = ({ navigation }) => {
   };
 
   return (
-    <View style={styles.mainContainer}>
+    <View
+      style={[
+        styles.mainContainer,
+        {
+          backgroundColor: isDarkMode ? "#020617" : "#f8fafc",
+        },
+      ]}
+    >
       <StatusBar
-        barStyle="dark-content"
+        barStyle={isDarkMode ? "light-content" : "dark-content"}
         translucent
         backgroundColor="transparent"
       />
@@ -95,7 +105,11 @@ const HomeScreen = ({ navigation }) => {
         resizeMode="cover"
       >
         <LinearGradient
-          colors={["rgba(255,255,255,0.6)", "rgba(248,250,252,0.95)"]}
+          colors={
+            isDarkMode
+              ? ["rgba(2,6,23,0.7)", "rgba(2,6,23,0.95)"]
+              : ["rgba(255,255,255,0.6)", "rgba(248,250,252,0.95)"]
+          }
           style={styles.fullOverlay}
         />
 
@@ -118,7 +132,12 @@ const HomeScreen = ({ navigation }) => {
 
           <View style={styles.welcomeSection}>
             <Text style={styles.welcomeText}>Welcome back,</Text>
-            <Text style={styles.userName}>
+            <Text
+              style={[
+                styles.userName,
+                { color: isDarkMode ? "#fff" : "#0f172a" },
+              ]}
+            >
               {userData
                 ? `${userData.firstName} ${userData.surname}`
                 : "Loading..."}
@@ -192,7 +211,14 @@ const HomeScreen = ({ navigation }) => {
           </LinearGradient>
 
           {/* 2. Funding Accounts Section - REAL LIVE DATA */}
-          <Text style={styles.sectionLabel}>Automatic Funding Accounts</Text>
+          <Text
+            style={[
+              styles.sectionLabel,
+              { color: isDarkMode ? "#fff" : "#1e293b" },
+            ]}
+          >
+            Automatic Funding Accounts
+          </Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -232,7 +258,14 @@ const HomeScreen = ({ navigation }) => {
           </ScrollView>
 
           {/* 3. Quick Services Grid */}
-          <Text style={styles.sectionLabel}>Our Services</Text>
+          <Text
+            style={[
+              styles.sectionLabel,
+              { color: isDarkMode ? "#fff" : "#1e293b" },
+            ]}
+          >
+            Our Services
+          </Text>
           <View style={styles.servicesContainer}>
             <View style={styles.grid}>
               <ServiceItem
@@ -371,7 +404,16 @@ const ServiceItem = ({ icon, label, color, onPress }) => (
     <View style={styles.iconBox}>
       <FontAwesome5 name={icon} size={20} color={color} />
     </View>
-    <Text style={styles.gridLabel}>{label}</Text>
+    <Text
+      style={[
+        styles.gridLabel,
+        {
+          color: isDarkMode ? "#fff" : "#475569",
+        },
+      ]}
+    >
+      {label}
+    </Text>
   </TouchableOpacity>
 );
 
@@ -503,7 +545,9 @@ const styles = StyleSheet.create({
   bankTitle: { fontSize: 12, color: "#64748b" },
   accNo: { fontSize: 17, color: "#0f172a", fontWeight: "bold" },
   servicesContainer: {
-    backgroundColor: "rgba(255,255,255,0.9)",
+    backgroundColor: isDarkMode
+      ? "rgba(15,23,42,0.95)"
+      : "rgba(255,255,255,0.9)",
     borderRadius: 28,
     padding: 20,
     elevation: 4,
