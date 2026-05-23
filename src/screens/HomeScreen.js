@@ -272,42 +272,49 @@ const HomeScreen = ({ navigation }) => {
                 icon="wifi"
                 color="#0ea5e9"
                 label="Data"
+                isDarkMode={isDarkMode}
                 onPress={() => navigation.navigate("BuyData")}
               />
               <ServiceItem
                 icon="phone-alt"
                 color="#22c55e"
                 label="Airtime"
+                isDarkMode={isDarkMode}
                 onPress={() => navigation.navigate("BuyAirtime")}
               />
               <ServiceItem
                 icon="bolt"
                 color="#eab308"
                 label="Power"
+                isDarkMode={isDarkMode}
                 onPress={() => navigation.navigate("Electricity")}
               />
               <ServiceItem
                 icon="tv"
                 color="#8b5cf6"
                 label="Cable"
+                isDarkMode={isDarkMode}
                 onPress={() => navigation.navigate("Cable")}
               />
               <ServiceItem
                 icon="id-card"
                 color="#f43f5e"
                 label="NIMC Varify"
+                isDarkMode={isDarkMode}
                 onPress={() => navigation.navigate("NIMC")}
               />
               <ServiceItem
                 icon="fingerprint"
                 color="#ec4899"
                 label="NIMC Mod"
+                isDarkMode={isDarkMode}
                 onPress={() => navigation.navigate("NIMCModification")}
               />
               <ServiceItem
                 icon="user-shield"
                 color="#64748b"
                 label="BVN"
+                isDarkMode={isDarkMode}
                 onPress={() => navigation.navigate("BVNScreen")}
               />
               <ServiceItem
@@ -320,6 +327,7 @@ const HomeScreen = ({ navigation }) => {
                 icon="history"
                 color="#f97316"
                 label="History"
+                isDarkMode={isDarkMode}
                 onPress={() =>
                   navigation.navigate("Main", { screen: "Wallet History" })
                 }
@@ -399,11 +407,12 @@ const BankCard = ({ bank, acc, code, onCopy }) => (
   </TouchableOpacity>
 );
 
-const ServiceItem = ({ icon, label, color, onPress }) => (
+const ServiceItem = ({ icon, label, color, onPress, isDarkMode }) => (
   <TouchableOpacity style={styles.gridItem} onPress={onPress}>
     <View style={styles.iconBox}>
       <FontAwesome5 name={icon} size={20} color={color} />
     </View>
+
     <Text
       style={[
         styles.gridLabel,
@@ -545,9 +554,6 @@ const styles = StyleSheet.create({
   bankTitle: { fontSize: 12, color: "#64748b" },
   accNo: { fontSize: 17, color: "#0f172a", fontWeight: "bold" },
   servicesContainer: {
-    backgroundColor: isDarkMode
-      ? "rgba(15,23,42,0.95)"
-      : "rgba(255,255,255,0.9)",
     borderRadius: 28,
     padding: 20,
     elevation: 4,
