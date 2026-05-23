@@ -26,7 +26,6 @@ import {
 } from "@expo/vector-icons";
 import { Modal } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { ThemeContext } from "../context/ThemeContext";
@@ -34,7 +33,7 @@ import { ThemeContext } from "../context/ThemeContext";
 const { width } = Dimensions.get("window");
 const BASE_URL = "https://ayax-data-xpress-server.onrender.com/api/v1";
 
-const AgentDashboard = () => {
+const AgentDashboard = ({ navigation }) => {
   const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -105,7 +104,6 @@ const AgentDashboard = () => {
     } catch (err) {
       console.log("Comprehensive Agent Dashboard Fetch Error:", err);
       if (err.response && err.response.status === 401) {
-        await AsyncStorage.clear();
         navigation.reset({ index: 0, routes: [{ name: "Login" }] });
       }
     } finally {
@@ -166,26 +164,40 @@ const AgentDashboard = () => {
       : 0;
 
   const handleLogout = async () => {
-    console.log("Logout function triggered");
+    Alert.alert(
+      "Logout",
+      "Are you sure you want to logout?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Logout",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              // CLOSE MENU FIRST
+              setMenuVisible(false);
 
-    try {
-      // 1. Share dukkan bayanan sirri nan take ba tare da jiran Alert ba
-      // Wannan zai hana wancan kiran API din (Profile) ya sake faruwa
-      await AsyncStorage.clear();
+              // CLEAR STORAGE
+              await AsyncStorage.removeItem("userToken");
+              await AsyncStorage.removeItem("userData");
 
-      // 2. Yi amfani da Reset don komawa Login
-      props.navigation.dispatch(
-        CommonActions.reset({
-          index: 0,
-          routes: [{ name: "Login" }],
-        }),
-      );
+              // SMALL WAIT
+              setTimeout(() => {
+                navigation.replace("Login");
+              }, 200);
+            } catch (error) {
+              console.log("Logout Error:", error);
 
-      console.log("Navigation to Login executed");
-    } catch (error) {
-      console.error("Logout Error:", error);
-      props.navigation.navigate("Login");
-    }
+              Alert.alert("Error", "Unable to logout. Please try again.");
+            }
+          },
+        },
+      ],
+      { cancelable: true },
+    );
   };
   if (loading) {
     return (
