@@ -551,7 +551,7 @@ const AgentDashboard = ({ navigation }) => {
       <Modal
         visible={menuVisible}
         transparent={true}
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => setMenuVisible(false)}
       >
         <View
@@ -1092,11 +1092,18 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 0,
     top: 0,
-    width: "85%", // Ya kamata ya zama 85% na allon ba 100% ba
+    width: "85%",
     height: "100%",
-    backgroundColor: isDarkMode ? "#0f172a" : "#ffffff",
     elevation: 5,
-    zIndex: 1000, // Wannan yana sa ya hau kan komai
+    zIndex: 1000,
+    paddingTop: 60,
+    paddingHorizontal: 20,
+  },
+  menuHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 30,
   },
   menuLogo: {
     width: 50,
