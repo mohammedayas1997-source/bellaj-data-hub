@@ -238,14 +238,17 @@ const AgentDashboard = ({ navigation }) => {
           </View>
         </View>
         <ScrollView
-          style={[
-            styles.content,
-            {
-              backgroundColor: isDarkMode ? "#020617" : "#f8fafc",
-            },
-          ]}
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingBottom: 140,
+            flexGrow: 1,
+          }}
           showsVerticalScrollIndicator={false}
           nestedScrollEnabled={true}
+          bounces={true}
+          scrollEnabled={true}
+          keyboardShouldPersistTaps="handled"
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
@@ -788,8 +791,8 @@ const TabItem = ({ icon, label, active, onPress }) => (
 );
 
 const styles = StyleSheet.create({
-  mainContainer: { flex: 1, backgroundColor: "#f8fafc" },
-  backgroundImage: { flex: 1, width: "100%", height: "100%" },
+  mainContainer: { flex: 1 },
+  backgroundImage: { flex: 1, width: "100%" },
   fullOverlayGradient: { ...StyleSheet.absoluteFillObject },
   fullOverlay: { flex: 1 },
   loaderContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
@@ -813,10 +816,7 @@ const styles = StyleSheet.create({
   welcomeSection: { marginBottom: 10 },
   welcomeText: { color: "#64748b", fontSize: 14, fontWeight: "500" },
   userName: { color: "#0f172a", fontSize: 24, fontWeight: "bold" },
-  content: {
-    flex: 1,
-    paddingHorizontal: 16,
-  },
+
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 20,
@@ -1061,6 +1061,10 @@ const styles = StyleSheet.create({
   trustTitle: { fontSize: 12, fontWeight: "bold", marginTop: 8 },
   trustSub: { fontSize: 10, color: "#64748b" },
   bottomTab: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
     height: 85,
     backgroundColor: "#fff",
     flexDirection: "row",
