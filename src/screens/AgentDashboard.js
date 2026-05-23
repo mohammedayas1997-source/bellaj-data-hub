@@ -1087,29 +1087,18 @@ const styles = StyleSheet.create({
   tabLabel: { fontSize: 10, marginTop: 4, fontWeight: "600" },
   sideMenu: {
     width: width > 768 ? 350 : width * 0.82,
-
-    height: "100%",
-
+    height: "100%", // Wannan yana da kyau
     backgroundColor: "#081028",
-
     paddingTop: 60,
     paddingHorizontal: 20,
 
-    position: "absolute",
-    right: 0,
-    top: 0,
-    bottom: 0,
+    // Cire "absolute" domin Modal zai dauki nauyin position din kansa
+    // position: "absolute",
+    // right: 0,
 
+    // Wannan zai tabbatar da cewa menu din ya kasance a sama a duk girman allo
     zIndex: 9999,
     elevation: 30,
-
-    shadowColor: "#000",
-    shadowOffset: {
-      width: -2,
-      height: 0,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
   },
 
   menuHeader: {
