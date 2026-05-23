@@ -555,9 +555,7 @@ const AgentDashboard = ({ navigation }) => {
         <View
           style={{
             flex: 1,
-            flexDirection: "row",
-            justifyContent: "flex-end",
-            backgroundColor: "rgba(0,0,0,0.4)",
+            backgroundColor: "rgba(0,0,0,0.45)",
           }}
         >
           {/* BLACK OVERLAY */}
@@ -565,10 +563,13 @@ const AgentDashboard = ({ navigation }) => {
             activeOpacity={1}
             onPress={() => setMenuVisible(false)}
             style={{
-              flex: 1,
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
             }}
           />
-
           {/* SIDE MENU */}
           <View
             style={[
@@ -1079,12 +1080,30 @@ const styles = StyleSheet.create({
   tabItem: { flex: 1, justifyContent: "center", alignItems: "center" },
   tabLabel: { fontSize: 10, marginTop: 4, fontWeight: "600" },
   sideMenu: {
-    width: width > 768 ? "35%" : "80%",
+    width: width > 768 ? 350 : width * 0.82,
+
     height: "100%",
-    backgroundColor: "#fff",
+
+    backgroundColor: "#081028",
+
     paddingTop: 60,
     paddingHorizontal: 20,
-    elevation: 20,
+
+    position: "absolute",
+    right: 0,
+    top: 0,
+    bottom: 0,
+
+    zIndex: 9999,
+    elevation: 30,
+
+    shadowColor: "#000",
+    shadowOffset: {
+      width: -2,
+      height: 0,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
   },
 
   menuHeader: {
