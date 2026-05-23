@@ -24,6 +24,7 @@ import {
   Ionicons,
   FontAwesome5,
 } from "@expo/vector-icons";
+import { CommonActions } from "@react-navigation/native";
 import { Modal } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -147,39 +148,36 @@ const AgentDashboard = ({ navigation }) => {
       : 0;
 
   const handleLogout = async () => {
-    Alert.alert(
-      "Logout",
-      "Are you sure you want to logout?",
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-        {
-          text: "Logout",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              setMenuVisible(false);
+    Alert.alert("Logout", "Are you sure you want to logout?", [
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+      {
+        text: "Logout",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            setMenuVisible(false);
 
-              // CLEAR EVERYTHING
-              await AsyncStorage.clear();
+            // CLEAR STORAGE
+            await AsyncStorage.clear();
 
-              // RESET NAVIGATION COMPLETELY
-              navigation.reset({
+            // RESET ALL NAVIGATION
+            navigation.dispatch(
+              CommonActions.reset({
                 index: 0,
                 routes: [{ name: "Login" }],
-              });
-            } catch (error) {
-              console.log("Logout Error:", error);
+              }),
+            );
+          } catch (error) {
+            console.log("Logout Error:", error);
 
-              Alert.alert("Error", "Unable to logout. Please try again.");
-            }
-          },
+            Alert.alert("Error", "Unable to logout");
+          }
         },
-      ],
-      { cancelable: true },
-    );
+      },
+    ]);
   };
   if (loading) {
     return (
