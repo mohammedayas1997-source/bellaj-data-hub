@@ -249,6 +249,8 @@ const AgentDashboard = ({ navigation }) => {
             paddingHorizontal: 16,
             paddingBottom: 180,
             flexGrow: 1,
+            width: "100%",
+            alignItems: "center",
           }}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -796,6 +798,7 @@ const styles = StyleSheet.create({
   mainContainer: {
     flex: 1,
     width: "100%",
+    overflow: "hidden",
   },
   content: {
     flex: 1,
@@ -1086,28 +1089,15 @@ const styles = StyleSheet.create({
   tabItem: { flex: 1, justifyContent: "center", alignItems: "center" },
   tabLabel: { fontSize: 10, marginTop: 4, fontWeight: "600" },
   sideMenu: {
-    width: width > 768 ? 350 : width * 0.82,
-    height: "100%", // Wannan yana da kyau
-    backgroundColor: "#081028",
-    paddingTop: 60,
-    paddingHorizontal: 20,
-
-    // Cire "absolute" domin Modal zai dauki nauyin position din kansa
-    // position: "absolute",
-    // right: 0,
-
-    // Wannan zai tabbatar da cewa menu din ya kasance a sama a duk girman allo
-    zIndex: 9999,
-    elevation: 30,
+    position: "absolute",
+    right: 0,
+    top: 0,
+    width: "85%", // Ya kamata ya zama 85% na allon ba 100% ba
+    height: "100%",
+    backgroundColor: isDarkMode ? "#0f172a" : "#ffffff",
+    elevation: 5,
+    zIndex: 1000, // Wannan yana sa ya hau kan komai
   },
-
-  menuHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 30,
-  },
-
   menuLogo: {
     width: 50,
     height: 50,
