@@ -547,17 +547,17 @@ const AgentDashboard = ({ navigation }) => {
 
       {/* SIDE MENU MODAL START */}
       <Modal
-        visible={menuVisible}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setMenuVisible(false)}
+        isVisible={menuVisible}
+        animationIn="slideInRight"
+        animationOut="slideOutRight"
+        backdropOpacity={0.4}
+        onBackdropPress={() => setMenuVisible(false)}
+        // Wannan yana tabbatar da cewa modal din ya cika allon kuma menu yana gefe daya
+        style={{ margin: 0, justifyContent: "flex-end" }}
       >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: "rgba(0,0,0,0.45)",
-          }}
-        >
+        <View style={styles.sideMenu}>
+          {/* Menu Content */}
+
           {/* BLACK OVERLAY */}
           <TouchableOpacity
             activeOpacity={1}
