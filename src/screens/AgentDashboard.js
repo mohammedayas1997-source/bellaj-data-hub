@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
+  Modal,
   StatusBar,
   Dimensions,
   //Clipboard,
@@ -113,7 +114,6 @@ const AgentDashboard = ({ navigation }) => {
   };
 
   useEffect(() => {
-    checkAuth();
     fetchAgentAndProfileData();
   }, []);
 
@@ -1076,6 +1076,7 @@ const styles = StyleSheet.create({
   sideMenu: {
     width: width > 768 ? "35%" : "80%",
     height: "100%",
+    backgroundColor: "#fff",
     paddingTop: 60,
     paddingHorizontal: 20,
     elevation: 20,
