@@ -242,117 +242,119 @@ const AgentDashboard = ({ navigation }) => {
             </Text>
           </View>
         </View>
-
-        <LinearGradient
-          colors={["#1e40af", "#1e3a8a"]}
-          style={styles.walletCard}
-        >
-          <View style={styles.walletTop}>
-            <Text style={styles.walletLabel}>Agent Available Balance</Text>
-            <TouchableOpacity
-              onPress={() =>
-                navigation.navigate("Main", { screen: "Wallet History" })
-              }
-            >
-              <Text style={styles.historyText}>
-                Transactions <Ionicons name="chevron-forward" size={12} />
-              </Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.balanceContainer}>
-            <Text style={styles.currency}>₦</Text>
-            <Text style={styles.balanceText}>
-              {isBalanceVisible
-                ? userData?.walletBalance || userData?.balance || "0.00"
-                : "****"}
-            </Text>
-            <TouchableOpacity
-              onPress={() => setIsBalanceVisible(!isBalanceVisible)}
-            >
-              <Ionicons
-                name={isBalanceVisible ? "eye-outline" : "eye-off-outline"}
-                size={24}
-                color="#38bdf8"
-                style={{ marginLeft: 15 }}
-              />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.walletActions}>
-            <TouchableOpacity
-              style={styles.actionBtn}
-              onPress={() => navigation.navigate("FundWallet")}
-            >
-              <LinearGradient
-                colors={["#38bdf8", "#0ea5e9"]}
-                style={styles.innerBtnGradient}
-              >
-                <Ionicons name="add-circle" size={18} color="#fff" />
-                <Text style={styles.actionBtnText}>FUND WALLET</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.actionBtn,
-                { backgroundColor: "rgba(255,255,255,0.15)" },
-              ]}
-              onPress={openWhatsApp}
-            >
-              <Ionicons name="logo-whatsapp" size={18} color="#22c55e" />
-              <Text style={[styles.actionBtnText, { color: "#fff" }]}>
-                SUPPORT
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </LinearGradient>
-
-        <Text style={styles.sectionLabel}>Automatic Funding Accounts</Text>
-
-        {userData?.accountNumber &&
-        userData?.accountNumber !== "Initialization Pending" ? (
-          <BankCard
-            bank={userData.bankName || "Wema Bank"}
-            acc={userData.accountNumber}
-            code="WB"
-            isDarkMode={isDarkMode}
-            onCopy={() => copyToClipboard(userData.accountNumber)}
-          />
-        ) : (
-          <BankCard
-            bank="Wema Bank (Pending)"
-            acc="Generating..."
-            code=".."
-            onCopy={() =>
-              Alert.alert(
-                "Wait",
-                "Your unique virtual agent account is being provisioned automatically.",
-              )
-            }
-          />
-        )}
-        <BankCard
-          bank="Paystack Terminal"
-          acc="Automated Funding"
-          code="PAY"
-          onCopy={() =>
-            Alert.alert(
-              "Note",
-              "Transfer to your assigned Wema account for instant automated wallet credit.",
-            )
-          }
-        />
-
         <ScrollView
           showsVerticalScrollIndicator={false}
           style={{ flex: 1 }}
           contentContainerStyle={{
             paddingHorizontal: 16,
+            paddingTop: 170,
             paddingBottom: 180,
             flexGrow: 1,
           }}
+          scrollEventThrottle={16}
+          bounces={false}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         >
+          <LinearGradient
+            colors={["#1e40af", "#1e3a8a"]}
+            style={styles.walletCard}
+          >
+            <View style={styles.walletTop}>
+              <Text style={styles.walletLabel}>Agent Available Balance</Text>
+              <TouchableOpacity
+                onPress={() =>
+                  navigation.navigate("Main", { screen: "Wallet History" })
+                }
+              >
+                <Text style={styles.historyText}>
+                  Transactions <Ionicons name="chevron-forward" size={12} />
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.balanceContainer}>
+              <Text style={styles.currency}>₦</Text>
+              <Text style={styles.balanceText}>
+                {isBalanceVisible
+                  ? userData?.walletBalance || userData?.balance || "0.00"
+                  : "****"}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setIsBalanceVisible(!isBalanceVisible)}
+              >
+                <Ionicons
+                  name={isBalanceVisible ? "eye-outline" : "eye-off-outline"}
+                  size={24}
+                  color="#38bdf8"
+                  style={{ marginLeft: 15 }}
+                />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.walletActions}>
+              <TouchableOpacity
+                style={styles.actionBtn}
+                onPress={() => navigation.navigate("FundWallet")}
+              >
+                <LinearGradient
+                  colors={["#38bdf8", "#0ea5e9"]}
+                  style={styles.innerBtnGradient}
+                >
+                  <Ionicons name="add-circle" size={18} color="#fff" />
+                  <Text style={styles.actionBtnText}>FUND WALLET</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.actionBtn,
+                  { backgroundColor: "rgba(255,255,255,0.15)" },
+                ]}
+                onPress={openWhatsApp}
+              >
+                <Ionicons name="logo-whatsapp" size={18} color="#22c55e" />
+                <Text style={[styles.actionBtnText, { color: "#fff" }]}>
+                  SUPPORT
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </LinearGradient>
+
+          <Text style={styles.sectionLabel}>Automatic Funding Accounts</Text>
+
+          {userData?.accountNumber &&
+          userData?.accountNumber !== "Initialization Pending" ? (
+            <BankCard
+              bank={userData.bankName || "Wema Bank"}
+              acc={userData.accountNumber}
+              code="WB"
+              isDarkMode={isDarkMode}
+              onCopy={() => copyToClipboard(userData.accountNumber)}
+            />
+          ) : (
+            <BankCard
+              bank="Wema Bank (Pending)"
+              acc="Generating..."
+              code=".."
+              onCopy={() =>
+                Alert.alert(
+                  "Wait",
+                  "Your unique virtual agent account is being provisioned automatically.",
+                )
+              }
+            />
+          )}
+          <BankCard
+            bank="Paystack Terminal"
+            acc="Automated Funding"
+            code="PAY"
+            onCopy={() =>
+              Alert.alert(
+                "Note",
+                "Transfer to your assigned Wema account for instant automated wallet credit.",
+              )
+            }
+          />
+
           <Text style={styles.sectionLabel}>Performance Metrics</Text>
           <View style={styles.statsGrid}>
             <StatCard
@@ -805,7 +807,16 @@ const styles = StyleSheet.create({
   fullOverlayGradient: { ...StyleSheet.absoluteFillObject },
   fullOverlay: { flex: 1 },
   loaderContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-  topHeader: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20 },
+  topHeader: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 20,
+  },
   navRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1075,14 +1086,22 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    zIndex: 999,
+    zIndex: 9999,
     height: 85,
     backgroundColor: "#fff",
     flexDirection: "row",
     borderTopWidth: 1,
     borderTopColor: "#f1f5f9",
-    paddingBottom: 20,
-    elevation: 20,
+    paddingBottom: Platform.OS === "ios" ? 25 : 10,
+    elevation: 30,
+
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: -2,
+    },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
   },
   tabItem: { flex: 1, justifyContent: "center", alignItems: "center" },
   tabLabel: { fontSize: 10, marginTop: 4, fontWeight: "600" },
