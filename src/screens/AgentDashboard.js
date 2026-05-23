@@ -202,8 +202,13 @@ const AgentDashboard = ({ navigation }) => {
       />
       <ImageBackground
         source={require("../assets/ayax_promo_hijab.png")}
-        style={styles.backgroundImage}
         resizeMode="cover"
+        style={{
+          flex: 1,
+        }}
+        imageStyle={{
+          opacity: 0.15,
+        }}
       >
         <View style={styles.fullOverlayGradient}>
           <LinearGradient
@@ -238,17 +243,11 @@ const AgentDashboard = ({ navigation }) => {
           </View>
         </View>
         <ScrollView
-          style={{ flex: 1 }}
+          showsVerticalScrollIndicator={false}
           contentContainerStyle={{
             paddingHorizontal: 16,
-            paddingBottom: 140,
-            flexGrow: 1,
+            paddingBottom: 160,
           }}
-          showsVerticalScrollIndicator={false}
-          nestedScrollEnabled={true}
-          bounces={true}
-          scrollEnabled={true}
-          keyboardShouldPersistTaps="handled"
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
@@ -791,8 +790,10 @@ const TabItem = ({ icon, label, active, onPress }) => (
 );
 
 const styles = StyleSheet.create({
-  mainContainer: { flex: 1 },
-  backgroundImage: { flex: 1, width: "100%" },
+  mainContainer: {
+    flex: 1,
+    overflow: "scroll",
+  },
   fullOverlayGradient: { ...StyleSheet.absoluteFillObject },
   fullOverlay: { flex: 1 },
   loaderContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
@@ -1061,7 +1062,7 @@ const styles = StyleSheet.create({
   trustTitle: { fontSize: 12, fontWeight: "bold", marginTop: 8 },
   trustSub: { fontSize: 10, color: "#64748b" },
   bottomTab: {
-    position: "absolute",
+    position: "fixed",
     bottom: 0,
     left: 0,
     right: 0,
