@@ -244,9 +244,11 @@ const AgentDashboard = ({ navigation }) => {
         </View>
         <ScrollView
           showsVerticalScrollIndicator={false}
+          style={{ flex: 1 }}
           contentContainerStyle={{
             paddingHorizontal: 16,
-            paddingBottom: 160,
+            paddingBottom: 180,
+            flexGrow: 1,
           }}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -792,7 +794,6 @@ const TabItem = ({ icon, label, active, onPress }) => (
 const styles = StyleSheet.create({
   mainContainer: {
     flex: 1,
-    overflow: "scroll",
   },
   fullOverlayGradient: { ...StyleSheet.absoluteFillObject },
   fullOverlay: { flex: 1 },
@@ -1062,10 +1063,11 @@ const styles = StyleSheet.create({
   trustTitle: { fontSize: 12, fontWeight: "bold", marginTop: 8 },
   trustSub: { fontSize: 10, color: "#64748b" },
   bottomTab: {
-    position: "fixed",
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
+    zIndex: 999,
     height: 85,
     backgroundColor: "#fff",
     flexDirection: "row",
