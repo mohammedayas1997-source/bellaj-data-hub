@@ -65,58 +65,64 @@ const AgentDashboard = ({ navigation }) => {
 
   // ================= FETCH =================
 
-  const fetchData = async () => {
-    try {
-      const token = await AsyncStorage.getItem("userToken");
+  // ================= FETCH =================
 
-      if (!token) {
-        navigation.dispatch(
-          CommonActions.reset({
-            index: 0,
-            routes: [{ name: "Login" }],
-          }),
-        );
+const fetchData = async () => {
+  // Kada mu sa 'setLoading(true)' a nan idan muna so mu guje wa flicker
+  try {
+    const token = await AsyncStorage.getItem("userToken");
 
-        return;
-      }
-
-      const config = {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/json",
-        },
-      };
-
-      const [profileRes, performanceRes] = await Promise.all([
-        axios.get(`${BASE_URL}/user/profile`, config),
-        axios.get(`${BASE_URL}/agent/performance`, config),
-      ]);
-
-      if (profileRes?.data?.success) {
-        setUserData(profileRes.data.user || profileRes.data.data);
-      }
-
-      if (performanceRes?.data?.data) {
-        setPerformance(performanceRes.data.data);
-      }
-    } catch (error) {
-      console.log("Dashboard Error:", error);
-
-      if (error?.response?.status === 401) {
-        await AsyncStorage.clear();
-
-        navigation.dispatch(
-          CommonActions.reset({
-            index: 0,
-            routes: [{ name: "Login" }],
-          }),
-        );
-      }
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+    if (!token) {
+      console.log("No token found, redirecting to Login");
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: "Login" }],
+        })
+      );
+      return;
     }
-  };
+
+    const config = {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+      },
+    };
+
+    // Amfani da Promise.all don ingantaccen gudu
+    const [profileRes, performanceRes] = await Promise.all([
+      axios.get(`${BASE_URL}/user/profile`, config),
+      axios.get(`${BASE_URL}/agent/performance`, config),
+    ]);
+
+    if (profileRes?.data?.success) {
+      setUserData(profileRes.data.user || profileRes.data.data);
+    }
+
+    if (performanceRes?.data?.data) {
+      setPerformance(performanceRes.data.data);
+    }
+  } catch (error) {
+    console.log("Dashboard Error:", error.response?.status || error.message);
+
+    // Idan server ta ce 401, to tabbas token ya ƙare
+    if (error?.response?.status === 401) {
+      await AsyncStorage.multiRemove(["userToken", "userData"]);
+      Alert.alert("Session Expired", "Please login again.");
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: "Login" }],
+        })
+      );
+    }
+    // Idan wani error ne na daban (kamar network), kada a fitar da user
+  } finally {
+    setLoading(false);
+    setRefreshing(false);
+  }
+};
 
   useEffect(() => {
     fetchData();
