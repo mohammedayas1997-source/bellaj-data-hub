@@ -118,6 +118,22 @@ const AgentDashboard = () => {
     fetchAgentAndProfileData();
   }, []);
 
+  useEffect(() => {
+    const checkAuth = async () => {
+      const token = await AsyncStorage.getItem("userToken");
+
+      if (!token) {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: "Login" }],
+        });
+      }
+    };
+
+    checkAuth();
+    fetchAgentAndProfileData();
+  }, []);
+
   const onRefresh = () => {
     setRefreshing(true);
     fetchAgentAndProfileData();
