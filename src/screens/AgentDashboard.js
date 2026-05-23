@@ -171,30 +171,35 @@ const AgentDashboard = () => {
         text: "Cancel",
         style: "cancel",
       },
+
       {
         text: "Logout",
         style: "destructive",
+
         onPress: async () => {
           try {
-            // Clear ALL storage
+            // CLEAR EVERYTHING
             await AsyncStorage.clear();
 
-            // Close menu first
-            setMenuVisible(false);
+            // CLOSE ANY MODALS
+            setPinModalVisible(false);
+            setChangePinModalVisible(false);
 
-            // Reset all states
-            setUserData(null);
-            setSupervisor(null);
-
-            // Navigate to Login and remove history
-            navigation.reset({
-              index: 0,
-              routes: [{ name: "Login" }],
-            });
+            // SMALL DELAY
+            setTimeout(() => {
+              navigation.reset({
+                index: 0,
+                routes: [
+                  {
+                    name: "Login",
+                  },
+                ],
+              });
+            }, 300);
           } catch (error) {
             console.log("Logout Error:", error);
 
-            Alert.alert("Error", "Something went wrong while logging out.");
+            Alert.alert("Error", "Failed to logout");
           }
         },
       },
