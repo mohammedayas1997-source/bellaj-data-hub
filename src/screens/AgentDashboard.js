@@ -21,7 +21,6 @@ import {
 } from "react-native";
 
 import * as Clipboard from "expo-clipboard";
-
 import {
   MaterialCommunityIcons,
   Ionicons,
@@ -59,7 +58,7 @@ const AgentDashboard = ({ navigation }) => {
 
   const [supervisor, setSupervisor] = useState(null);
 
-  // ================= FETCH =================
+  // ========================= FETCH =========================
 
   const fetchAgentAndProfileData = async () => {
     try {
@@ -125,14 +124,14 @@ const AgentDashboard = ({ navigation }) => {
     fetchAgentAndProfileData();
   }, []);
 
-  // ================= REFRESH =================
+  // ========================= REFRESH =========================
 
   const onRefresh = () => {
     setRefreshing(true);
     fetchAgentAndProfileData();
   };
 
-  // ================= COPY =================
+  // ========================= COPY =========================
 
   const copyToClipboard = async (text) => {
     if (!text) return;
@@ -144,7 +143,7 @@ const AgentDashboard = ({ navigation }) => {
     }
   };
 
-  // ================= WHATSAPP =================
+  // ========================= WHATSAPP =========================
 
   const openWhatsApp = async () => {
     try {
@@ -169,12 +168,12 @@ const AgentDashboard = ({ navigation }) => {
     }
   };
 
-  // ================= LOGOUT =================
+  // ========================= LOGOUT =========================
 
   const handleLogout = () => {
     Alert.alert(
       "Logout",
-      "Are you sure you want to logout?",
+      "Are you sure you want to logout from your account?",
       [
         {
           text: "Cancel",
@@ -187,7 +186,7 @@ const AgentDashboard = ({ navigation }) => {
             try {
               setMenuVisible(false);
 
-              await AsyncStorage.clear();
+              await AsyncStorage.multiRemove(["userToken", "userData"]);
 
               navigation.dispatch(
                 CommonActions.reset({
@@ -203,11 +202,10 @@ const AgentDashboard = ({ navigation }) => {
           },
         },
       ],
-      { cancelable: true },
     );
   };
 
-  // ================= PERFORMANCE =================
+  // ========================= PERFORMANCE =========================
 
   const currentSales = performance.totalSalesValue || 0;
 
@@ -221,7 +219,7 @@ const AgentDashboard = ({ navigation }) => {
   const remainingToTarget =
     targetSales - currentSales > 0 ? targetSales - currentSales : 0;
 
-  // ================= LOADING =================
+  // ========================= LOADING =========================
 
   if (loading) {
     return (
@@ -231,7 +229,7 @@ const AgentDashboard = ({ navigation }) => {
     );
   }
 
-  // ================= UI =================
+  // ========================= UI =========================
 
   return (
     <SafeAreaView
@@ -248,15 +246,17 @@ const AgentDashboard = ({ navigation }) => {
         barStyle="dark-content"
       />
 
+      {/* BACKGROUND IMAGE */}
+
       <ImageBackground
         source={require("../assets/ayax_promo_hijab.png")}
-        resizeMode="cover"
         style={styles.backgroundImage}
+        resizeMode="cover"
         imageStyle={{
           opacity: 0.15,
         }}
       >
-        {/* Overlay */}
+        {/* OVERLAY */}
 
         <LinearGradient
           colors={["rgba(255,255,255,0.75)", "rgba(248,250,252,0.96)"]}
@@ -286,17 +286,15 @@ const AgentDashboard = ({ navigation }) => {
           </Text>
         </View>
 
-        {/* MAIN SCROLL */}
+        {/* SCROLLVIEW */}
 
         <ScrollView
-          style={styles.scrollView}
+          style={{ flex: 1 }}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
-          bounces={true}
-          alwaysBounceVertical={true}
-          nestedScrollEnabled={true}
+          bounces
+          nestedScrollEnabled
           keyboardShouldPersistTaps="handled"
-          removeClippedSubviews={false}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
@@ -551,16 +549,16 @@ const AgentDashboard = ({ navigation }) => {
             <Text style={styles.fullBtnText}>Sales History</Text>
           </TouchableOpacity>
 
-          {/* EXTRA SPACE */}
+          {/* FOOTER */}
 
-          <View style={{ height: 180 }} />
+          <View style={{ height: 150 }} />
         </ScrollView>
 
         {/* SIDE MENU */}
 
         <Modal
           visible={menuVisible}
-          transparent={true}
+          transparent
           animationType="fade"
           onRequestClose={() => setMenuVisible(false)}
         >
@@ -575,24 +573,18 @@ const AgentDashboard = ({ navigation }) => {
               style={[
                 styles.sideMenu,
                 {
-                  backgroundColor: isDarkMode ? "#0f172a" : "#ffffff",
+                  backgroundColor: isDarkMode ? "#0f172a" : "#fff",
                 },
               ]}
             >
               <View style={styles.menuHeader}>
-                <View style={styles.sideLogoContainer}>
-                  <Image
-                    source={require("../assets/Logo.png")}
-                    style={styles.menuLogo}
-                  />
-                </View>
+                <Image
+                  source={require("../assets/Logo.png")}
+                  style={styles.menuLogo}
+                />
 
                 <TouchableOpacity onPress={() => setMenuVisible(false)}>
-                  <Ionicons
-                    name="close"
-                    size={30}
-                    color={isDarkMode ? "#fff" : "#000"}
-                  />
+                  <Ionicons name="close" size={30} color="#000" />
                 </TouchableOpacity>
               </View>
 
@@ -603,14 +595,7 @@ const AgentDashboard = ({ navigation }) => {
                   </Text>
                 </View>
 
-                <Text
-                  style={[
-                    styles.profileName,
-                    {
-                      color: isDarkMode ? "#fff" : "#0f172a",
-                    },
-                  ]}
-                >
+                <Text style={styles.profileName}>
                   {userData?.firstName} {userData?.surname}
                 </Text>
 
@@ -630,16 +615,7 @@ const AgentDashboard = ({ navigation }) => {
                   color="#2563eb"
                 />
 
-                <Text
-                  style={[
-                    styles.menuItemText,
-                    {
-                      color: isDarkMode ? "#fff" : "#0f172a",
-                    },
-                  ]}
-                >
-                  Profile
-                </Text>
+                <Text style={styles.menuItemText}>Profile</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -651,31 +627,13 @@ const AgentDashboard = ({ navigation }) => {
               >
                 <Ionicons name="settings-outline" size={24} color="#7c3aed" />
 
-                <Text
-                  style={[
-                    styles.menuItemText,
-                    {
-                      color: isDarkMode ? "#fff" : "#0f172a",
-                    },
-                  ]}
-                >
-                  Settings
-                </Text>
+                <Text style={styles.menuItemText}>Settings</Text>
               </TouchableOpacity>
 
               <View style={styles.menuItem}>
                 <Ionicons name="moon-outline" size={24} color="#f59e0b" />
 
-                <Text
-                  style={[
-                    styles.menuItemText,
-                    {
-                      color: isDarkMode ? "#fff" : "#0f172a",
-                    },
-                  ]}
-                >
-                  Dark Mode
-                </Text>
+                <Text style={styles.menuItemText}>Dark Mode</Text>
 
                 <View style={{ flex: 1 }} />
 
@@ -723,7 +681,7 @@ const AgentDashboard = ({ navigation }) => {
   );
 };
 
-// ================= COMPONENTS =================
+// ========================= COMPONENTS =========================
 
 const BankCard = ({ bank, acc, code, onCopy }) => (
   <TouchableOpacity style={styles.bankCard} onPress={onCopy}>
@@ -787,7 +745,7 @@ const TabItem = ({ icon, label, active, onPress }) => (
   </TouchableOpacity>
 );
 
-// ================= STYLES =================
+// ========================= STYLES =========================
 
 const styles = StyleSheet.create({
   container: {
@@ -819,28 +777,18 @@ const styles = StyleSheet.create({
   },
 
   logoContainer: {
-    width: 60,
-    height: 60,
+    width: 55,
+    height: 55,
     borderRadius: 30,
     backgroundColor: "#ffffff",
     justifyContent: "center",
     alignItems: "center",
-    elevation: 8,
-  },
-
-  sideLogoContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: "#ffffff",
-    justifyContent: "center",
-    alignItems: "center",
-    elevation: 8,
+    elevation: 6,
   },
 
   logo: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
     resizeMode: "contain",
   },
 
@@ -858,13 +806,9 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
 
-  scrollView: {
-    flex: 1,
-  },
-
   scrollContent: {
     paddingHorizontal: 16,
-    paddingBottom: 200,
+    paddingBottom: 180,
     flexGrow: 1,
   },
 
@@ -1162,8 +1106,8 @@ const styles = StyleSheet.create({
 
   modalContainer: {
     flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
     flexDirection: "row",
-    backgroundColor: "rgba(0,0,0,0.45)",
   },
 
   overlay: {
@@ -1185,8 +1129,8 @@ const styles = StyleSheet.create({
   },
 
   menuLogo: {
-    width: 40,
-    height: 40,
+    width: 55,
+    height: 55,
     resizeMode: "contain",
   },
 
@@ -1214,6 +1158,7 @@ const styles = StyleSheet.create({
   profileName: {
     fontWeight: "bold",
     fontSize: 20,
+    color: "#0f172a",
   },
 
   profileEmail: {
@@ -1233,6 +1178,7 @@ const styles = StyleSheet.create({
     marginLeft: 15,
     fontWeight: "600",
     fontSize: 16,
+    color: "#0f172a",
   },
 
   logoutBtn: {
