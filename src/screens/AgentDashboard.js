@@ -113,6 +113,7 @@ const AgentDashboard = ({ navigation }) => {
   };
 
   useEffect(() => {
+    checkAuth();
     fetchAgentAndProfileData();
   }, []);
 
@@ -557,8 +558,7 @@ const AgentDashboard = ({ navigation }) => {
             backgroundColor: "rgba(0,0,0,0.4)",
           }}
         >
-          <TouchableOpacity
-            activeOpacity={1}
+          <View
             style={[
               styles.sideMenu,
               {
@@ -566,142 +566,130 @@ const AgentDashboard = ({ navigation }) => {
               },
             ]}
           >
-            <View
-              style={[
-                styles.sideMenu,
-                {
-                  backgroundColor: isDarkMode ? "#0f172a" : "#ffffff",
-                },
-              ]}
-            >
-              <View style={styles.menuHeader}>
-                <Image
-                  source={require("../assets/Logo.png")}
-                  style={styles.menuLogo}
-                />
+            <View style={styles.menuHeader}>
+              <Image
+                source={require("../assets/Logo.png")}
+                style={styles.menuLogo}
+              />
 
-                <TouchableOpacity onPress={() => setMenuVisible(false)}>
-                  <Ionicons
-                    name="close"
-                    size={30}
-                    color={isDarkMode ? "#fff" : "#000"}
-                  />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.profileArea}>
-                <View style={styles.avatarCircle}>
-                  <Text style={styles.avatarText}>
-                    {userData?.firstName?.charAt(0) || "A"}
-                  </Text>
-                </View>
-
-                <Text
-                  style={[
-                    styles.profileName,
-                    {
-                      color: isDarkMode ? "#fff" : "#0f172a",
-                    },
-                  ]}
-                >
-                  {userData?.firstName} {userData?.surname}
-                </Text>
-
-                <Text style={styles.profileEmail}>
-                  {userData?.email || "No Email"}
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                style={styles.menuOption}
-                onPress={() => {
-                  setMenuVisible(false);
-                  navigation.navigate("Profile");
-                }}
-              >
+              <TouchableOpacity onPress={() => setMenuVisible(false)}>
                 <Ionicons
-                  name="person-circle-outline"
-                  size={24}
-                  color="#2563eb"
+                  name="close"
+                  size={30}
+                  color={isDarkMode ? "#fff" : "#000"}
                 />
-
-                <Text
-                  style={[
-                    styles.menuOptionText,
-                    {
-                      color: isDarkMode ? "#fff" : "#0f172a",
-                    },
-                  ]}
-                >
-                  Profile
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.menuOption}
-                onPress={() => {
-                  setMenuVisible(false);
-                  navigation.navigate("Settings");
-                }}
-              >
-                <Ionicons name="settings-outline" size={24} color="#7c3aed" />
-
-                <Text
-                  style={[
-                    styles.menuOptionText,
-                    {
-                      color: isDarkMode ? "#fff" : "#0f172a",
-                    },
-                  ]}
-                >
-                  Settings
-                </Text>
-              </TouchableOpacity>
-
-              <View style={styles.menuOption}>
-                <Ionicons name="moon-outline" size={24} color="#f59e0b" />
-
-                <Text
-                  style={[
-                    styles.menuOptionText,
-                    {
-                      color: isDarkMode ? "#fff" : "#0f172a",
-                    },
-                  ]}
-                >
-                  Dark Mode
-                </Text>
-
-                <View style={{ flex: 1 }} />
-
-                <Switch value={isDarkMode} onValueChange={toggleTheme} />
-              </View>
-
-              <TouchableOpacity
-                style={styles.menuOption}
-                onPress={openWhatsApp}
-              >
-                <Ionicons name="logo-whatsapp" size={24} color="#22c55e" />
-
-                <Text
-                  style={[
-                    styles.menuOptionText,
-                    {
-                      color: isDarkMode ? "#fff" : "#0f172a",
-                    },
-                  ]}
-                >
-                  Contact Support
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-                <Ionicons name="log-out-outline" size={24} color="#fff" />
-
-                <Text style={styles.logoutText}>Logout</Text>
               </TouchableOpacity>
             </View>
-          </TouchableOpacity>
+
+            <View style={styles.profileArea}>
+              <View style={styles.avatarCircle}>
+                <Text style={styles.avatarText}>
+                  {userData?.firstName?.charAt(0) || "A"}
+                </Text>
+              </View>
+
+              <Text
+                style={[
+                  styles.profileName,
+                  {
+                    color: isDarkMode ? "#fff" : "#0f172a",
+                  },
+                ]}
+              >
+                {userData?.firstName} {userData?.surname}
+              </Text>
+
+              <Text style={styles.profileEmail}>
+                {userData?.email || "No Email"}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.menuOption}
+              onPress={() => {
+                setMenuVisible(false);
+                navigation.navigate("Profile");
+              }}
+            >
+              <Ionicons
+                name="person-circle-outline"
+                size={24}
+                color="#2563eb"
+              />
+
+              <Text
+                style={[
+                  styles.menuOptionText,
+                  {
+                    color: isDarkMode ? "#fff" : "#0f172a",
+                  },
+                ]}
+              >
+                Profile
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuOption}
+              onPress={() => {
+                setMenuVisible(false);
+                navigation.navigate("Settings");
+              }}
+            >
+              <Ionicons name="settings-outline" size={24} color="#7c3aed" />
+
+              <Text
+                style={[
+                  styles.menuOptionText,
+                  {
+                    color: isDarkMode ? "#fff" : "#0f172a",
+                  },
+                ]}
+              >
+                Settings
+              </Text>
+            </TouchableOpacity>
+
+            <View style={styles.menuOption}>
+              <Ionicons name="moon-outline" size={24} color="#f59e0b" />
+
+              <Text
+                style={[
+                  styles.menuOptionText,
+                  {
+                    color: isDarkMode ? "#fff" : "#0f172a",
+                  },
+                ]}
+              >
+                Dark Mode
+              </Text>
+
+              <View style={{ flex: 1 }} />
+
+              <Switch value={isDarkMode} onValueChange={toggleTheme} />
+            </View>
+
+            <TouchableOpacity style={styles.menuOption} onPress={openWhatsApp}>
+              <Ionicons name="logo-whatsapp" size={24} color="#22c55e" />
+
+              <Text
+                style={[
+                  styles.menuOptionText,
+                  {
+                    color: isDarkMode ? "#fff" : "#0f172a",
+                  },
+                ]}
+              >
+                Contact Support
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+              <Ionicons name="log-out-outline" size={24} color="#fff" />
+
+              <Text style={styles.logoutText}>Logout</Text>
+            </TouchableOpacity>
+          </View>
         </TouchableOpacity>
       </Modal>
       {/* SIDE MENU MODAL END */}
@@ -973,7 +961,6 @@ const styles = StyleSheet.create({
   boldText: { fontWeight: "700", color: "#0f172a" },
   boldTextRed: { fontWeight: "700", color: "#dc2626" },
   servicesContainer: {
-    backgroundColor: "rgba(255,255,255,0.9)",
     borderRadius: 28,
     padding: 20,
     elevation: 4,
@@ -1072,10 +1059,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "#f1f5f9",
     paddingBottom: 20,
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
     elevation: 20,
   },
   tabItem: { flex: 1, justifyContent: "center", alignItems: "center" },
