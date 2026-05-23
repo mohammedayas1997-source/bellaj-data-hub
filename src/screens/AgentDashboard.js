@@ -172,7 +172,8 @@ const AgentDashboard = ({ navigation }) => {
               });
             } catch (error) {
               console.log("Logout Error:", error);
-              Alert.alert("Error", "Unable to logout.");
+
+              Alert.alert("Error", "Unable to logout. Please try again.");
             }
           },
         },
