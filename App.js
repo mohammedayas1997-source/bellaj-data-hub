@@ -93,7 +93,7 @@ function AppContent() {
           component={LoginScreen}
           options={{ headerShown: false }}
         />
-        <LoginStack.Screen name="Login" component={LoginScreen} />
+
         <Stack.Screen
           name="Signup"
           component={SignupScreen}
