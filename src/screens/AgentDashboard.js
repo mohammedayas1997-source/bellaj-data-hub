@@ -547,17 +547,27 @@ const AgentDashboard = ({ navigation }) => {
       <Modal
         visible={menuVisible}
         transparent={true}
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => setMenuVisible(false)}
       >
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={() => setMenuVisible(false)}
+        <View
           style={{
             flex: 1,
+            flexDirection: "row",
+            justifyContent: "flex-end",
             backgroundColor: "rgba(0,0,0,0.4)",
           }}
         >
+          {/* BLACK OVERLAY */}
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={() => setMenuVisible(false)}
+            style={{
+              flex: 1,
+            }}
+          />
+
+          {/* SIDE MENU */}
           <View
             style={[
               styles.sideMenu,
@@ -690,7 +700,7 @@ const AgentDashboard = ({ navigation }) => {
               <Text style={styles.logoutText}>Logout</Text>
             </TouchableOpacity>
           </View>
-        </TouchableOpacity>
+        </View>
       </Modal>
       {/* SIDE MENU MODAL END */}
 
@@ -1064,11 +1074,8 @@ const styles = StyleSheet.create({
   tabItem: { flex: 1, justifyContent: "center", alignItems: "center" },
   tabLabel: { fontSize: 10, marginTop: 4, fontWeight: "600" },
   sideMenu: {
-    width: "80%",
+    width: width > 768 ? "35%" : "80%",
     height: "100%",
-    position: "absolute",
-    right: 0,
-    top: 0,
     paddingTop: 60,
     paddingHorizontal: 20,
     elevation: 20,
