@@ -115,22 +115,6 @@ const AgentDashboard = ({ navigation }) => {
     fetchAgentAndProfileData();
   }, []);
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      const token = await AsyncStorage.getItem("userToken");
-
-      if (!token) {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: "Login" }],
-        });
-      }
-    };
-
-    checkAuth();
-    fetchAgentAndProfileData();
-  }, []);
-
   const onRefresh = () => {
     setRefreshing(true);
     fetchAgentAndProfileData();
@@ -176,21 +160,19 @@ const AgentDashboard = ({ navigation }) => {
           style: "destructive",
           onPress: async () => {
             try {
-              // CLOSE MENU FIRST
               setMenuVisible(false);
 
-              // CLEAR STORAGE
-              await AsyncStorage.removeItem("userToken");
-              await AsyncStorage.removeItem("userData");
+              // CLEAR EVERYTHING
+              await AsyncStorage.clear();
 
-              // SMALL WAIT
-              setTimeout(() => {
-                navigation.replace("Login");
-              }, 200);
+              // RESET NAVIGATION COMPLETELY
+              navigation.reset({
+                index: 0,
+                routes: [{ name: "Login" }],
+              });
             } catch (error) {
               console.log("Logout Error:", error);
-
-              Alert.alert("Error", "Unable to logout. Please try again.");
+              Alert.alert("Error", "Unable to logout.");
             }
           },
         },
