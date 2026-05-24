@@ -127,7 +127,10 @@ const LoginScreen = ({ navigation }) => {
             .toLowerCase();
 
           if (detectedRole === "agent") {
-            navigation.replace("AgentDashboard");
+            navigation.reset({
+              index: 0,
+              routes: [{ name: "AgentDashboard" }],
+            });
           } else {
             navigation.replace("Main");
           }
