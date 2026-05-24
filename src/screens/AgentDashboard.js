@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from "react";
 import {
-  View,
+  SafeAreaView,
   Text,
   StyleSheet,
   TouchableOpacity,
@@ -85,7 +85,7 @@ const AgentDashboard = ({ navigation }) => {
   };
 
   return (
-    <View
+    <SafeAreaView
       style={[
         styles.mainContainer,
         {
@@ -146,10 +146,11 @@ const AgentDashboard = ({ navigation }) => {
         </View>
 
         <ScrollView
-          style={{ flex: 1 }}
+          style={{ flex: 1, width: "100%" }}
           contentContainerStyle={{
             paddingHorizontal: 16,
             paddingBottom: 140,
+            flexGrow: 1,
           }}
           showsVerticalScrollIndicator={false}
         >
@@ -394,7 +395,7 @@ const AgentDashboard = ({ navigation }) => {
           onPress={() => navigation.navigate("Contact")}
         />
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -459,8 +460,14 @@ const TabItem = ({ icon, label, active, onPress }) => (
 // Styles are consistent with your design
 const styles = StyleSheet.create({
   mainContainer: { flex: 1, backgroundColor: "#f8fafc" },
-  backgroundImage: { flex: 1 },
-  fullOverlay: { position: "absolute", width: "100%", height: "100%" },
+  backgroundImage: {
+    flex: 1,
+    width: "100%",
+    height: "100%",
+  },
+  fullOverlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
   topHeader: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20 },
   navRow: {
     flexDirection: "row",
@@ -483,6 +490,7 @@ const styles = StyleSheet.create({
   userName: { color: "#0f172a", fontSize: 24, fontWeight: "bold" },
   content: { flex: 1, paddingHorizontal: 16 },
   walletCard: {
+    width: "100%",
     borderRadius: 24,
     padding: 22,
     marginBottom: 25,
@@ -561,8 +569,10 @@ const styles = StyleSheet.create({
   bankTitle: { fontSize: 12, color: "#64748b" },
   accNo: { fontSize: 17, color: "#0f172a", fontWeight: "bold" },
   servicesContainer: {
+    width: "100%",
     borderRadius: 28,
     padding: 20,
+    backgroundColor: "rgba(255,255,255,0.92)",
     elevation: 4,
   },
   grid: {
@@ -603,6 +613,7 @@ const styles = StyleSheet.create({
   tabItem: { flex: 1, justifyContent: "center", alignItems: "center" },
   tabLabel: { fontSize: 10, marginTop: 4, fontWeight: "600" },
   footerBranding: {
+    width: "100%",
     marginTop: 30,
     paddingBottom: 40,
     backgroundColor: "#f8fafc",
