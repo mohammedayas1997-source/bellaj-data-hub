@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext } from "react";
 import {
   SafeAreaView,
+  View,
   Text,
   StyleSheet,
   TouchableOpacity,
@@ -150,7 +151,6 @@ const AgentDashboard = ({ navigation }) => {
           contentContainerStyle={{
             paddingHorizontal: 16,
             paddingBottom: 140,
-            flexGrow: 1,
           }}
           showsVerticalScrollIndicator={false}
         >
@@ -468,7 +468,11 @@ const styles = StyleSheet.create({
   fullOverlay: {
     ...StyleSheet.absoluteFillObject,
   },
-  topHeader: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20 },
+  topHeader: {
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === "android" ? 50 : 20,
+    paddingBottom: 20,
+  },
   navRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -609,6 +613,7 @@ const styles = StyleSheet.create({
     borderTopColor: "#f1f5f9",
     paddingBottom: 20,
     elevation: 20,
+    zIndex: 999,
   },
   tabItem: { flex: 1, justifyContent: "center", alignItems: "center" },
   tabLabel: { fontSize: 10, marginTop: 4, fontWeight: "600" },
