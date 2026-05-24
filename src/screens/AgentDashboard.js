@@ -613,7 +613,6 @@ const styles = StyleSheet.create({
     borderTopColor: "#f1f5f9",
     paddingBottom: 20,
     elevation: 20,
-    zIndex: 999,
   },
   tabItem: { flex: 1, justifyContent: "center", alignItems: "center" },
   tabLabel: { fontSize: 10, marginTop: 4, fontWeight: "600" },
