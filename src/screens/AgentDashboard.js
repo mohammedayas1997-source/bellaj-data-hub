@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useContext } from "react";
 import {
-  SafeAreaView,
   View,
   Text,
   StyleSheet,
@@ -86,7 +85,7 @@ const AgentDashboard = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView
+    <View
       style={[
         styles.mainContainer,
         {
@@ -396,7 +395,7 @@ const AgentDashboard = ({ navigation }) => {
           onPress={() => navigation.navigate("Contact")}
         />
       </View>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -491,7 +490,6 @@ const styles = StyleSheet.create({
   userName: { color: "#0f172a", fontSize: 24, fontWeight: "bold" },
   content: { flex: 1, paddingHorizontal: 16 },
   walletCard: {
-    width: "100%",
     borderRadius: 24,
     padding: 22,
     marginBottom: 25,
@@ -570,10 +568,8 @@ const styles = StyleSheet.create({
   bankTitle: { fontSize: 12, color: "#64748b" },
   accNo: { fontSize: 17, color: "#0f172a", fontWeight: "bold" },
   servicesContainer: {
-    width: "100%",
     borderRadius: 28,
     padding: 20,
-    backgroundColor: "rgba(255,255,255,0.92)",
     elevation: 4,
   },
   grid: {
@@ -614,7 +610,6 @@ const styles = StyleSheet.create({
   tabItem: { flex: 1, justifyContent: "center", alignItems: "center" },
   tabLabel: { fontSize: 10, marginTop: 4, fontWeight: "600" },
   footerBranding: {
-    width: "100%",
     marginTop: 30,
     paddingBottom: 40,
     backgroundColor: "#f8fafc",
