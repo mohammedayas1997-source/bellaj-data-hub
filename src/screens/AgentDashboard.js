@@ -121,7 +121,7 @@ const AgentDashboard = ({ navigation }) => {
                 style={styles.logoImg}
               />
             </View>
-            <TouchableOpacity onPress={() => navigation.navigate("Settings")}>
+            <TouchableOpacity onPress={() => navigation.openDrawer()}>
               <Ionicons
                 name="notifications-outline"
                 size={28}
@@ -145,7 +145,11 @@ const AgentDashboard = ({ navigation }) => {
           </View>
         </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={{ paddingBottom: 140 }}
+          showsVerticalScrollIndicator={false}
+        >
           {/* 1. Wallet Card */}
           <LinearGradient
             colors={["#1e40af", "#1e3a8a"]}
