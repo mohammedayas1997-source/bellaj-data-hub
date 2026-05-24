@@ -121,7 +121,12 @@ const HomeScreen = ({ navigation }) => {
                 style={styles.logoImg}
               />
             </View>
-            <TouchableOpacity onPress={() => navigation.navigate("Settings")}>
+            <TouchableOpacity
+              onPress={(e) => {
+                e.stopPropagation(); // Wannan yana dakatar da event ɗin daga isa ga sauran abubuwa
+                navigation.navigate("Notifications"); // Ko kuma sunan shafin naka
+              }}
+            >
               <Ionicons
                 name="notifications-outline"
                 size={28}
