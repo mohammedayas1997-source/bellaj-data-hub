@@ -32,6 +32,7 @@ const LoginScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
+  const [isSupervisor, setIsSupervisor] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
@@ -169,18 +170,113 @@ const LoginScreen = ({ navigation }) => {
 
     setLoading(true);
 
-    try {
-      console.log("🚀 Attempting Login for:", email.trim().toLowerCase());
+    // Zaɓi URL dangane da wanda yake login (User ko Supervisor)
+    const loginUrl = isSupervisor
+      ? "https://ayax-data-xpress-server.onrender.com/api/v1/supervisor/login"
+      : "https://ayax-data-xpress-server.onrender.com/api/v1/auth/login";
 
-      // GYARA: Cire 'role: "supervisor"' daga nan
-      const response = await axios.post(
-        "https://ayax-data-xpress-server.onrender.com/api/v1/auth/login",
-        {
-          email: email.trim().toLowerCase(),
-          password: password,
-        },
+    try {
+      console.log(
+        `🚀 Attempting ${isSupervisor ? "Supervisor" : "User"} Login for:`,
+        email.trim().toLowerCase(),
       );
 
+      const response = await axios.post(loginUrl, {
+        email: email.trim().toLowerCase(),
+        password: password,
+      });
+
+      console.log("📥 Raw Server Response:", JSON.stringify(response.data));
+
+      // Ciro Token da Bayanan Mai amfani
+      const token =
+        response?.data?.token ||
+        response?.data?.accessToken ||
+        response?.data?.data?.token ||
+        "";
+      const userPayload =
+        response?.data?.user ||
+        response?.data?.data?.user ||
+        response?.data?.data ||
+        {};
+
+      // Gano role don tantance inda zai tafi
+      const finalRole =
+        userPayload?.role ||
+        response?.data?.role ||
+        response?.data?.data?.role ||
+        "";
+      const normalizedRole = finalRole.trim().toLowerCase();
+
+      if (!token) {
+        setErrorMessage("Authentication token missing from server.");
+        return;
+      }
+
+      // Adana bayanan a Async Storage
+      await AsyncStorage.setItem("userToken", token);
+      await AsyncStorage.setItem("userData", JSON.stringify(userPayload));
+
+      console.log("✅ Login Successful. Redirecting...");
+
+      // Tsarin Kai mai amfani zuwa shafin da ya dace
+      setTimeout(() => {
+        if (isSupervisor) {
+          // Idan Supervisor ne, tura shi Dashboard na Supervisor
+          navigation.dispatch(
+            CommonActions.reset({
+              index: 0,
+              routes: [{ name: "SupervisorDashboard" }],
+            }),
+          );
+        } else if (normalizedRole === "agent") {
+          // Idan Agent ne
+          navigation.dispatch(
+            CommonActions.reset({
+              index: 0,
+              routes: [
+                {
+                  name: "Main",
+                  state: { routes: [{ name: "AgentDashboard" }] },
+                },
+              ],
+            }),
+          );
+        } else {
+          // Idan User na yau da kullum ne
+          navigation.dispatch(
+            CommonActions.reset({
+              index: 0,
+              routes: [{ name: "Main" }],
+            }),
+          );
+        }
+      }, 300);
+    } catch (error) {
+      console.log("❌ Login Error:", error?.response?.data || error.message);
+
+      if (error.response) {
+        const status = error.response.status;
+        const backendMessage =
+          error.response.data?.message || "Invalid credentials.";
+        setErrorMessage(
+          status === 401 ? "Invalid email or password." : backendMessage,
+        );
+      } else {
+        setErrorMessage("Network error. Please check your connection.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBiometricLogin = async () => {
+    try {
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: "Login to Ayax Xpress",
+        fallbackLabel: "Use Password",
+        disableDeviceFallback: false,
+      });
       // ... sauran code ɗin naka ...
 
       console.log("📥 Raw Server Response:", JSON.stringify(response.data));
@@ -377,6 +473,30 @@ const LoginScreen = ({ navigation }) => {
                 />
               </TouchableOpacity>
             </View>
+            {/* Supervisor Toggle */}
+            <TouchableOpacity
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                marginBottom: 20,
+              }}
+              onPress={() => setIsSupervisor(!isSupervisor)}
+            >
+              <Ionicons
+                name={isSupervisor ? "checkbox" : "square-outline"}
+                size={24}
+                color={isSupervisor ? "#0a1d37" : "#64748b"}
+              />
+              <Text
+                style={{
+                  marginLeft: 8,
+                  color: isSupervisor ? "#0a1d37" : "#64748b",
+                  fontWeight: "600",
+                }}
+              >
+                Login as Supervisor
+              </Text>
+            </TouchableOpacity>
 
             <View style={styles.actionRow}>
               {isBiometricEnabled && (
