@@ -194,45 +194,28 @@ const AgentDashboard = ({ navigation }) => {
       : 0;
 
   const handleLogout = async () => {
-    Alert.alert("Logout", "Are you sure you want to logout?", [
-      {
-        text: "Cancel",
+    try {
+      // 1. Share kowane abu da yake cikin storage
+      await AsyncStorage.removeItem("userToken");
+      await AsyncStorage.removeItem("userData");
+      await AsyncStorage.clear(); // Wannan yana share komai gaba ɗaya
 
-        style: "cancel",
-      },
+      console.log("User logged out successfully");
 
-      {
-        text: "Logout",
-
-        style: "destructive",
-
-        onPress: async () => {
-          try {
-            setMenuVisible(false);
-
-            // CLEAR STORAGE
-
-            await AsyncStorage.clear();
-
-            // RESET ALL NAVIGATION
-
-            navigation.dispatch(
-              CommonActions.reset({
-                index: 0,
-
-                routes: [{ name: "Login" }],
-              }),
-            );
-          } catch (error) {
-            console.log("Logout Error:", error);
-
-            Alert.alert("Error", "Unable to logout");
-          }
-        },
-      },
-    ]);
+      // 2. Amfani da reset don tabbatar da an tafi Login screen
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "Login" }],
+      });
+    } catch (error) {
+      console.log("Logout Error:", error);
+      // Ko da akwai error, ka tilasta masa ya koma login
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "Login" }],
+      });
+    }
   };
-
   if (loading) {
     return (
       <View style={styles.loaderContainer}>
