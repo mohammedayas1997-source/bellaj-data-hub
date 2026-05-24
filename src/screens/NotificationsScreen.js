@@ -26,3 +26,5 @@ const NotificationsScreen = () => {
     </View>
   );
 };
+
+export default NotificationsScreen;

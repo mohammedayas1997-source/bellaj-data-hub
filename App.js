@@ -118,7 +118,7 @@ function AppContent() {
           name="SupervisorDashboard"
           component={SupervisorDashboard}
         />
-        // A cikin App.js
+
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
         <Stack.Screen name="AssignTarget" component={AssignTargetScreen} />
