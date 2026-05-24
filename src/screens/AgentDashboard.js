@@ -146,12 +146,8 @@ const AgentDashboard = ({ navigation }) => {
         </View>
 
         <ScrollView
-          style={{ flex: 1, width: "100%" }}
-          contentContainerStyle={{
-            paddingHorizontal: 16,
-            paddingBottom: 140,
-            flexGrow: 1,
-          }}
+          style={styles.content}
+          contentContainerStyle={{ paddingBottom: 140 }}
           showsVerticalScrollIndicator={false}
         >
           {/* 1. Wallet Card */}
@@ -460,14 +456,8 @@ const TabItem = ({ icon, label, active, onPress }) => (
 // Styles are consistent with your design
 const styles = StyleSheet.create({
   mainContainer: { flex: 1, backgroundColor: "#f8fafc" },
-  backgroundImage: {
-    flex: 1,
-    width: "100%",
-    height: "100%",
-  },
-  fullOverlay: {
-    ...StyleSheet.absoluteFillObject,
-  },
+  backgroundImage: { flex: 1 },
+  fullOverlay: { position: "absolute", width: "100%", height: "100%" },
   topHeader: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20 },
   navRow: {
     flexDirection: "row",
