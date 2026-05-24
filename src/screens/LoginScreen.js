@@ -250,10 +250,7 @@ const LoginScreen = ({ navigation }) => {
               index: 0,
               routes: [
                 {
-                  name: "Main",
-                  state: {
-                    routes: [{ name: "AgentDashboard" }], // Wannan shi ne mabuɗin gyaran
-                  },
+                  name: "AgentDashboard", // Kai tsaye tura shi nan, kada ka tura shi Main idan ba sa bukatar Main
                 },
               ],
             }),
