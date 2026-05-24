@@ -239,23 +239,27 @@ const LoginScreen = ({ navigation }) => {
       console.log("✅ TOKEN SAVED SUCCESSFULLY");
 
       // =========================
-      // NAVIGATION
+      // NAVIGATION (FIXED)
       // =========================
-
-      // A cikin handleLogin
       setTimeout(() => {
         if (normalizedRole === "agent") {
+          // Idan Agent ne, muna reset zuwa Main, amma muna sa initial route ya zama AgentDashboard
           navigation.dispatch(
             CommonActions.reset({
               index: 0,
               routes: [
                 {
-                  name: "AgentDashboard", // Kai tsaye tura shi nan, kada ka tura shi Main idan ba sa bukatar Main
+                  name: "Main", // Sunan Drawer Navigator ɗinka
+                  state: {
+                    index: 0,
+                    routes: [{ name: "AgentDashboard" }], // Wannan shi ne zai tilasta AgentDashboard ya buɗe
+                  },
                 },
               ],
             }),
           );
         } else {
+          // Idan ba Agent ba ne, reset zuwa Main kamar yadda kake da shi
           navigation.dispatch(
             CommonActions.reset({
               index: 0,
