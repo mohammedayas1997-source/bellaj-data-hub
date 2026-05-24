@@ -61,10 +61,21 @@ const LoginScreen = ({ navigation }) => {
         console.log("[Auto-Login] Detected Saved Role:", detectedRole);
 
         if (detectedRole === "agent") {
-          navigation.replace("AgentDashboard");
+          navigation.reset({
+            index: 0,
+            routes: [
+              {
+                name: "Main",
+                state: { routes: [{ name: "AgentDashboard" }] },
+              },
+            ],
+          });
           return;
         } else if (detectedRole) {
-          navigation.replace("Main");
+          navigation.reset({
+            index: 0,
+            routes: [{ name: "Main" }],
+          });
           return;
         }
       }
@@ -234,20 +245,20 @@ const LoginScreen = ({ navigation }) => {
       // A cikin handleLogin
       setTimeout(() => {
         if (normalizedRole === "agent") {
-          // Tura shi zuwa Main (Drawer), amma ka gaya masa ya bude AgentDashboard
-          navigation.reset({
-            index: 0,
-            routes: [
-              {
-                name: "Main",
-                state: {
-                  routes: [{ name: "AgentDashboard" }], // Wannan yana bude Drawer kuma ya nuna AgentDashboard
+          navigation.dispatch(
+            CommonActions.reset({
+              index: 0,
+              routes: [
+                {
+                  name: "Main",
+                  state: {
+                    routes: [{ name: "AgentDashboard" }], // Wannan shi ne mabuɗin gyaran
+                  },
                 },
-              },
-            ],
-          });
+              ],
+            }),
+          );
         } else {
-          // Don sauran roles, tura su Main kuma su fara da Dashboard (Home)
           navigation.dispatch(
             CommonActions.reset({
               index: 0,
