@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, Image, StyleSheet, TouchableOpacity } from "react-native";
 
 import { DrawerContentScrollView, DrawerItem } from "@react-navigation/drawer";
@@ -8,7 +8,7 @@ import { CommonActions } from "@react-navigation/native";
 
 const CustomDrawerContent = (props) => {
   const { navigation, state } = props;
-
+  const [userRole, setUserRole] = useState(null);
   const activeRoute = state?.routeNames[state?.index];
 
   // ================= LOGOUT =================
@@ -27,6 +27,19 @@ const CustomDrawerContent = (props) => {
       navigation.navigate("Login");
     }
   };
+
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      const userData = await AsyncStorage.getItem("userData");
+      if (userData) {
+        const parsedData = JSON.parse(userData);
+        // Duba yadda data ɗinka yake, wani lokacin yana cikin parsedData.role ne
+        const role = parsedData?.role || parsedData?.data?.role || "";
+        setUserRole(role.trim().toLowerCase());
+      }
+    };
+    fetchUserRole();
+  }, []);
 
   // ================= NAV HELPER =================
   const navigateTo = (screen) => {
@@ -47,39 +60,41 @@ const CustomDrawerContent = (props) => {
         {/* ================= MENU ================= */}
         <View style={styles.menu}>
           {/* DASHBOARD */}
-          <DrawerItem
-            label="Dashboard"
-            icon={() => (
-              <Ionicons
-                name="grid-outline"
-                size={22}
-                color={activeRoute === "Dashboard" ? "#1e40af" : "#64748b"}
-              />
-            )}
-            labelStyle={[
-              styles.label,
-              activeRoute === "Dashboard" && styles.activeLabel,
-            ]}
-            onPress={() => navigateTo("Dashboard")}
-          />
-
-          {/* AGENT DASHBOARD (ADDED SUPPORT) */}
-          <DrawerItem
-            label="Agent Dashboard"
-            icon={() => (
-              <MaterialCommunityIcons
-                name="account-tie"
-                size={22}
-                color={activeRoute === "AgentDashboard" ? "#1e40af" : "#64748b"}
-              />
-            )}
-            labelStyle={[
-              styles.label,
-              activeRoute === "AgentDashboard" && styles.activeLabel,
-            ]}
-            onPress={() => navigateTo("AgentDashboard")}
-          />
-
+          {userRole === "agent" ? (
+            <DrawerItem
+              label="Agent Dashboard"
+              icon={() => (
+                <MaterialCommunityIcons
+                  name="account-tie"
+                  size={22}
+                  color={
+                    activeRoute === "AgentDashboard" ? "#1e40af" : "#64748b"
+                  }
+                />
+              )}
+              labelStyle={[
+                styles.label,
+                activeRoute === "AgentDashboard" && styles.activeLabel,
+              ]}
+              onPress={() => navigateTo("AgentDashboard")}
+            />
+          ) : (
+            <DrawerItem
+              label="Dashboard"
+              icon={() => (
+                <Ionicons
+                  name="grid-outline"
+                  size={22}
+                  color={activeRoute === "Dashboard" ? "#1e40af" : "#64748b"}
+                />
+              )}
+              labelStyle={[
+                styles.label,
+                activeRoute === "Dashboard" && styles.activeLabel,
+              ]}
+              onPress={() => navigateTo("Dashboard")}
+            />
+          )}
           {/* WALLET */}
           <DrawerItem
             label="Wallet History"
