@@ -88,14 +88,6 @@ const AgentDashboard = ({ navigation }) => {
         },
       };
 
-      useEffect(() => {
-        axios
-          .get(
-            "https://ayax-data-xpress-server.onrender.com/api/v1/notifications",
-          )
-          .then((res) => setNotifications(res.data));
-      }, []);
-
       const [profileRes, perfRes, supRes] = await Promise.all([
         axios
 
@@ -273,12 +265,7 @@ const AgentDashboard = ({ navigation }) => {
               />
             </TouchableOpacity>
           </View>
-          // A wajen da kake da Notification Icon (misali a cikin header)
-          <TouchableOpacity
-            onPress={() => navigation.navigate("Notifications")}
-          >
-            <Ionicons name="notifications-outline" size={24} color="#38bdf8" />
-          </TouchableOpacity>
+
           <View style={styles.welcomeSection}>
             <Text style={styles.welcomeText}>Agent Control Panel,</Text>
 
