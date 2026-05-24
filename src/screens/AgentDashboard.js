@@ -151,6 +151,7 @@ const AgentDashboard = ({ navigation }) => {
           contentContainerStyle={{
             paddingHorizontal: 16,
             paddingBottom: 140,
+            flexGrow: 1,
           }}
           showsVerticalScrollIndicator={false}
         >
@@ -468,11 +469,7 @@ const styles = StyleSheet.create({
   fullOverlay: {
     ...StyleSheet.absoluteFillObject,
   },
-  topHeader: {
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === "android" ? 50 : 20,
-    paddingBottom: 20,
-  },
+  topHeader: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20 },
   navRow: {
     flexDirection: "row",
     justifyContent: "space-between",
