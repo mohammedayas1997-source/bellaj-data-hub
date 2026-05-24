@@ -1,30 +1,51 @@
-// src/screens/NotificationsScreen.js
-import React from "react";
-import { View, Text, FlatList, StyleSheet } from "react-native";
+import React, { useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  ActivityIndicator,
+} from "react-native";
+import axios from "axios";
 
-const NotificationsScreen = () => {
-  // Anan zaka kwaso sakonnin daga Server (API)
-  const notifications = [
-    {
-      id: "1",
-      title: "Admin Update",
-      message: "Kada a manta da sabon farashin data",
-    },
-  ];
+const NotificationScreen = () => {
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Dawo da notifications daga server
+    axios
+      .get("https://ayax-data-xpress-server.onrender.com/api/v1/notifications")
+      .then((res) => {
+        setNotifications(res.data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.log(err);
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) return <ActivityIndicator size="large" style={{ flex: 1 }} />;
 
   return (
     <View style={styles.container}>
-      <FlatList
-        data={notifications}
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            <Text style={styles.title}>{item.title}</Text>
-            <Text>{item.message}</Text>
-          </View>
-        )}
-      />
+      {notifications.length === 0 ? (
+        <Text style={styles.emptyText}>No notifications yet.</Text>
+      ) : (
+        <FlatList
+          data={notifications}
+          keyExtractor={(item) => item._id || item.id}
+          renderItem={({ item }) => (
+            <View style={styles.card}>
+              <Text style={styles.title}>{item.title}</Text>
+              <Text>{item.message}</Text>
+            </View>
+          )}
+        />
+      )}
     </View>
   );
 };
 
-export default NotificationsScreen;
+export default NotificationScreen;
