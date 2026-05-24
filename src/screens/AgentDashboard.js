@@ -113,7 +113,7 @@ const AgentDashboard = ({ navigation }) => {
           style={styles.fullOverlay}
         />
 
-        <View style={styles.topHeader}>
+        <View style={[styles.topHeader, { zIndex: 10 }]}>
           <View style={styles.navRow}>
             <View style={styles.logoCircle}>
               <Image
@@ -146,8 +146,11 @@ const AgentDashboard = ({ navigation }) => {
         </View>
 
         <ScrollView
-          style={styles.content}
-          contentContainerStyle={{ paddingBottom: 140 }}
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingBottom: 140,
+          }}
           showsVerticalScrollIndicator={false}
         >
           {/* 1. Wallet Card */}
@@ -456,7 +459,7 @@ const TabItem = ({ icon, label, active, onPress }) => (
 // Styles are consistent with your design
 const styles = StyleSheet.create({
   mainContainer: { flex: 1, backgroundColor: "#f8fafc" },
-  backgroundImage: { flex: 1, width: "100%", height: "100%" },
+  backgroundImage: { flex: 1 },
   fullOverlay: { position: "absolute", width: "100%", height: "100%" },
   topHeader: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20 },
   navRow: {
@@ -478,7 +481,7 @@ const styles = StyleSheet.create({
   welcomeSection: { marginBottom: 10 },
   welcomeText: { color: "#64748b", fontSize: 14, fontWeight: "500" },
   userName: { color: "#0f172a", fontSize: 24, fontWeight: "bold" },
-  content: { flex: 1, paddingHorizontal: 16 },
+
   walletCard: {
     borderRadius: 24,
     padding: 22,
@@ -585,6 +588,10 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   bottomTab: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
     height: 85,
     backgroundColor: "#fff",
     flexDirection: "row",
