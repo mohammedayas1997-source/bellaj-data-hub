@@ -94,7 +94,6 @@ function AppContent() {
           component={LoginScreen}
           options={{ headerShown: false }}
         />
-
         <Stack.Screen
           name="Signup"
           component={SignupScreen}
@@ -119,6 +118,8 @@ function AppContent() {
           name="SupervisorDashboard"
           component={SupervisorDashboard}
         />
+        // A cikin App.js
+        <Stack.Screen name="Notifications" component={NotificationsScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
         <Stack.Screen name="AssignTarget" component={AssignTargetScreen} />
         <Stack.Screen name="LeaderDashboard" component={LeaderDashboard} />
