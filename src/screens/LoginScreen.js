@@ -22,6 +22,7 @@ import {
 } from "@expo/vector-icons";
 import * as LocalAuthentication from "expo-local-authentication";
 import axios from "axios";
+import { CommonActions } from "@react-navigation/native";
 
 const { width } = Dimensions.get("window");
 
@@ -247,10 +248,12 @@ const LoginScreen = ({ navigation }) => {
           });
         } else {
           // Don sauran roles, tura su Main kuma su fara da Dashboard (Home)
-          navigation.reset({
-            index: 0,
-            routes: [{ name: "Main" }],
-          });
+          navigation.dispatch(
+            CommonActions.reset({
+              index: 0,
+              routes: [{ name: "Main" }],
+            }),
+          );
         }
       }, 300);
     } catch (error) {

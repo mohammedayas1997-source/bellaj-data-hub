@@ -12,7 +12,7 @@ import { ThemeProvider, ThemeContext } from "./src/context/ThemeContext";
 
 // --- COMPONENTS ---
 import CustomDrawerContent from "./src/components/CustomDrawerContent";
-
+import NotificationsScreen from "./src/screens/NotificationsScreen"; // Ka tabbatar wannan path ɗin daidai yake
 // --- SCREENS ---
 import LoginScreen from "./src/screens/LoginScreen";
 import HomeScreen from "./src/screens/HomeScreen";

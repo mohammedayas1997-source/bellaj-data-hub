@@ -150,6 +150,12 @@ const AgentDashboard = ({ navigation }) => {
     fetchAgentAndProfileData();
   }, []);
 
+  useEffect(() => {
+    axios
+      .get("https://ayax-data-xpress-server.onrender.com/api/v1/notifications")
+      .then((res) => setNotifications(res.data));
+  }, []);
+
   const onRefresh = () => {
     setRefreshing(true);
 
