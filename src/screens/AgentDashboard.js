@@ -276,6 +276,23 @@ const AgentDashboard = ({ navigation }) => {
               />
             </View>
 
+            {/* Notification Icon */}
+            <TouchableOpacity
+              onPress={() => navigation.navigate("Notifications")}
+              style={{ marginRight: 20 }}
+            >
+              <Ionicons
+                name="notifications-outline"
+                size={28}
+                color={isDarkMode ? "#fff" : "#0f172a"}
+              />
+              {unreadCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{unreadCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
             <TouchableOpacity onPress={() => navigation.openDrawer()}>
               <Ionicons
                 name="menu"
@@ -1379,6 +1396,22 @@ const styles = StyleSheet.create({
     marginLeft: 10,
 
     fontSize: 16,
+  },
+  badge: {
+    position: "absolute",
+    right: -5,
+    top: -5,
+    backgroundColor: "#ef4444", // Red color
+    borderRadius: 10,
+    width: 18,
+    height: 18,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  badgeText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "bold",
   },
 });
 
