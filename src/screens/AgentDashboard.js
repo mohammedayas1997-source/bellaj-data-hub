@@ -113,7 +113,7 @@ const AgentDashboard = ({ navigation }) => {
           style={styles.fullOverlay}
         />
 
-        <View style={[styles.topHeader, { zIndex: 10 }]}>
+        <View style={styles.topHeader}>
           <View style={styles.navRow}>
             <View style={styles.logoCircle}>
               <Image
@@ -121,7 +121,7 @@ const AgentDashboard = ({ navigation }) => {
                 style={styles.logoImg}
               />
             </View>
-            <TouchableOpacity onPress={() => navigation.openDrawer()}>
+            <TouchableOpacity onPress={() => navigation.navigate("Settings")}>
               <Ionicons
                 name="notifications-outline"
                 size={28}
@@ -145,11 +145,7 @@ const AgentDashboard = ({ navigation }) => {
           </View>
         </View>
 
-        <ScrollView
-          style={styles.content}
-          contentContainerStyle={{ paddingBottom: 140 }}
-          showsVerticalScrollIndicator={false}
-        >
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           {/* 1. Wallet Card */}
           <LinearGradient
             colors={["#1e40af", "#1e3a8a"]}
@@ -456,7 +452,7 @@ const TabItem = ({ icon, label, active, onPress }) => (
 // Styles are consistent with your design
 const styles = StyleSheet.create({
   mainContainer: { flex: 1, backgroundColor: "#f8fafc" },
-  backgroundImage: { flex: 1 },
+  backgroundImage: { flex: 1, width: "100%", height: "100%" },
   fullOverlay: { position: "absolute", width: "100%", height: "100%" },
   topHeader: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20 },
   navRow: {
@@ -585,10 +581,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   bottomTab: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
     height: 85,
     backgroundColor: "#fff",
     flexDirection: "row",
