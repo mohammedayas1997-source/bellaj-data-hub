@@ -230,11 +230,27 @@ const LoginScreen = ({ navigation }) => {
       // NAVIGATION
       // =========================
 
+      // A cikin handleLogin
       setTimeout(() => {
         if (normalizedRole === "agent") {
-          navigation.replace("AgentDashboard");
+          // Tura shi zuwa Main (Drawer), amma ka gaya masa ya bude AgentDashboard
+          navigation.reset({
+            index: 0,
+            routes: [
+              {
+                name: "Main",
+                state: {
+                  routes: [{ name: "AgentDashboard" }], // Wannan yana bude Drawer kuma ya nuna AgentDashboard
+                },
+              },
+            ],
+          });
         } else {
-          navigation.replace("Main");
+          // Don sauran roles, tura su Main kuma su fara da Dashboard (Home)
+          navigation.reset({
+            index: 0,
+            routes: [{ name: "Main" }],
+          });
         }
       }, 300);
     } catch (error) {
