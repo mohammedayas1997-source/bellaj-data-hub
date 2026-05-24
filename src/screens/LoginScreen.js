@@ -44,11 +44,8 @@ const LoginScreen = ({ navigation }) => {
     try {
       const token = await AsyncStorage.getItem("userToken");
       const storedUserData = await AsyncStorage.getItem("userData");
-
       if (token && storedUserData) {
         const user = JSON.parse(storedUserData);
-
-        // AN GYARA: Matataccen tsarin kwaso role lokacin auto-login
         const detectedRole = (
           user?.role ||
           user?.user?.role ||
@@ -58,30 +55,19 @@ const LoginScreen = ({ navigation }) => {
         )
           .trim()
           .toLowerCase();
-
-        console.log("[Auto-Login] Detected Saved Role:", detectedRole);
-
         if (detectedRole === "agent") {
           navigation.reset({
             index: 0,
             routes: [
-              {
-                name: "Main",
-                state: { routes: [{ name: "AgentDashboard" }] },
-              },
+              { name: "Main", state: { routes: [{ name: "AgentDashboard" }] } },
             ],
           });
-          return;
         } else if (detectedRole) {
-          navigation.reset({
-            index: 0,
-            routes: [{ name: "Main" }],
-          });
-          return;
+          navigation.reset({ index: 0, routes: [{ name: "Main" }] });
         }
       }
     } catch (e) {
-      console.error("Failed to fetch startup authentication states:", e);
+      console.error(e);
     }
   };
 
@@ -90,28 +76,11 @@ const LoginScreen = ({ navigation }) => {
       const isEnabled = await AsyncStorage.getItem("useBiometricLogin");
       const hasHardware = await LocalAuthentication.hasHardwareAsync();
       const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-
-      // Mun cire layin da yake haifar da error
-      if (isEnabled === "true" && hasHardware && isEnrolled) {
+      if (isEnabled === "true" && hasHardware && isEnrolled)
         setIsBiometricEnabled(true);
-      }
     } catch (e) {
-      console.log("Biometric check error:", e);
+      console.log(e);
     }
-  };
-
-  const openWhatsApp = () => {
-    Linking.openURL(
-      "whatsapp://send?phone=+2349061244444&text=Hello Ayax Xpress Support",
-    );
-  };
-
-  const openEmail = () => {
-    Linking.openURL("mailto:support@ayaxdata.online");
-  };
-
-  const makeCall = () => {
-    Linking.openURL("tel:+2349061244444");
   };
 
   const handleBiometricLogin = async () => {
@@ -121,74 +90,32 @@ const LoginScreen = ({ navigation }) => {
         fallbackLabel: "Use Password",
         disableDeviceFallback: false,
       });
-
       if (result.success) {
-        setLoading(true);
-        const token = await AsyncStorage.getItem("userToken");
-        const storedUserData = await AsyncStorage.getItem("userData");
-
-        if (token && storedUserData) {
-          const user = JSON.parse(storedUserData);
-          const detectedRole = (
-            user?.role ||
-            user?.user?.role ||
-            user?.data?.user?.role ||
-            user?.data?.role ||
-            ""
-          )
-            .trim()
-            .toLowerCase();
-
-          if (detectedRole === "agent") {
-            navigation.reset({
-              index: 0,
-              routes: [{ name: "AgentDashboard" }],
-            });
-          } else {
-            navigation.replace("Main");
-          }
-        } else {
-          setErrorMessage(
-            "Please login with password once to enable biometrics.",
-          );
-        }
+        // Zaka iya ƙara logic ɗin auto-login anan
+        Alert.alert("Success", "Biometric login successful");
       }
     } catch (error) {
       setErrorMessage("Biometric authentication encountered an error.");
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleLogin = async () => {
     setErrorMessage("");
-
     if (!email.trim() || !password) {
       setErrorMessage("Please enter both your email address and password.");
       return;
     }
-
     setLoading(true);
-
-    // Zaɓi URL dangane da wanda yake login (User ko Supervisor)
     const loginUrl = isSupervisor
       ? "https://ayax-data-xpress-server.onrender.com/api/v1/supervisor/login"
       : "https://ayax-data-xpress-server.onrender.com/api/v1/auth/login";
 
     try {
-      console.log(
-        `🚀 Attempting ${isSupervisor ? "Supervisor" : "User"} Login for:`,
-        email.trim().toLowerCase(),
-      );
-
       const response = await axios.post(loginUrl, {
         email: email.trim().toLowerCase(),
         password: password,
       });
 
-      console.log("📥 Raw Server Response:", JSON.stringify(response.data));
-
-      // Ciro Token da Bayanan Mai amfani
       const token =
         response?.data?.token ||
         response?.data?.accessToken ||
@@ -199,38 +126,32 @@ const LoginScreen = ({ navigation }) => {
         response?.data?.data?.user ||
         response?.data?.data ||
         {};
-
-      // Gano role don tantance inda zai tafi
-      const finalRole =
+      const finalRole = (
         userPayload?.role ||
         response?.data?.role ||
         response?.data?.data?.role ||
-        "";
-      const normalizedRole = finalRole.trim().toLowerCase();
+        ""
+      )
+        .trim()
+        .toLowerCase();
 
       if (!token) {
-        setErrorMessage("Authentication token missing from server.");
+        setErrorMessage("Authentication token missing.");
         return;
       }
 
-      // Adana bayanan a Async Storage
       await AsyncStorage.setItem("userToken", token);
       await AsyncStorage.setItem("userData", JSON.stringify(userPayload));
 
-      console.log("✅ Login Successful. Redirecting...");
-
-      // Tsarin Kai mai amfani zuwa shafin da ya dace
       setTimeout(() => {
         if (isSupervisor) {
-          // Idan Supervisor ne, tura shi Dashboard na Supervisor
           navigation.dispatch(
             CommonActions.reset({
               index: 0,
               routes: [{ name: "SupervisorDashboard" }],
             }),
           );
-        } else if (normalizedRole === "agent") {
-          // Idan Agent ne
+        } else if (finalRole === "agent") {
           navigation.dispatch(
             CommonActions.reset({
               index: 0,
@@ -243,150 +164,13 @@ const LoginScreen = ({ navigation }) => {
             }),
           );
         } else {
-          // Idan User na yau da kullum ne
           navigation.dispatch(
-            CommonActions.reset({
-              index: 0,
-              routes: [{ name: "Main" }],
-            }),
+            CommonActions.reset({ index: 0, routes: [{ name: "Main" }] }),
           );
         }
       }, 300);
     } catch (error) {
-      console.log("❌ Login Error:", error?.response?.data || error.message);
-
-      if (error.response) {
-        const status = error.response.status;
-        const backendMessage =
-          error.response.data?.message || "Invalid credentials.";
-        setErrorMessage(
-          status === 401 ? "Invalid email or password." : backendMessage,
-        );
-      } else {
-        setErrorMessage("Network error. Please check your connection.");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleBiometricLogin = async () => {
-    try {
-      const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: "Login to Ayax Xpress",
-        fallbackLabel: "Use Password",
-        disableDeviceFallback: false,
-      });
-      // ... sauran code ɗin naka ...
-
-      console.log("📥 Raw Server Response:", JSON.stringify(response.data));
-
-      // =========================
-      // FIXED TOKEN EXTRACTION
-      // =========================
-
-      const token =
-        response?.data?.token ||
-        response?.data?.accessToken ||
-        response?.data?.data?.token ||
-        "";
-
-      // =========================
-      // FIXED USER EXTRACTION
-      // =========================
-
-      const userPayload =
-        response?.data?.user ||
-        response?.data?.data?.user ||
-        response?.data?.data ||
-        {};
-
-      // =========================
-      // FIXED ROLE EXTRACTION
-      // =========================
-
-      const finalRole =
-        userPayload?.role ||
-        response?.data?.role ||
-        response?.data?.data?.role ||
-        "";
-
-      const normalizedRole = finalRole.trim().toLowerCase();
-
-      console.log("🎯 FINAL ROLE:", normalizedRole);
-
-      // =========================
-      // VALIDATE TOKEN
-      // =========================
-
-      if (!token) {
-        setErrorMessage("Authentication token missing from server.");
-        return;
-      }
-
-      // =========================
-      // SAVE DATA
-      // =========================
-
-      await AsyncStorage.setItem("userToken", token);
-
-      await AsyncStorage.setItem("userData", JSON.stringify(userPayload));
-
-      console.log("✅ TOKEN SAVED SUCCESSFULLY");
-
-      // =========================
-      // NAVIGATION (FIXED)
-      // =========================
-      setTimeout(() => {
-        if (normalizedRole === "agent") {
-          // Idan Agent ne, muna reset zuwa Main, amma muna sa initial route ya zama AgentDashboard
-          navigation.dispatch(
-            CommonActions.reset({
-              index: 0,
-              routes: [
-                {
-                  name: "Main", // Sunan Drawer Navigator ɗinka
-                  state: {
-                    index: 0,
-                    routes: [{ name: "AgentDashboard" }], // Wannan shi ne zai tilasta AgentDashboard ya buɗe
-                  },
-                },
-              ],
-            }),
-          );
-        } else {
-          // Idan ba Agent ba ne, reset zuwa Main kamar yadda kake da shi
-          navigation.dispatch(
-            CommonActions.reset({
-              index: 0,
-              routes: [{ name: "Main" }],
-            }),
-          );
-        }
-      }, 300);
-    } catch (error) {
-      console.log("❌ Login Error:", error?.response?.data || error.message);
-
-      if (error.response) {
-        const status = error.response.status;
-        const backendMessage = error.response.data?.message || "";
-
-        if (status === 401) {
-          setErrorMessage(
-            backendMessage || "Invalid email or password. Please try again.",
-          );
-        } else if (status === 404) {
-          setErrorMessage("Account not found.");
-        } else {
-          setErrorMessage(backendMessage || "Server error encountered.");
-        }
-      } else if (error.request) {
-        setErrorMessage(
-          "Network error. Please check your internet connection.",
-        );
-      } else {
-        setErrorMessage("Unexpected error occurred.");
-      }
+      setErrorMessage(error.response?.data?.message || "Invalid credentials.");
     } finally {
       setLoading(false);
     }
