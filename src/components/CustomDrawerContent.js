@@ -1,11 +1,5 @@
 import React from "react";
-import {
-  View,
-  Text,
-  Image,
-  StyleSheet,
-  TouchableOpacity,
-} from "react-native";
+import { View, Text, Image, StyleSheet, TouchableOpacity } from "react-native";
 
 import { DrawerContentScrollView, DrawerItem } from "@react-navigation/drawer";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -43,22 +37,15 @@ const CustomDrawerContent = (props) => {
   // ================= UI =================
   return (
     <View style={{ flex: 1 }}>
-      <DrawerContentScrollView
-        {...props}
-        contentContainerStyle={styles.scroll}
-      >
+      <DrawerContentScrollView {...props} contentContainerStyle={styles.scroll}>
         {/* ================= HEADER ================= */}
         <View style={styles.header}>
-          <Image
-            source={require("../assets/Logo.png")}
-            style={styles.logo}
-          />
+          <Image source={require("../assets/Logo.png")} style={styles.logo} />
           <Text style={styles.version}>v2.0.1</Text>
         </View>
 
         {/* ================= MENU ================= */}
         <View style={styles.menu}>
-
           {/* DASHBOARD */}
           <DrawerItem
             label="Dashboard"
@@ -83,9 +70,7 @@ const CustomDrawerContent = (props) => {
               <MaterialCommunityIcons
                 name="account-tie"
                 size={22}
-                color={
-                  activeRoute === "AgentDashboard" ? "#1e40af" : "#64748b"
-                }
+                color={activeRoute === "AgentDashboard" ? "#1e40af" : "#64748b"}
               />
             )}
             labelStyle={[
@@ -102,9 +87,7 @@ const CustomDrawerContent = (props) => {
               <MaterialCommunityIcons
                 name="history"
                 size={22}
-                color={
-                  activeRoute === "Wallet History" ? "#1e40af" : "#64748b"
-                }
+                color={activeRoute === "Wallet History" ? "#1e40af" : "#64748b"}
               />
             )}
             labelStyle={styles.label}
@@ -153,10 +136,7 @@ const CustomDrawerContent = (props) => {
 
       {/* ================= FOOTER ================= */}
       <View style={styles.footer}>
-        <TouchableOpacity
-          style={styles.logoutBtn}
-          onPress={handleLogout}
-        >
+        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
           <Ionicons name="log-out-outline" size={22} color="#ef4444" />
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
@@ -164,8 +144,6 @@ const CustomDrawerContent = (props) => {
     </View>
   );
 };
-
-export default CustomDrawerContent;
 
 // ================= STYLES =================
 const styles = StyleSheet.create({
