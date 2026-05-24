@@ -49,7 +49,7 @@ const AgentDashboard = ({ navigation }) => {
   const [userData, setUserData] = useState(null);
 
   const [isBalanceVisible, setIsBalanceVisible] = useState(true);
-
+  const [notifications, setNotifications] = useState([]);
   const { isDarkMode, toggleTheme } = useContext(ThemeContext);
 
   const [performance, setPerformance] = useState({
@@ -151,9 +151,17 @@ const AgentDashboard = ({ navigation }) => {
   }, []);
 
   useEffect(() => {
-    axios
-      .get("https://ayax-data-xpress-server.onrender.com/api/v1/notifications")
-      .then((res) => setNotifications(res.data));
+    const fetchNotifications = async () => {
+      try {
+        const response = await axios.get(
+          "https://ayax-data-xpress-server.onrender.com/api/v1/notifications",
+        );
+        setNotifications(response.data);
+      } catch (error) {
+        console.log("Notification fetch error:", error);
+      }
+    };
+    fetchNotifications();
   }, []);
 
   const onRefresh = () => {
