@@ -481,7 +481,7 @@ const styles = StyleSheet.create({
   welcomeSection: { marginBottom: 10 },
   welcomeText: { color: "#64748b", fontSize: 14, fontWeight: "500" },
   userName: { color: "#0f172a", fontSize: 24, fontWeight: "bold" },
-
+  content: { flex: 1, paddingHorizontal: 16 },
   walletCard: {
     borderRadius: 24,
     padding: 22,
