@@ -119,7 +119,6 @@ function AppContent() {
           name="SupervisorDashboard"
           component={SupervisorDashboard}
         />
-        <Stack.Screen name="AgentDashboard" component={AgentDashboard} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
         <Stack.Screen name="AssignTarget" component={AssignTargetScreen} />
         <Stack.Screen name="LeaderDashboard" component={LeaderDashboard} />

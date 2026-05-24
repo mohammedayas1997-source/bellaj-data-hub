@@ -28,12 +28,11 @@ import {
   FontAwesome5,
 } from "@expo/vector-icons";
 
+// NAN NE ZA KA SAKA SHI:
 import { CommonActions } from "@react-navigation/native";
 
 import { LinearGradient } from "expo-linear-gradient";
-
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
 import axios from "axios";
 
 import { ThemeContext } from "../context/ThemeContext";
@@ -195,27 +194,19 @@ const AgentDashboard = ({ navigation }) => {
 
   const handleLogout = async () => {
     try {
-      // 1. Share kowane abu da yake cikin storage
-      await AsyncStorage.removeItem("userToken");
-      await AsyncStorage.removeItem("userData");
-      await AsyncStorage.clear(); // Wannan yana share komai gaba ɗaya
-
-      console.log("User logged out successfully");
-
-      // 2. Amfani da reset don tabbatar da an tafi Login screen
-      navigation.reset({
-        index: 0,
-        routes: [{ name: "Login" }],
-      });
+      await AsyncStorage.clear();
+      // Muna amfani da navigation.dispatch don mu sake saita (reset) navigation stack ɗin mu zuwa Login
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: "Login" }],
+        }),
+      );
     } catch (error) {
       console.log("Logout Error:", error);
-      // Ko da akwai error, ka tilasta masa ya koma login
-      navigation.reset({
-        index: 0,
-        routes: [{ name: "Login" }],
-      });
     }
   };
+
   if (loading) {
     return (
       <View style={styles.loaderContainer}>
