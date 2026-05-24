@@ -73,12 +73,17 @@ const LoginScreen = ({ navigation }) => {
   };
 
   const checkBiometricStatus = async () => {
-    const isEnabled = await AsyncStorage.getItem("useBiometricLogin");
-    const hasHardware = await LocalAuthentication.hasHardwareAsync();
-    const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+    try {
+      const isEnabled = await AsyncStorage.getItem("useBiometricLogin");
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
 
-    if (isEnabled === "true" && hasHardware && isEnrolled) {
-      setIsBiometricEnabled(true);
+      // Mun cire layin da yake haifar da error
+      if (isEnabled === "true" && hasHardware && isEnrolled) {
+        setIsBiometricEnabled(true);
+      }
+    } catch (e) {
+      console.log("Biometric check error:", e);
     }
   };
 
