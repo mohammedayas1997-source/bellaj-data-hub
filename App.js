@@ -65,6 +65,7 @@ function DrawerNavigator() {
       }}
     >
       <Drawer.Screen name="Dashboard" component={HomeScreen} />
+      <Drawer.Screen name="AgentDashboard" component={AgentDashboard} />
       <Drawer.Screen name="Wallet History" component={HistoryScreen} />
       <Drawer.Screen name="BVN History" component={BVNHistory} />
       <Drawer.Screen name="NIMC History" component={NIMCHistory} />

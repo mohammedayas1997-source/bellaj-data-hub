@@ -5,119 +5,157 @@ import {
   Image,
   StyleSheet,
   TouchableOpacity,
-  Alert,
 } from "react-native";
+
 import { DrawerContentScrollView, DrawerItem } from "@react-navigation/drawer";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { CommonActions } from "@react-navigation/native"; // Na kara wannan don karfin navigation
+import { CommonActions } from "@react-navigation/native";
 
 const CustomDrawerContent = (props) => {
-  // MUST stay inside the component to access 'props'
-  const handleLogout = async () => {
-    console.log("Logout function triggered");
+  const { navigation, state } = props;
 
+  const activeRoute = state?.routeNames[state?.index];
+
+  // ================= LOGOUT =================
+  const handleLogout = async () => {
     try {
-      // 1. Share dukkan bayanan sirri nan take ba tare da jiran Alert ba
-      // Wannan zai hana wancan kiran API din (Profile) ya sake faruwa
       await AsyncStorage.clear();
 
-      // 2. Yi amfani da Reset don komawa Login
-      props.navigation.dispatch(
+      navigation.dispatch(
         CommonActions.reset({
           index: 0,
           routes: [{ name: "Login" }],
         }),
       );
-
-      console.log("Navigation to Login executed");
     } catch (error) {
-      console.error("Logout Error:", error);
-      props.navigation.navigate("Login");
+      console.log("Logout Error:", error);
+      navigation.navigate("Login");
     }
   };
-  const navigateTo = (screenName) => {
-    props.navigation.closeDrawer();
-    props.navigation.navigate(screenName);
+
+  // ================= NAV HELPER =================
+  const navigateTo = (screen) => {
+    navigation.closeDrawer();
+    navigation.navigate(screen);
   };
 
+  // ================= UI =================
   return (
     <View style={{ flex: 1 }}>
       <DrawerContentScrollView
         {...props}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={styles.scroll}
       >
-        {/* Header Section */}
-        <View style={styles.drawerHeader}>
-          <Image source={require("../assets/Logo.png")} style={styles.logo} />
+        {/* ================= HEADER ================= */}
+        <View style={styles.header}>
+          <Image
+            source={require("../assets/Logo.png")}
+            style={styles.logo}
+          />
           <Text style={styles.version}>v2.0.1</Text>
         </View>
 
-        {/* Navigation Items */}
-        <View style={styles.drawerItemsContainer}>
+        {/* ================= MENU ================= */}
+        <View style={styles.menu}>
+
+          {/* DASHBOARD */}
           <DrawerItem
             label="Dashboard"
-            labelStyle={styles.labelStyle}
             icon={() => (
-              <Ionicons name="grid-outline" size={22} color="#1e3a8a" />
+              <Ionicons
+                name="grid-outline"
+                size={22}
+                color={activeRoute === "Dashboard" ? "#1e40af" : "#64748b"}
+              />
             )}
+            labelStyle={[
+              styles.label,
+              activeRoute === "Dashboard" && styles.activeLabel,
+            ]}
             onPress={() => navigateTo("Dashboard")}
           />
 
+          {/* AGENT DASHBOARD (ADDED SUPPORT) */}
+          <DrawerItem
+            label="Agent Dashboard"
+            icon={() => (
+              <MaterialCommunityIcons
+                name="account-tie"
+                size={22}
+                color={
+                  activeRoute === "AgentDashboard" ? "#1e40af" : "#64748b"
+                }
+              />
+            )}
+            labelStyle={[
+              styles.label,
+              activeRoute === "AgentDashboard" && styles.activeLabel,
+            ]}
+            onPress={() => navigateTo("AgentDashboard")}
+          />
+
+          {/* WALLET */}
           <DrawerItem
             label="Wallet History"
-            labelStyle={styles.labelStyle}
             icon={() => (
               <MaterialCommunityIcons
                 name="history"
                 size={22}
-                color="#1e3a8a"
+                color={
+                  activeRoute === "Wallet History" ? "#1e40af" : "#64748b"
+                }
               />
             )}
-            onPress={() => navigateTo("Wallet History")}
+            labelStyle={styles.label}
+            onPress={() =>
+              navigation.navigate("Main", { screen: "Wallet History" })
+            }
           />
 
+          {/* BVN */}
           <DrawerItem
             label="BVN Logs"
-            labelStyle={styles.labelStyle}
             icon={() => (
               <MaterialCommunityIcons
                 name="shield-check-outline"
                 size={22}
-                color="#1e3a8a"
+                color="#64748b"
               />
             )}
+            labelStyle={styles.label}
             onPress={() => navigateTo("BVN History")}
           />
 
+          {/* NIMC */}
           <DrawerItem
             label="NIMC Logs"
-            labelStyle={styles.labelStyle}
             icon={() => (
-              <Ionicons name="id-card-outline" size={22} color="#1e3a8a" />
+              <Ionicons name="id-card-outline" size={22} color="#64748b" />
             )}
+            labelStyle={styles.label}
             onPress={() => navigateTo("NIMC History")}
           />
 
           <View style={styles.divider} />
 
+          {/* SETTINGS */}
           <DrawerItem
             label="Settings"
-            labelStyle={styles.labelStyle}
             icon={() => (
-              <Ionicons name="settings-outline" size={22} color="#1e3a8a" />
+              <Ionicons name="settings-outline" size={22} color="#64748b" />
             )}
+            labelStyle={styles.label}
             onPress={() => navigateTo("Settings")}
           />
         </View>
       </DrawerContentScrollView>
 
-      {/* Footer Logout Button - AN GYARA STYLES ANAN */}
-      <View style={styles.footerContainer}>
+      {/* ================= FOOTER ================= */}
+      <View style={styles.footer}>
         <TouchableOpacity
-          style={styles.logoutSection}
-          onPress={() => handleLogout()}
-          activeOpacity={0.7}
+          style={styles.logoutBtn}
+          onPress={handleLogout}
         >
           <Ionicons name="log-out-outline" size={22} color="#ef4444" />
           <Text style={styles.logoutText}>Logout</Text>
@@ -127,44 +165,76 @@ const CustomDrawerContent = (props) => {
   );
 };
 
+export default CustomDrawerContent;
+
+// ================= STYLES =================
 const styles = StyleSheet.create({
-  scrollContent: { paddingTop: 0 },
-  drawerHeader: {
-    padding: 30,
-    backgroundColor: "#f8fafc",
-    alignItems: "center",
-    borderBottomWidth: 1,
-    borderBottomColor: "#e2e8f0",
-    marginBottom: 10,
+  scroll: {
+    paddingTop: 0,
   },
-  logo: { width: 140, height: 50, resizeMode: "contain" },
-  version: { fontSize: 10, color: "#94a3b8", marginTop: 5, fontWeight: "600" },
-  drawerItemsContainer: { flex: 1 },
-  labelStyle: { fontWeight: "600", color: "#334155", marginLeft: -10 },
+
+  header: {
+    padding: 25,
+    alignItems: "center",
+    backgroundColor: "#f8fafc",
+    borderBottomWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+
+  logo: {
+    width: 120,
+    height: 45,
+    resizeMode: "contain",
+  },
+
+  version: {
+    fontSize: 11,
+    marginTop: 5,
+    color: "#94a3b8",
+    fontWeight: "600",
+  },
+
+  menu: {
+    flex: 1,
+    paddingTop: 10,
+  },
+
+  label: {
+    fontWeight: "600",
+    color: "#64748b",
+    marginLeft: -10,
+  },
+
+  activeLabel: {
+    color: "#1e40af",
+    fontWeight: "bold",
+  },
+
   divider: {
     height: 1,
     backgroundColor: "#e2e8f0",
-    marginVertical: 10,
     marginHorizontal: 20,
+    marginVertical: 10,
   },
-  footerContainer: {
-    backgroundColor: "#fff",
+
+  footer: {
     borderTopWidth: 1,
-    borderTopColor: "#e2e8f0",
+    borderColor: "#e2e8f0",
+    padding: 15,
+    backgroundColor: "#fff",
   },
-  logoutSection: {
-    padding: 20,
+
+  logoutBtn: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 20,
-    zIndex: 999, // Tabbatar maballin yana sama
+    padding: 10,
   },
+
   logoutText: {
-    marginLeft: 15,
+    marginLeft: 12,
     color: "#ef4444",
     fontWeight: "bold",
-    fontSize: 16,
+    fontSize: 15,
   },
 });
-
 export default CustomDrawerContent;
