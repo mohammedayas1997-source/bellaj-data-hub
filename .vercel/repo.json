@@ -1,0 +1,11 @@
+{
+  "remoteName": "origin",
+  "projects": [
+    {
+      "id": "prj_MW5OQFF2kPpvUgQdvBclx2pQVByi",
+      "name": "ayax-data-xpress",
+      "directory": ".",
+      "orgId": "team_bLkByQcZCXA1kbCWXe5wD3iS"
+    }
+  ]
+}
