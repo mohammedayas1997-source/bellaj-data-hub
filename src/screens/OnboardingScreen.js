@@ -9,39 +9,37 @@ import {
   StatusBar,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import BASE_URL from "../config/api";
 
 const { width } = Dimensions.get("window");
 
 const COLORS = {
-  primary: "#E60000",
-  secondary: "#0B5E3C",
-  dark: "#121212",
+  primary: "#0B5E3C",
+  secondary: "#16A34A",
+  dark: "#0F172A",
   white: "#FFFFFF",
   light: "#F8FAFC",
   muted: "#64748B",
-  softRed: "#FFF1F1",
-  softGreen: "#EAF7F1",
+  border: "#E2E8F0",
 };
 
 const OnboardingScreen = ({ navigation }) => {
   return (
     <View style={styles.desktopWrapper}>
       <StatusBar
-        barStyle="light-content"
+        barStyle="dark-content"
         translucent
         backgroundColor="transparent"
       />
 
       <LinearGradient
-        colors={[COLORS.primary, "#990000", COLORS.secondary]}
+        colors={["#FFFFFF", "#F8FAFC", "#ECFDF5"]}
         style={styles.background}
       >
         <View style={styles.container}>
           <View style={styles.logoContainer}>
             <View style={styles.logoCircle}>
               <Image
-                source={require("../assets/bellaj_logo.png")}
+                source={require("../assets/Logo.png")}
                 style={styles.logo}
                 resizeMode="contain"
               />
@@ -49,24 +47,22 @@ const OnboardingScreen = ({ navigation }) => {
           </View>
 
           <View style={styles.contentContainer}>
-            <LinearGradient
-              colors={["rgba(255,255,255,0.98)", "rgba(255,255,255,0.88)"]}
-              style={styles.textCard}
-            >
+            <View style={styles.textCard}>
               <Text style={styles.title}>WELCOME TO BELLAJ DATA HUB</Text>
 
               <Text style={styles.description}>
-                Fast data, airtime, bill payments, and digital services at your
-                fingertips.
+                Fast data subscriptions, airtime recharge, electricity payments,
+                cable TV subscriptions, BVN/NIN services, and secure digital
+                transactions all in one platform.
               </Text>
 
               <View style={styles.motivationBox}>
                 <Text style={styles.motivation}>
-                  "Stay connected, pay smarter, and enjoy reliable digital
-                  services with Bellaj Data Hub."
+                  "Your trusted digital service partner for seamless
+                  connectivity and smarter transactions."
                 </Text>
               </View>
-            </LinearGradient>
+            </View>
           </View>
 
           <View style={styles.buttonContainer}>
@@ -75,7 +71,7 @@ const OnboardingScreen = ({ navigation }) => {
               onPress={() => navigation.replace("Login")}
             >
               <LinearGradient
-                colors={[COLORS.secondary, "#063B26"]}
+                colors={["#0B5E3C", "#16A34A"]}
                 style={styles.button}
               >
                 <Text style={styles.buttonText}>GET STARTED</Text>
@@ -91,97 +87,126 @@ const OnboardingScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   desktopWrapper: {
     flex: 1,
-    backgroundColor: COLORS.dark,
+    backgroundColor: "#F8FAFC",
     alignItems: "center",
     justifyContent: "center",
   },
+
   background: {
     flex: 1,
     width: width > 600 ? 600 : "100%",
     alignSelf: "center",
   },
+
   container: {
     flex: 1,
     paddingHorizontal: 25,
     justifyContent: "space-between",
     paddingBottom: 40,
   },
+
   logoContainer: {
-    flex: 0.28,
+    flex: 0.3,
     justifyContent: "flex-end",
     alignItems: "center",
   },
+
   logoCircle: {
-    width: 145,
-    height: 145,
-    borderRadius: 72.5,
-    backgroundColor: COLORS.white,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: "#FFFFFF",
     justifyContent: "center",
     alignItems: "center",
-    elevation: 12,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 5,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 8,
   },
+
   logo: {
-    width: 115,
-    height: 115,
+    width: 120,
+    height: 120,
   },
+
   contentContainer: {
-    flex: 0.48,
+    flex: 0.45,
     justifyContent: "center",
     alignItems: "center",
   },
+
   textCard: {
-    paddingVertical: 18,
+    width: "100%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    paddingVertical: 24,
     paddingHorizontal: 20,
-    borderRadius: 22,
     alignItems: "center",
-    borderWidth: 1.5,
-    borderColor: COLORS.white,
-    width: "95%",
-    elevation: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 5,
   },
+
   title: {
-    fontSize: 21,
+    fontSize: 22,
     fontWeight: "900",
     color: COLORS.primary,
     textAlign: "center",
-    marginBottom: 8,
+    marginBottom: 12,
     letterSpacing: 1,
   },
+
   description: {
-    fontSize: 14,
-    color: "#334155",
+    fontSize: 15,
+    color: "#475569",
     textAlign: "center",
-    lineHeight: 21,
-    fontWeight: "600",
-    marginBottom: 10,
+    lineHeight: 24,
+    fontWeight: "500",
   },
+
   motivationBox: {
+    marginTop: 18,
+    paddingTop: 15,
     borderTopWidth: 1,
-    borderTopColor: "#CBD5E1",
-    paddingTop: 10,
+    borderTopColor: "#E2E8F0",
   },
+
   motivation: {
-    fontSize: 12,
+    fontSize: 13,
     color: COLORS.dark,
     textAlign: "center",
     fontStyle: "italic",
-    fontWeight: "700",
-    lineHeight: 18,
+    fontWeight: "600",
+    lineHeight: 20,
   },
+
   buttonContainer: {
     flex: 0.15,
     justifyContent: "center",
     paddingBottom: 20,
   },
+
   button: {
     width: "100%",
     paddingVertical: 18,
-    borderRadius: 12,
+    borderRadius: 14,
     alignItems: "center",
-    elevation: 10,
+    elevation: 8,
   },
+
   buttonText: {
-    color: COLORS.white,
+    color: "#FFFFFF",
     fontSize: 18,
     fontWeight: "900",
     letterSpacing: 1.5,

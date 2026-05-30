@@ -15,7 +15,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import BASE_URL from "../config/api";
+import BASE_URL from "../../config/api";
 
 const COLORS = {
   primary: "#E60000",

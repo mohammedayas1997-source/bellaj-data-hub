@@ -129,7 +129,7 @@ const HomeScreen = ({ navigation }) => {
           <View style={styles.navRow}>
             <View style={styles.logoCircle}>
               <Image
-                source={require("../assets/bellaj_logo.png")}
+                source={require("../assets/Logo.png")}
                 style={styles.logoImg}
               />
             </View>

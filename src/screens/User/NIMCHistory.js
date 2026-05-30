@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import axios from "axios";
-import BASE_URL from "../config/api";
+import BASE_URL from "../../config/api";
 
 const COLORS = {
   primary: "#E60000",

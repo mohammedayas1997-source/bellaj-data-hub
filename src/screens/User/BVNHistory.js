@@ -11,7 +11,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import axios from "axios";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
-import BASE_URL from "../config/api";
+import BASE_URL from "../../config/api";
 
 const COLORS = {
   primary: "#E60000",

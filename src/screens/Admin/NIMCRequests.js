@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
-
+import BASE_URL from "../../config/api";
 const COLORS = {
   primary: "#E60000",
   secondary: "#0B5E3C",

@@ -23,7 +23,7 @@ const AboutScreen = () => {
       {/* Logo */}
       <View style={styles.logoContainer}>
         <Image
-          source={require("../assets/bellaj_logo.png")}
+          source={require("../assets/Logo.png")}
           style={styles.logo}
           resizeMode="contain"
         />

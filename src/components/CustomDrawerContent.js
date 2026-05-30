@@ -64,7 +64,7 @@ const CustomDrawerContent = (props) => {
       <DrawerContentScrollView {...props} contentContainerStyle={styles.scroll}>
         <View style={styles.header}>
           <Image
-            source={require("../assets/bellaj_logo.png")}
+            source={require("../assets/Logo.png")}
             style={styles.logo}
           />
           <Text style={styles.appName}>Bellaj Data Hub</Text>
