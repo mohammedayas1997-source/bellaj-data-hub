@@ -12,7 +12,49 @@ import {
 } from "react-native";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
+import BASE_URL from "../config/api";
+
+const COLORS = {
+  primary: "#E60000",
+  secondary: "#0B5E3C",
+  dark: "#121212",
+  white: "#FFFFFF",
+  light: "#F8FAFC",
+  muted: "#64748B",
+  border: "#E2E8F0",
+  softRed: "#FFF1F1",
+  softGreen: "#EAF7F1",
+};
+
+const API_ENDPOINTS = {
+  validateCable: "",
+  payCable: "",
+};
+
+const cableData = {
+  GOTV: [
+    { id: "gotv-lite", name: "GOtv Lite", price: 1500 },
+    { id: "gotv-value", name: "GOtv Value", price: 2100 },
+    { id: "gotv-plus", name: "GOtv Plus", price: 3300 },
+    { id: "gotv-max", name: "GOtv Max", price: 4850 },
+    { id: "gotv-supa", name: "GOtv Supa", price: 6400 },
+  ],
+  DSTV: [
+    { id: "dstv-padi", name: "DStv Padi", price: 2950 },
+    { id: "dstv-yanga", name: "DStv Yanga", price: 4200 },
+    { id: "dstv-confam", name: "DStv Confam", price: 7400 },
+    { id: "dstv-asia", name: "DStv Asia", price: 9900 },
+    { id: "dstv-compact", name: "DStv Compact", price: 12500 },
+  ],
+  STARTIMES: [
+    { id: "nova", name: "Nova Monthly", price: 1500 },
+    { id: "basic", name: "Basic Monthly", price: 2600 },
+    { id: "smart", name: "Smart Monthly", price: 3500 },
+    { id: "classic", name: "Classic Monthly", price: 5000 },
+    { id: "super", name: "Super Monthly", price: 7000 },
+  ],
+};
 
 const CableScreen = ({ navigation }) => {
   const [provider, setProvider] = useState("GOTV");
@@ -24,44 +66,20 @@ const CableScreen = ({ navigation }) => {
   const [pin, setPin] = useState("");
   const [packages, setPackages] = useState([]);
 
-  // Admin & Pricing State
   const [isAdmin, setIsAdmin] = useState(false);
-  const [serviceCharge, setServiceCharge] = useState(50); // Default charge
+  const [serviceCharge, setServiceCharge] = useState(50);
   const [newCharge, setNewCharge] = useState("");
-
-  // Dynamic Real-World Packages
-  const cableData = {
-    GOTV: [
-      { id: "gotv-lite", name: "GOtv Lite", price: 1500 },
-      { id: "gotv-value", name: "GOtv Value", price: 2100 },
-      { id: "gotv-plus", name: "GOtv Plus", price: 3300 },
-      { id: "gotv-max", name: "GOtv Max", price: 4850 },
-      { id: "gotv-supa", name: "GOtv Supa", price: 6400 },
-    ],
-    DSTV: [
-      { id: "dstv-padi", name: "DStv Padi", price: 2950 },
-      { id: "dstv-yanga", name: "DStv Yanga", price: 4200 },
-      { id: "dstv-confam", name: "DStv Confam", price: 7400 },
-      { id: "dstv-asia", name: "DStv Asia", price: 9900 },
-      { id: "dstv-compact", name: "DStv Compact", price: 12500 },
-    ],
-    STARTIMES: [
-      { id: "nova", name: "Nova Monthly", price: 1500 },
-      { id: "basic", name: "Basic Monthly", price: 2600 },
-      { id: "smart", name: "Smart Monthly", price: 3500 },
-      { id: "classic", name: "Classic Monthly", price: 5000 },
-      { id: "super", name: "Super Monthly", price: 7000 },
-    ],
-  };
 
   useEffect(() => {
     const checkAdmin = async () => {
       const user = await AsyncStorage.getItem("userData");
+
       if (user) {
         const parsed = JSON.parse(user);
-        setIsAdmin(parsed.role === "admin");
+        setIsAdmin(parsed?.role === "admin");
       }
     };
+
     checkAdmin();
     setPackages(cableData[provider]);
     setSelectedPackage(null);
@@ -69,24 +87,36 @@ const CableScreen = ({ navigation }) => {
   }, [provider]);
 
   const updateGlobalCharge = async () => {
-    if (!newCharge) return Alert.alert("Error", "Enter amount");
-    setServiceCharge(parseInt(newCharge));
+    if (!newCharge.trim()) {
+      Alert.alert("Error", "Enter amount");
+      return;
+    }
+
+    setServiceCharge(parseInt(newCharge, 10));
     setNewCharge("");
-    Alert.alert("Success", "Service charge updated for this session.");
+
+    Alert.alert("Bellaj Data Hub", "Service charge updated for this session.");
   };
 
   const validateIUC = async () => {
     if (smartCard.length < 9) {
-      return Alert.alert("Error", "Enter a valid IUC/Smartcard Number.");
+      Alert.alert("Error", "Enter a valid IUC/Smartcard Number.");
+      return;
+    }
+
+    if (!API_ENDPOINTS.validateCable) {
+      Alert.alert("Not Configured", "Cable validation API is not configured.");
+      return;
     }
 
     setValidating(true);
     setCustomerName("");
+
     try {
       const token = await AsyncStorage.getItem("userToken");
-      // REAL API CALL TO BACKEND VALIDATOR
+
       const res = await axios.post(
-        "https://ayax-data-xpress-server.vercel.app/api/v1/vtu/validate-cable",
+        API_ENDPOINTS.validateCable,
         { provider, smartCard },
         { headers: { Authorization: `Bearer ${token}` } },
       );
@@ -103,17 +133,27 @@ const CableScreen = ({ navigation }) => {
 
   const handlePayment = async () => {
     if (!smartCard || !selectedPackage || !pin) {
-      return Alert.alert("Error", "Please fill in all details.");
+      Alert.alert("Error", "Please fill in all details.");
+      return;
     }
+
     if (!customerName) {
-      return Alert.alert("Error", "Validate the Smartcard first.");
+      Alert.alert("Error", "Validate the Smartcard first.");
+      return;
+    }
+
+    if (!API_ENDPOINTS.payCable) {
+      Alert.alert("Not Configured", "Cable payment API is not configured.");
+      return;
     }
 
     setLoading(true);
+
     try {
       const token = await AsyncStorage.getItem("userToken");
+
       const res = await axios.post(
-        "https://ayax-data-xpress-server.vercel.app/api/v1/vtu/pay-cable",
+        API_ENDPOINTS.payCable,
         {
           provider,
           smartCard,
@@ -125,7 +165,10 @@ const CableScreen = ({ navigation }) => {
       );
 
       if (res.data.success) {
-        Alert.alert("Success", "Subscription processed successfully!");
+        Alert.alert(
+          "Bellaj Data Hub",
+          "Cable subscription activated successfully!",
+        );
         navigation.goBack();
       }
     } catch (err) {
@@ -140,29 +183,32 @@ const CableScreen = ({ navigation }) => {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
 
       <View style={styles.navBar}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={26} color="#0a1d37" />
+          <Ionicons name="arrow-back" size={26} color={COLORS.primary} />
         </TouchableOpacity>
+
         <Text style={styles.header}>Cable TV</Text>
       </View>
 
-      {/* Admin Price Control */}
       {isAdmin && (
         <View style={styles.adminSection}>
           <Text style={styles.adminLabel}>
             Admin: Adjust Service Charge (₦)
           </Text>
+
           <View style={styles.adminRow}>
             <TextInput
               style={styles.adminInput}
               placeholder={serviceCharge.toString()}
+              placeholderTextColor={COLORS.muted}
               keyboardType="numeric"
               value={newCharge}
               onChangeText={setNewCharge}
             />
+
             <TouchableOpacity
               style={styles.adminBtn}
               onPress={updateGlobalCharge}
@@ -174,6 +220,7 @@ const CableScreen = ({ navigation }) => {
       )}
 
       <Text style={styles.label}>Choose Provider</Text>
+
       <View style={styles.providerRow}>
         {["GOTV", "DSTV", "STARTIMES"].map((item) => (
           <TouchableOpacity
@@ -191,10 +238,12 @@ const CableScreen = ({ navigation }) => {
       </View>
 
       <Text style={styles.label}>IUC / Smartcard Number</Text>
+
       <View style={styles.inputWrapper}>
         <TextInput
           style={styles.mainInput}
           placeholder="e.g. 7012345678"
+          placeholderTextColor="#94A3B8"
           keyboardType="numeric"
           value={smartCard}
           onChangeText={(val) => {
@@ -202,13 +251,14 @@ const CableScreen = ({ navigation }) => {
             setCustomerName("");
           }}
         />
+
         <TouchableOpacity
           style={styles.verifyBtn}
           onPress={validateIUC}
           disabled={validating}
         >
           {validating ? (
-            <ActivityIndicator color="#fff" size="small" />
+            <ActivityIndicator color={COLORS.white} size="small" />
           ) : (
             <Text style={styles.verifyBtnText}>Verify</Text>
           )}
@@ -217,12 +267,18 @@ const CableScreen = ({ navigation }) => {
 
       {customerName ? (
         <View style={styles.customerBox}>
-          <Ionicons name="person-circle-outline" size={20} color="#0369a1" />
+          <Ionicons
+            name="person-circle-outline"
+            size={22}
+            color={COLORS.secondary}
+          />
+
           <Text style={styles.customerText}>{customerName}</Text>
         </View>
       ) : null}
 
       <Text style={styles.label}>Select Desired Package</Text>
+
       <View style={styles.packageContainer}>
         {packages.map((pkg) => (
           <TouchableOpacity
@@ -242,8 +298,17 @@ const CableScreen = ({ navigation }) => {
               >
                 {pkg.name}
               </Text>
-              <Text style={styles.pkgCaption}>1 Month Validity</Text>
+
+              <Text
+                style={[
+                  styles.pkgCaption,
+                  selectedPackage?.id === pkg.id && styles.activeCaption,
+                ]}
+              >
+                1 Month Validity
+              </Text>
             </View>
+
             <Text
               style={[
                 styles.pkgCost,
@@ -257,9 +322,11 @@ const CableScreen = ({ navigation }) => {
       </View>
 
       <Text style={styles.label}>Transaction PIN</Text>
+
       <TextInput
         style={styles.pinInput}
         placeholder="****"
+        placeholderTextColor="#94A3B8"
         secureTextEntry
         keyboardType="numeric"
         maxLength={4}
@@ -273,7 +340,7 @@ const CableScreen = ({ navigation }) => {
         disabled={loading}
       >
         {loading ? (
-          <ActivityIndicator color="#fff" />
+          <ActivityIndicator color={COLORS.white} />
         ) : (
           <Text style={styles.payBtnText}>ACTIVATE SUBSCRIPTION</Text>
         )}
@@ -285,7 +352,11 @@ const CableScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#ffffff", paddingHorizontal: 20 },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.white,
+    paddingHorizontal: 20,
+  },
   navBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -295,38 +366,49 @@ const styles = StyleSheet.create({
   header: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#0a1d37",
+    color: COLORS.primary,
     marginLeft: 15,
   },
   adminSection: {
-    backgroundColor: "#f1f5f9",
+    backgroundColor: COLORS.softRed,
     padding: 15,
     borderRadius: 12,
     marginBottom: 20,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.primary,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   adminLabel: {
     fontSize: 12,
     fontWeight: "bold",
-    color: "#475569",
+    color: COLORS.primary,
     marginBottom: 8,
   },
-  adminRow: { flexDirection: "row" },
+  adminRow: {
+    flexDirection: "row",
+  },
   adminInput: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.white,
     padding: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#cbd5e1",
+    borderColor: COLORS.border,
+    color: COLORS.dark,
   },
   adminBtn: {
-    backgroundColor: "#0a1d37",
+    backgroundColor: COLORS.primary,
     paddingHorizontal: 15,
     marginLeft: 10,
     borderRadius: 8,
     justifyContent: "center",
   },
-  adminBtnText: { color: "#fff", fontWeight: "bold", fontSize: 12 },
+  adminBtnText: {
+    color: COLORS.white,
+    fontWeight: "bold",
+    fontSize: 12,
+  },
   label: {
     fontSize: 14,
     fontWeight: "700",
@@ -334,89 +416,132 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     marginTop: 20,
   },
-  providerRow: { flexDirection: "row", justifyContent: "space-between" },
+  providerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
   chip: {
     paddingVertical: 12,
     borderRadius: 12,
     width: "31%",
     alignItems: "center",
-    backgroundColor: "#f8fafc",
+    backgroundColor: COLORS.light,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: COLORS.border,
   },
-  activeChip: { backgroundColor: "#0a1d37", borderColor: "#0a1d37" },
-  chipText: { fontWeight: "bold", color: "#64748b" },
-  whiteText: { color: "#fff" },
-  inputWrapper: { flexDirection: "row", alignItems: "center" },
+  activeChip: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  chipText: {
+    fontWeight: "bold",
+    color: COLORS.muted,
+  },
+  whiteText: {
+    color: COLORS.white,
+  },
+  inputWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   mainInput: {
     flex: 1,
-    backgroundColor: "#f8fafc",
+    backgroundColor: COLORS.light,
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: COLORS.border,
     fontSize: 16,
+    color: COLORS.dark,
   },
   verifyBtn: {
-    backgroundColor: "#0ea5e9",
+    backgroundColor: COLORS.secondary,
     paddingHorizontal: 20,
     height: 58,
     justifyContent: "center",
     borderRadius: 12,
     marginLeft: 10,
   },
-  verifyBtnText: { color: "#fff", fontWeight: "bold" },
+  verifyBtnText: {
+    color: COLORS.white,
+    fontWeight: "bold",
+  },
   customerBox: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f0f9ff",
+    backgroundColor: COLORS.softGreen,
     padding: 15,
     borderRadius: 12,
     marginTop: 12,
     borderWidth: 1,
-    borderColor: "#bae6fd",
+    borderColor: COLORS.secondary,
   },
   customerText: {
     marginLeft: 10,
     fontWeight: "bold",
-    color: "#0369a1",
+    color: COLORS.secondary,
     fontSize: 15,
   },
-  packageContainer: { marginTop: 10 },
+  packageContainer: {
+    marginTop: 10,
+  },
   pkgCard: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     padding: 20,
-    backgroundColor: "#f8fafc",
+    backgroundColor: COLORS.light,
     borderRadius: 15,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: COLORS.border,
   },
-  activePkgCard: { backgroundColor: "#0a1d37", borderColor: "#0a1d37" },
-  pkgTitle: { fontSize: 16, fontWeight: "bold", color: "#1e293b" },
-  pkgCaption: { fontSize: 12, color: "#94a3b8", marginTop: 2 },
-  pkgCost: { fontSize: 18, fontWeight: "bold", color: "#0a1d37" },
+  activePkgCard: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  pkgTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: COLORS.dark,
+  },
+  pkgCaption: {
+    fontSize: 12,
+    color: "#94A3B8",
+    marginTop: 2,
+  },
+  activeCaption: {
+    color: "#FFE4E4",
+  },
+  pkgCost: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: COLORS.secondary,
+  },
   pinInput: {
-    backgroundColor: "#f8fafc",
+    backgroundColor: COLORS.light,
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: COLORS.border,
     fontSize: 18,
     textAlign: "center",
     letterSpacing: 5,
+    color: COLORS.dark,
   },
   payBtn: {
-    backgroundColor: "#0a1d37",
+    backgroundColor: COLORS.primary,
     padding: 20,
     borderRadius: 15,
     alignItems: "center",
     marginTop: 35,
     elevation: 5,
   },
-  payBtnText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
+  payBtnText: {
+    color: COLORS.white,
+    fontWeight: "bold",
+    fontSize: 16,
+  },
 });
 
 export default CableScreen;

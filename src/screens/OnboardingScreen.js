@@ -7,58 +7,63 @@ import {
   TouchableOpacity,
   Dimensions,
   StatusBar,
-  ImageBackground,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import BASE_URL from "../config/api";
 
-const { width, height } = Dimensions.get("window");
+const { width } = Dimensions.get("window");
+
+const COLORS = {
+  primary: "#E60000",
+  secondary: "#0B5E3C",
+  dark: "#121212",
+  white: "#FFFFFF",
+  light: "#F8FAFC",
+  muted: "#64748B",
+  softRed: "#FFF1F1",
+  softGreen: "#EAF7F1",
+};
 
 const OnboardingScreen = ({ navigation }) => {
   return (
     <View style={styles.desktopWrapper}>
-      <ImageBackground
-        source={require("../assets/ayax_promo_hijab.png")}
-        style={styles.backgroundImage}
-        resizeMode="cover"
+      <StatusBar
+        barStyle="light-content"
+        translucent
+        backgroundColor="transparent"
+      />
+
+      <LinearGradient
+        colors={[COLORS.primary, "#990000", COLORS.secondary]}
+        style={styles.background}
       >
-        <StatusBar
-          barStyle="light-content"
-          translucent
-          backgroundColor="transparent"
-        />
-
-        <LinearGradient
-          colors={["rgba(15, 23, 42, 0.7)", "rgba(15, 23, 42, 0.3)"]}
-          style={styles.gradientOverlay}
-        />
-
         <View style={styles.container}>
-          {/* Logo pushed higher to clear the upper-middle area */}
           <View style={styles.logoContainer}>
-            <Image
-              source={require("../assets/Logo.png")}
-              style={styles.logo}
-              resizeMode="contain"
-            />
+            <View style={styles.logoCircle}>
+              <Image
+                source={require("../assets/bellaj_logo.png")}
+                style={styles.logo}
+                resizeMode="contain"
+              />
+            </View>
           </View>
 
           <View style={styles.contentContainer}>
-            {/* Slimmer card with reduced padding and margin to show more background */}
             <LinearGradient
-              colors={["rgba(255,255,255,0.95)", "rgba(255,255,255,0.8)"]}
+              colors={["rgba(255,255,255,0.98)", "rgba(255,255,255,0.88)"]}
               style={styles.textCard}
             >
-              <Text style={styles.title}>DOMINATE YOUR DIGITAL WORLD</Text>
+              <Text style={styles.title}>WELCOME TO BELLAJ DATA HUB</Text>
 
               <Text style={styles.description}>
-                Ayax Xpress delivers aggressive data rates and lightning-fast
-                payments.
+                Fast data, airtime, bill payments, and digital services at your
+                fingertips.
               </Text>
 
               <View style={styles.motivationBox}>
                 <Text style={styles.motivation}>
-                  "Success favors the efficient. Conquer your digital world with
-                  the right connection."
+                  "Stay connected, pay smarter, and enjoy reliable digital
+                  services with Bellaj Data Hub."
                 </Text>
               </View>
             </LinearGradient>
@@ -70,7 +75,7 @@ const OnboardingScreen = ({ navigation }) => {
               onPress={() => navigation.replace("Login")}
             >
               <LinearGradient
-                colors={["#0ea5e9", "#1e3a8a"]}
+                colors={[COLORS.secondary, "#063B26"]}
                 style={styles.button}
               >
                 <Text style={styles.buttonText}>GET STARTED</Text>
@@ -78,7 +83,7 @@ const OnboardingScreen = ({ navigation }) => {
             </TouchableOpacity>
           </View>
         </View>
-      </ImageBackground>
+      </LinearGradient>
     </View>
   );
 };
@@ -86,20 +91,14 @@ const OnboardingScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   desktopWrapper: {
     flex: 1,
-    backgroundColor: "#0f172a",
+    backgroundColor: COLORS.dark,
     alignItems: "center",
     justifyContent: "center",
   },
-  backgroundImage: {
+  background: {
     flex: 1,
     width: width > 600 ? 600 : "100%",
-    height: "100%",
     alignSelf: "center",
-  },
-  gradientOverlay: {
-    position: "absolute",
-    width: "100%",
-    height: "100%",
   },
   container: {
     flex: 1,
@@ -108,62 +107,62 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   logoContainer: {
-    flex: 0.25, // Reduced flex to pull it up
-    justifyContent: "flex-start",
+    flex: 0.28,
+    justifyContent: "flex-end",
     alignItems: "center",
-    paddingTop: 30, // Positioned near the very top
+  },
+  logoCircle: {
+    width: 145,
+    height: 145,
+    borderRadius: 72.5,
+    backgroundColor: COLORS.white,
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 12,
   },
   logo: {
-    width: 130, // Slightly smaller logo to maximize space
-    height: 130,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.5,
-    shadowRadius: 15,
+    width: 115,
+    height: 115,
   },
   contentContainer: {
-    flex: 0.5,
+    flex: 0.48,
     justifyContent: "center",
     alignItems: "center",
   },
   textCard: {
-    paddingVertical: 15, // Reduced height padding
+    paddingVertical: 18,
     paddingHorizontal: 20,
-    borderRadius: 20,
+    borderRadius: 22,
     alignItems: "center",
     borderWidth: 1.5,
-    borderColor: "#fff",
-    width: "95%", // Slightly narrower card
+    borderColor: COLORS.white,
+    width: "95%",
     elevation: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
   },
   title: {
-    fontSize: 20, // Slightly smaller title
+    fontSize: 21,
     fontWeight: "900",
-    color: "#1e3a8a",
+    color: COLORS.primary,
     textAlign: "center",
     marginBottom: 8,
     letterSpacing: 1,
   },
   description: {
-    fontSize: 14, // Condensed description
+    fontSize: 14,
     color: "#334155",
     textAlign: "center",
-    lineHeight: 20,
+    lineHeight: 21,
     fontWeight: "600",
     marginBottom: 10,
   },
   motivationBox: {
     borderTopWidth: 1,
-    borderTopColor: "#cbd5e1",
+    borderTopColor: "#CBD5E1",
     paddingTop: 10,
   },
   motivation: {
-    fontSize: 12, // More compact motivation text
-    color: "#1e293b",
+    fontSize: 12,
+    color: COLORS.dark,
     textAlign: "center",
     fontStyle: "italic",
     fontWeight: "700",
@@ -180,13 +179,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     elevation: 10,
-    shadowColor: "#0ea5e9",
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
   },
   buttonText: {
-    color: "#fff",
+    color: COLORS.white,
     fontSize: 18,
     fontWeight: "900",
     letterSpacing: 1.5,

@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -23,8 +22,23 @@ import {
 import * as LocalAuthentication from "expo-local-authentication";
 import axios from "axios";
 import { CommonActions } from "@react-navigation/native";
-
+import BASE_URL from "../config/api";
 const { width } = Dimensions.get("window");
+
+const COLORS = {
+  primary: "#E60000",
+  secondary: "#0B5E3C",
+  dark: "#121212",
+  white: "#FFFFFF",
+  light: "#F5F5F5",
+  muted: "#64748B",
+  border: "#E2E8F0",
+};
+
+const API_ENDPOINTS = {
+  userLogin: "",
+  supervisorLogin: "",
+};
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState("");
@@ -48,7 +62,6 @@ const LoginScreen = ({ navigation }) => {
       if (token && storedUserData) {
         const user = JSON.parse(storedUserData);
 
-        // AN GYARA: Matataccen tsarin kwaso role lokacin auto-login
         const detectedRole = (
           user?.role ||
           user?.user?.role ||
@@ -58,8 +71,6 @@ const LoginScreen = ({ navigation }) => {
         )
           .trim()
           .toLowerCase();
-
-        console.log("[Auto-Login] Detected Saved Role:", detectedRole);
 
         if (detectedRole === "agent") {
           navigation.reset({
@@ -71,17 +82,15 @@ const LoginScreen = ({ navigation }) => {
               },
             ],
           });
-          return;
-        } else if (detectedRole) {
+        } else {
           navigation.reset({
             index: 0,
             routes: [{ name: "Main" }],
           });
-          return;
         }
       }
     } catch (e) {
-      console.error("Failed to fetch startup authentication states:", e);
+      console.log("Startup auth error:", e.message);
     }
   };
 
@@ -91,27 +100,61 @@ const LoginScreen = ({ navigation }) => {
       const hasHardware = await LocalAuthentication.hasHardwareAsync();
       const isEnrolled = await LocalAuthentication.isEnrolledAsync();
 
-      // Mun cire layin da yake haifar da error
       if (isEnabled === "true" && hasHardware && isEnrolled) {
         setIsBiometricEnabled(true);
       }
     } catch (e) {
-      console.log("Biometric check error:", e);
+      console.log("Biometric check error:", e.message);
     }
   };
 
   const openWhatsApp = () => {
     Linking.openURL(
-      "whatsapp://send?phone=+2349061244444&text=Hello Ayax Xpress Support",
+      "whatsapp://send?phone=+2349075207281&text=Hello Bellaj Data Hub Support",
     );
   };
 
   const openEmail = () => {
-    Linking.openURL("mailto:support@ayaxdata.online");
+    Linking.openURL("mailto:support@bellajdatahub.com");
   };
 
   const makeCall = () => {
-    Linking.openURL("tel:+2349061244444");
+    Linking.openURL("tel:+2349075207281");
+  };
+
+  const redirectUser = (role) => {
+    const normalizedRole = role?.trim()?.toLowerCase();
+
+    if (isSupervisor) {
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: "SupervisorDashboard" }],
+        }),
+      );
+    } else if (normalizedRole === "agent") {
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [
+            {
+              name: "Main",
+              state: {
+                index: 0,
+                routes: [{ name: "AgentDashboard" }],
+              },
+            },
+          ],
+        }),
+      );
+    } else {
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: "Main" }],
+        }),
+      );
+    }
   };
 
   const handleLogin = async () => {
@@ -122,97 +165,56 @@ const LoginScreen = ({ navigation }) => {
       return;
     }
 
+    const loginUrl = isSupervisor
+      ? API_ENDPOINTS.supervisorLogin
+      : API_ENDPOINTS.userLogin;
+
+    if (!loginUrl) {
+      setErrorMessage("Login API endpoint has not been configured.");
+      return;
+    }
+
     setLoading(true);
 
-    // Zaɓi URL dangane da wanda yake login (User ko Supervisor)
-    const loginUrl = isSupervisor
-      ? "https://ayax-data-xpress-server.onrender.com/api/v1/supervisor/login"
-      : "https://ayax-data-xpress-server.onrender.com/api/v1/auth/login";
-
     try {
-      console.log(
-        `🚀 Attempting ${isSupervisor ? "Supervisor" : "User"} Login for:`,
-        email.trim().toLowerCase(),
-      );
-
       const response = await axios.post(loginUrl, {
         email: email.trim().toLowerCase(),
-        password: password,
+        password,
       });
 
-      console.log("📥 Raw Server Response:", JSON.stringify(response.data));
-
-      // Ciro Token da Bayanan Mai amfani
       const token =
         response?.data?.token ||
         response?.data?.accessToken ||
         response?.data?.data?.token ||
         "";
+
       const userPayload =
         response?.data?.user ||
         response?.data?.data?.user ||
         response?.data?.data ||
         {};
 
-      // Gano role don tantance inda zai tafi
       const finalRole =
         userPayload?.role ||
         response?.data?.role ||
         response?.data?.data?.role ||
         "";
-      const normalizedRole = finalRole.trim().toLowerCase();
 
       if (!token) {
         setErrorMessage("Authentication token missing from server.");
         return;
       }
 
-      // Adana bayanan a Async Storage
       await AsyncStorage.setItem("userToken", token);
       await AsyncStorage.setItem("userData", JSON.stringify(userPayload));
 
-      console.log("✅ Login Successful. Redirecting...");
-
-      // Tsarin Kai mai amfani zuwa shafin da ya dace
-      setTimeout(() => {
-        if (isSupervisor) {
-          // Idan Supervisor ne, tura shi Dashboard na Supervisor
-          navigation.dispatch(
-            CommonActions.reset({
-              index: 0,
-              routes: [{ name: "SupervisorDashboard" }],
-            }),
-          );
-        } else if (normalizedRole === "agent") {
-          // Idan Agent ne
-          navigation.dispatch(
-            CommonActions.reset({
-              index: 0,
-              routes: [
-                {
-                  name: "Main",
-                  state: { routes: [{ name: "AgentDashboard" }] },
-                },
-              ],
-            }),
-          );
-        } else {
-          // Idan User na yau da kullum ne
-          navigation.dispatch(
-            CommonActions.reset({
-              index: 0,
-              routes: [{ name: "Main" }],
-            }),
-          );
-        }
-      }, 300);
+      setTimeout(() => redirectUser(finalRole), 300);
     } catch (error) {
-      console.log("❌ Login Error:", error?.response?.data || error.message);
-
       if (error.response) {
         const status = error.response.status;
         const backendMessage =
           error.response.data?.message || "Invalid credentials.";
+
         setErrorMessage(
           status === 401 ? "Invalid email or password." : backendMessage,
         );
@@ -227,123 +229,27 @@ const LoginScreen = ({ navigation }) => {
   const handleBiometricLogin = async () => {
     try {
       const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: "Login to Ayax Xpress",
+        promptMessage: "Login to Bellaj Data Hub",
         fallbackLabel: "Use Password",
         disableDeviceFallback: false,
       });
 
-      // ... sauran code ɗin naka ...
+      if (!result.success) return;
 
-      console.log("📥 Raw Server Response:", JSON.stringify(response.data));
+      const storedUserData = await AsyncStorage.getItem("userData");
+      const token = await AsyncStorage.getItem("userToken");
 
-      // =========================
-      // FIXED TOKEN EXTRACTION
-      // =========================
-
-      const token =
-        response?.data?.token ||
-        response?.data?.accessToken ||
-        response?.data?.data?.token ||
-        "";
-
-      // =========================
-      // FIXED USER EXTRACTION
-      // =========================
-
-      const userPayload =
-        response?.data?.user ||
-        response?.data?.data?.user ||
-        response?.data?.data ||
-        {};
-
-      // =========================
-      // FIXED ROLE EXTRACTION
-      // =========================
-
-      const finalRole =
-        userPayload?.role ||
-        response?.data?.role ||
-        response?.data?.data?.role ||
-        "";
-
-      const normalizedRole = finalRole.trim().toLowerCase();
-
-      console.log("🎯 FINAL ROLE:", normalizedRole);
-
-      // =========================
-      // VALIDATE TOKEN
-      // =========================
-
-      if (!token) {
-        setErrorMessage("Authentication token missing from server.");
+      if (!token || !storedUserData) {
+        setErrorMessage("Please login with password first.");
         return;
       }
 
-      // =========================
-      // SAVE DATA
-      // =========================
+      const user = JSON.parse(storedUserData);
+      const role = user?.role || user?.data?.role || "";
 
-      await AsyncStorage.setItem("userToken", token);
-
-      await AsyncStorage.setItem("userData", JSON.stringify(userPayload));
-
-      console.log("✅ TOKEN SAVED SUCCESSFULLY");
-
-      // =========================
-      // NAVIGATION (FIXED)
-      // =========================
-      setTimeout(() => {
-        if (normalizedRole === "agent") {
-          // Idan Agent ne, muna reset zuwa Main, amma muna sa initial route ya zama AgentDashboard
-          navigation.dispatch(
-            CommonActions.reset({
-              index: 0,
-              routes: [
-                {
-                  name: "Main", // Sunan Drawer Navigator ɗinka
-                  state: {
-                    index: 0,
-                    routes: [{ name: "AgentDashboard" }], // Wannan shi ne zai tilasta AgentDashboard ya buɗe
-                  },
-                },
-              ],
-            }),
-          );
-        } else {
-          // Idan ba Agent ba ne, reset zuwa Main kamar yadda kake da shi
-          navigation.dispatch(
-            CommonActions.reset({
-              index: 0,
-              routes: [{ name: "Main" }],
-            }),
-          );
-        }
-      }, 300);
+      redirectUser(role);
     } catch (error) {
-      console.log("❌ Login Error:", error?.response?.data || error.message);
-
-      if (error.response) {
-        const status = error.response.status;
-        const backendMessage = error.response.data?.message || "";
-
-        if (status === 401) {
-          setErrorMessage(
-            backendMessage || "Invalid email or password. Please try again.",
-          );
-        } else if (status === 404) {
-          setErrorMessage("Account not found.");
-        } else {
-          setErrorMessage(backendMessage || "Server error encountered.");
-        }
-      } else if (error.request) {
-        setErrorMessage(
-          "Network error. Please check your internet connection.",
-        );
-      } else {
-        setErrorMessage("Unexpected error occurred.");
-      }
-    } finally {
-      setLoading(false);
+      setErrorMessage("Biometric login failed. Please try again.");
     }
   };
 
@@ -361,20 +267,25 @@ const LoginScreen = ({ navigation }) => {
           <View style={styles.headerSection}>
             <View style={styles.logoCircle}>
               <Image
-                source={require("../assets/Logo.png")}
+                source={require("../assets/bellaj_logo.png")}
                 style={styles.logoImg}
               />
             </View>
-            <Text style={styles.appName}>Ayax Xpress</Text>
+
+            <Text style={styles.appName}>Bellaj Data Hub</Text>
             <Text style={styles.tagline}>
-              Swift & Reliable Utility Payments
+              Secure, Fast & Reliable Digital Services
             </Text>
           </View>
 
           <View style={styles.formSection}>
             {errorMessage ? (
               <View style={styles.errorBanner}>
-                <Ionicons name="alert-circle" size={20} color="#b91c1c" />
+                <Ionicons
+                  name="alert-circle"
+                  size={20}
+                  color={COLORS.primary}
+                />
                 <Text style={styles.errorBannerText}>{errorMessage}</Text>
               </View>
             ) : null}
@@ -384,13 +295,13 @@ const LoginScreen = ({ navigation }) => {
               <Ionicons
                 name="mail-outline"
                 size={20}
-                color="#64748b"
+                color={COLORS.muted}
                 style={styles.inputIcon}
               />
               <TextInput
                 style={styles.input}
                 placeholder="example@mail.com"
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor="#94A3B8"
                 value={email}
                 onChangeText={(text) => {
                   setEmail(text);
@@ -406,13 +317,13 @@ const LoginScreen = ({ navigation }) => {
               <Ionicons
                 name="lock-closed-outline"
                 size={20}
-                color="#64748b"
+                color={COLORS.muted}
                 style={styles.inputIcon}
               />
               <TextInput
                 style={styles.input}
                 placeholder="••••••••"
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor="#94A3B8"
                 value={password}
                 onChangeText={(text) => {
                   setPassword(text);
@@ -424,30 +335,25 @@ const LoginScreen = ({ navigation }) => {
                 <Ionicons
                   name={showPassword ? "eye-off-outline" : "eye-outline"}
                   size={20}
-                  color="#64748b"
+                  color={COLORS.muted}
                 />
               </TouchableOpacity>
             </View>
-            {/* Supervisor Toggle */}
+
             <TouchableOpacity
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                marginBottom: 20,
-              }}
+              style={styles.supervisorRow}
               onPress={() => setIsSupervisor(!isSupervisor)}
             >
               <Ionicons
                 name={isSupervisor ? "checkbox" : "square-outline"}
                 size={24}
-                color={isSupervisor ? "#0a1d37" : "#64748b"}
+                color={isSupervisor ? COLORS.primary : COLORS.muted}
               />
               <Text
-                style={{
-                  marginLeft: 8,
-                  color: isSupervisor ? "#0a1d37" : "#64748b",
-                  fontWeight: "600",
-                }}
+                style={[
+                  styles.supervisorText,
+                  { color: isSupervisor ? COLORS.primary : COLORS.muted },
+                ]}
               >
                 Login as Supervisor
               </Text>
@@ -462,11 +368,12 @@ const LoginScreen = ({ navigation }) => {
                   <MaterialCommunityIcons
                     name="fingerprint"
                     size={35}
-                    color="#0a1d37"
+                    color={COLORS.secondary}
                   />
                   <Text style={styles.biometricText}>Touch ID</Text>
                 </TouchableOpacity>
               )}
+
               <TouchableOpacity
                 style={styles.forgotBtn}
                 onPress={() => navigation.navigate("ForgotPassword")}
@@ -481,24 +388,20 @@ const LoginScreen = ({ navigation }) => {
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color={COLORS.white} />
               ) : (
                 <Text style={styles.loginBtnText}>Login to Dashboard</Text>
               )}
             </TouchableOpacity>
 
             <View style={styles.footerLinks}>
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => navigation.navigate("About")}
-              >
+              <TouchableOpacity onPress={() => navigation.navigate("About")}>
                 <Text style={styles.linkText}>About Us</Text>
               </TouchableOpacity>
 
               <View style={styles.divider} />
 
               <TouchableOpacity
-                activeOpacity={0.7}
                 onPress={() => navigation.navigate("PrivacyPolicy")}
               >
                 <Text style={styles.linkText}>Privacy Policy</Text>
@@ -506,10 +409,7 @@ const LoginScreen = ({ navigation }) => {
 
               <View style={styles.divider} />
 
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => navigation.navigate("Terms")}
-              >
+              <TouchableOpacity onPress={() => navigation.navigate("Terms")}>
                 <Text style={styles.linkText}>Terms</Text>
               </TouchableOpacity>
             </View>
@@ -523,7 +423,8 @@ const LoginScreen = ({ navigation }) => {
           </View>
 
           <View style={styles.contactContainer}>
-            <Text style={styles.contactTitle}>Quick Support</Text>
+            <Text style={styles.contactTitle}>QUICK SUPPORT</Text>
+
             <View style={styles.iconRow}>
               <TouchableOpacity
                 style={styles.contactIconCircle}
@@ -531,19 +432,22 @@ const LoginScreen = ({ navigation }) => {
               >
                 <FontAwesome name="whatsapp" size={24} color="#25D366" />
               </TouchableOpacity>
+
               <TouchableOpacity
                 style={[styles.contactIconCircle, { marginHorizontal: 20 }]}
                 onPress={makeCall}
               >
-                <Ionicons name="call" size={24} color="#0a1d37" />
+                <Ionicons name="call" size={24} color={COLORS.secondary} />
               </TouchableOpacity>
+
               <TouchableOpacity
                 style={styles.contactIconCircle}
                 onPress={openEmail}
               >
-                <Ionicons name="mail" size={24} color="#EA4335" />
+                <Ionicons name="mail" size={24} color={COLORS.primary} />
               </TouchableOpacity>
             </View>
+
             <Text style={styles.phoneNumber}>+234 906 124 4444</Text>
           </View>
         </View>
@@ -555,7 +459,7 @@ const LoginScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   desktopContainer: {
     flex: 1,
-    backgroundColor: "#f8fafc",
+    backgroundColor: COLORS.light,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -567,48 +471,78 @@ const styles = StyleSheet.create({
   },
   contentWrapper: {
     width: width > 600 ? 500 : "90%",
-    backgroundColor: "#ffffff",
+    backgroundColor: COLORS.white,
     borderRadius: 25,
     padding: 25,
     elevation: 8,
-    shadowColor: "#000",
+    shadowColor: COLORS.dark,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
   },
-  headerSection: { alignItems: "center", marginBottom: 30 },
+  headerSection: {
+    alignItems: "center",
+    marginBottom: 30,
+  },
   logoCircle: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    backgroundColor: "#ffffff",
+    width: 95,
+    height: 95,
+    borderRadius: 48,
+    backgroundColor: COLORS.white,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 15,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: COLORS.border,
   },
-  logoImg: { width: 60, height: 60, resizeMode: "contain" },
-  appName: { fontSize: 28, fontWeight: "bold", color: "#0f172a" },
-  tagline: { fontSize: 14, color: "#64748b", marginTop: 5 },
-  formSection: { width: "100%" },
-  label: { color: "#475569", fontSize: 14, marginBottom: 8, fontWeight: "600" },
+  logoImg: {
+    width: 72,
+    height: 72,
+    resizeMode: "contain",
+  },
+  appName: {
+    fontSize: 28,
+    fontWeight: "bold",
+    color: COLORS.primary,
+  },
+  tagline: {
+    fontSize: 14,
+    color: COLORS.secondary,
+    marginTop: 5,
+    textAlign: "center",
+  },
+  formSection: {
+    width: "100%",
+  },
+  label: {
+    color: "#475569",
+    fontSize: 14,
+    marginBottom: 8,
+    fontWeight: "600",
+  },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#F8FAFC",
     borderRadius: 12,
     paddingHorizontal: 15,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: COLORS.border,
   },
-  inputIcon: { marginRight: 10 },
-  input: { flex: 1, height: 50, color: "#0f172a", fontSize: 16 },
+  inputIcon: {
+    marginRight: 10,
+  },
+  input: {
+    flex: 1,
+    height: 50,
+    color: COLORS.dark,
+    fontSize: 16,
+  },
   errorBanner: {
     flexDirection: "row",
-    backgroundColor: "#fef2f2",
-    borderColor: "#fee2e2",
+    backgroundColor: "#FEF2F2",
+    borderColor: "#FECACA",
     borderWidth: 1,
     padding: 12,
     borderRadius: 12,
@@ -617,10 +551,19 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   errorBannerText: {
-    color: "#991b1b",
+    color: "#991B1B",
     fontSize: 14,
     fontWeight: "600",
     flex: 1,
+  },
+  supervisorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  supervisorText: {
+    marginLeft: 8,
+    fontWeight: "600",
   },
   actionRow: {
     flexDirection: "row",
@@ -628,61 +571,34 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 25,
   },
-  biometricBtn: { alignItems: "center" },
+  biometricBtn: {
+    alignItems: "center",
+  },
   biometricText: {
     fontSize: 10,
-    color: "#0a1d37",
+    color: COLORS.secondary,
     fontWeight: "bold",
     marginTop: 2,
   },
-  forgotBtn: { alignSelf: "center" },
-  forgotText: { color: "#0a1d37", fontSize: 14, fontWeight: "600" },
+  forgotBtn: {
+    alignSelf: "center",
+  },
+  forgotText: {
+    color: COLORS.primary,
+    fontSize: 14,
+    fontWeight: "600",
+  },
   loginBtn: {
-    backgroundColor: "#0a1d37",
+    backgroundColor: COLORS.primary,
     height: 55,
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
   },
-  loginBtnText: { color: "#ffffff", fontSize: 18, fontWeight: "bold" },
-  signupContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: 25,
-  },
-  noAccountText: { color: "#64748b", fontSize: 14 },
-  signupText: { color: "#0a1d37", fontSize: 14, fontWeight: "bold" },
-  contactContainer: {
-    marginTop: 35,
-    alignItems: "center",
-    borderTopWidth: 1,
-    borderTopColor: "#f1f5f9",
-    paddingTop: 20,
-  },
-  contactTitle: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#94a3b8",
-    marginBottom: 15,
-    letterSpacing: 1,
-  },
-  iconRow: { flexDirection: "row", alignItems: "center" },
-  contactIconCircle: {
-    width: 45,
-    height: 45,
-    borderRadius: 22.5,
-    backgroundColor: "#f8fafc",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-  },
-  phoneNumber: {
-    marginTop: 15,
-    fontSize: 16,
+  loginBtnText: {
+    color: COLORS.white,
+    fontSize: 18,
     fontWeight: "bold",
-    color: "#0a1d37",
-    textAlign: "center",
   },
   footerLinks: {
     flexDirection: "row",
@@ -693,7 +609,7 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
   },
   linkText: {
-    color: "#64748b",
+    color: COLORS.muted,
     fontSize: 12,
     fontWeight: "600",
     textDecorationLine: "underline",
@@ -702,8 +618,57 @@ const styles = StyleSheet.create({
   divider: {
     width: 1,
     height: 14,
-    backgroundColor: "#cbd5e1",
+    backgroundColor: "#CBD5E1",
     marginHorizontal: 8,
+  },
+  signupContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: 25,
+  },
+  noAccountText: {
+    color: COLORS.muted,
+    fontSize: 14,
+  },
+  signupText: {
+    color: COLORS.secondary,
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  contactContainer: {
+    marginTop: 35,
+    alignItems: "center",
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
+    paddingTop: 20,
+  },
+  contactTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#94A3B8",
+    marginBottom: 15,
+    letterSpacing: 1,
+  },
+  iconRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  contactIconCircle: {
+    width: 45,
+    height: 45,
+    borderRadius: 22.5,
+    backgroundColor: "#F8FAFC",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  phoneNumber: {
+    marginTop: 15,
+    fontSize: 16,
+    fontWeight: "bold",
+    color: COLORS.secondary,
+    textAlign: "center",
   },
 });
 

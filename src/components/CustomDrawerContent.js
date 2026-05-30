@@ -1,17 +1,24 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, Image, StyleSheet, TouchableOpacity } from "react-native";
-
 import { DrawerContentScrollView, DrawerItem } from "@react-navigation/drawer";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { CommonActions } from "@react-navigation/native";
+
+const COLORS = {
+  primary: "#E60000",
+  secondary: "#0B5E3C",
+  white: "#FFFFFF",
+  light: "#F8FAFC",
+  muted: "#64748B",
+  border: "#E2E8F0",
+};
 
 const CustomDrawerContent = (props) => {
   const { navigation, state } = props;
   const [userRole, setUserRole] = useState(null);
   const activeRoute = state?.routeNames[state?.index];
 
-  // ================= LOGOUT =================
   const handleLogout = async () => {
     try {
       await AsyncStorage.clear();
@@ -31,35 +38,40 @@ const CustomDrawerContent = (props) => {
   useEffect(() => {
     const fetchUserRole = async () => {
       const userData = await AsyncStorage.getItem("userData");
+
       if (userData) {
         const parsedData = JSON.parse(userData);
-        // Duba yadda data ɗinka yake, wani lokacin yana cikin parsedData.role ne
         const role = parsedData?.role || parsedData?.data?.role || "";
         setUserRole(role.trim().toLowerCase());
       }
     };
+
     fetchUserRole();
   }, []);
 
-  // ================= NAV HELPER =================
   const navigateTo = (screen) => {
     navigation.closeDrawer();
     navigation.navigate(screen);
   };
 
-  // ================= UI =================
+  const isActive = (routeName) => activeRoute === routeName;
+
+  const activeColor = COLORS.primary;
+  const inactiveColor = COLORS.muted;
+
   return (
     <View style={{ flex: 1 }}>
       <DrawerContentScrollView {...props} contentContainerStyle={styles.scroll}>
-        {/* ================= HEADER ================= */}
         <View style={styles.header}>
-          <Image source={require("../assets/Logo.png")} style={styles.logo} />
+          <Image
+            source={require("../assets/bellaj_logo.png")}
+            style={styles.logo}
+          />
+          <Text style={styles.appName}>Bellaj Data Hub</Text>
           <Text style={styles.version}>v2.0.1</Text>
         </View>
 
-        {/* ================= MENU ================= */}
         <View style={styles.menu}>
-          {/* DASHBOARD */}
           {userRole === "agent" ? (
             <DrawerItem
               label="Agent Dashboard"
@@ -68,13 +80,13 @@ const CustomDrawerContent = (props) => {
                   name="account-tie"
                   size={22}
                   color={
-                    activeRoute === "AgentDashboard" ? "#1e40af" : "#64748b"
+                    isActive("AgentDashboard") ? activeColor : inactiveColor
                   }
                 />
               )}
               labelStyle={[
                 styles.label,
-                activeRoute === "AgentDashboard" && styles.activeLabel,
+                isActive("AgentDashboard") && styles.activeLabel,
               ]}
               onPress={() => navigateTo("AgentDashboard")}
             />
@@ -85,74 +97,90 @@ const CustomDrawerContent = (props) => {
                 <Ionicons
                   name="grid-outline"
                   size={22}
-                  color={activeRoute === "Dashboard" ? "#1e40af" : "#64748b"}
+                  color={isActive("Dashboard") ? activeColor : inactiveColor}
                 />
               )}
               labelStyle={[
                 styles.label,
-                activeRoute === "Dashboard" && styles.activeLabel,
+                isActive("Dashboard") && styles.activeLabel,
               ]}
               onPress={() => navigateTo("Dashboard")}
             />
           )}
-          {/* WALLET */}
+
           <DrawerItem
             label="Wallet History"
             icon={() => (
               <MaterialCommunityIcons
                 name="history"
                 size={22}
-                color={activeRoute === "Wallet History" ? "#1e40af" : "#64748b"}
+                color={isActive("Wallet History") ? activeColor : inactiveColor}
               />
             )}
-            labelStyle={styles.label}
+            labelStyle={[
+              styles.label,
+              isActive("Wallet History") && styles.activeLabel,
+            ]}
             onPress={() =>
               navigation.navigate("Main", { screen: "Wallet History" })
             }
           />
 
-          {/* BVN */}
           <DrawerItem
             label="BVN Logs"
             icon={() => (
               <MaterialCommunityIcons
                 name="shield-check-outline"
                 size={22}
-                color="#64748b"
+                color={isActive("BVN History") ? activeColor : inactiveColor}
               />
             )}
-            labelStyle={styles.label}
+            labelStyle={[
+              styles.label,
+              isActive("BVN History") && styles.activeLabel,
+            ]}
             onPress={() => navigateTo("BVN History")}
           />
 
-          {/* NIMC */}
           <DrawerItem
             label="NIMC Logs"
             icon={() => (
-              <Ionicons name="id-card-outline" size={22} color="#64748b" />
+              <Ionicons
+                name="id-card-outline"
+                size={22}
+                color={isActive("NIMC History") ? activeColor : inactiveColor}
+              />
             )}
-            labelStyle={styles.label}
+            labelStyle={[
+              styles.label,
+              isActive("NIMC History") && styles.activeLabel,
+            ]}
             onPress={() => navigateTo("NIMC History")}
           />
 
           <View style={styles.divider} />
 
-          {/* SETTINGS */}
           <DrawerItem
             label="Settings"
             icon={() => (
-              <Ionicons name="settings-outline" size={22} color="#64748b" />
+              <Ionicons
+                name="settings-outline"
+                size={22}
+                color={isActive("Settings") ? activeColor : inactiveColor}
+              />
             )}
-            labelStyle={styles.label}
+            labelStyle={[
+              styles.label,
+              isActive("Settings") && styles.activeLabel,
+            ]}
             onPress={() => navigateTo("Settings")}
           />
         </View>
       </DrawerContentScrollView>
 
-      {/* ================= FOOTER ================= */}
       <View style={styles.footer}>
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={22} color="#ef4444" />
+          <Ionicons name="log-out-outline" size={22} color={COLORS.primary} />
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
       </View>
@@ -160,74 +188,70 @@ const CustomDrawerContent = (props) => {
   );
 };
 
-// ================= STYLES =================
 const styles = StyleSheet.create({
   scroll: {
     paddingTop: 0,
   },
-
   header: {
     padding: 25,
     alignItems: "center",
-    backgroundColor: "#f8fafc",
+    backgroundColor: COLORS.light,
     borderBottomWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: COLORS.border,
   },
-
   logo: {
     width: 120,
-    height: 45,
+    height: 60,
     resizeMode: "contain",
   },
-
+  appName: {
+    marginTop: 6,
+    color: COLORS.primary,
+    fontWeight: "900",
+    fontSize: 16,
+  },
   version: {
     fontSize: 11,
-    marginTop: 5,
-    color: "#94a3b8",
+    marginTop: 3,
+    color: COLORS.muted,
     fontWeight: "600",
   },
-
   menu: {
     flex: 1,
     paddingTop: 10,
   },
-
   label: {
     fontWeight: "600",
-    color: "#64748b",
+    color: COLORS.muted,
     marginLeft: -10,
   },
-
   activeLabel: {
-    color: "#1e40af",
+    color: COLORS.primary,
     fontWeight: "bold",
   },
-
   divider: {
     height: 1,
-    backgroundColor: "#e2e8f0",
+    backgroundColor: COLORS.border,
     marginHorizontal: 20,
     marginVertical: 10,
   },
-
   footer: {
     borderTopWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: COLORS.border,
     padding: 15,
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.white,
   },
-
   logoutBtn: {
     flexDirection: "row",
     alignItems: "center",
     padding: 10,
   },
-
   logoutText: {
     marginLeft: 12,
-    color: "#ef4444",
+    color: COLORS.primary,
     fontWeight: "bold",
     fontSize: 15,
   },
 });
+
 export default CustomDrawerContent;

@@ -15,33 +15,37 @@ import {
 } from "react-native";
 
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
 import * as LocalAuthentication from "expo-local-authentication";
-
 import { ThemeContext } from "../context/ThemeContext";
+import BASE_URL from "../config/api";
+const COLORS = {
+  primary: "#E60000",
+  secondary: "#0B5E3C",
+  dark: "#121212",
+  white: "#FFFFFF",
+  light: "#F8FAFC",
+  muted: "#64748B",
+  border: "#E2E8F0",
+  cardDark: "#1E293B",
+  softRed: "#FFF1F1",
+  softGreen: "#EAF7F1",
+};
 
 const SettingsScreen = ({ navigation }) => {
   const { isDarkMode, toggleTheme } = useContext(ThemeContext);
 
   const [loading, setLoading] = useState(true);
-
   const [isBiometricSupported, setIsBiometricSupported] = useState(false);
-
   const [useFingerprintLogin, setUseFingerprintLogin] = useState(false);
-
   const [useFingerprintTransaction, setUseFingerprintTransaction] =
     useState(false);
 
   const [pinModalVisible, setPinModalVisible] = useState(false);
-
   const [changePinModalVisible, setChangePinModalVisible] = useState(false);
 
   const [transactionPin, setTransactionPin] = useState("");
-
   const [oldPin, setOldPin] = useState("");
-
   const [newPin, setNewPin] = useState("");
 
   useEffect(() => {
@@ -62,7 +66,6 @@ const SettingsScreen = ({ navigation }) => {
   const checkDeviceSupport = async () => {
     try {
       const compatible = await LocalAuthentication.hasHardwareAsync();
-
       const enrolled = await LocalAuthentication.isEnrolledAsync();
 
       setIsBiometricSupported(compatible && enrolled);
@@ -74,7 +77,6 @@ const SettingsScreen = ({ navigation }) => {
   const loadSettings = async () => {
     try {
       const loginBio = await AsyncStorage.getItem("useBiometricLogin");
-
       const txBio = await AsyncStorage.getItem("useBiometricTransaction");
 
       if (loginBio !== null) {
@@ -92,7 +94,7 @@ const SettingsScreen = ({ navigation }) => {
   const authenticateUser = async () => {
     try {
       const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: "Authenticate",
+        promptMessage: "Authenticate Bellaj Data Hub",
         fallbackLabel: "Use Password",
         disableDeviceFallback: false,
       });
@@ -123,7 +125,6 @@ const SettingsScreen = ({ navigation }) => {
     try {
       if (type === "login") {
         const newValue = !useFingerprintLogin;
-
         setUseFingerprintLogin(newValue);
 
         await AsyncStorage.setItem(
@@ -134,7 +135,6 @@ const SettingsScreen = ({ navigation }) => {
 
       if (type === "transaction") {
         const newValue = !useFingerprintTransaction;
-
         setUseFingerprintTransaction(newValue);
 
         await AsyncStorage.setItem(
@@ -169,10 +169,9 @@ const SettingsScreen = ({ navigation }) => {
 
       await AsyncStorage.setItem("transactionPin", transactionPin);
 
-      Alert.alert("Success", "Transaction PIN saved successfully");
+      Alert.alert("Bellaj Data Hub", "Transaction PIN saved successfully");
 
       setTransactionPin("");
-
       setPinModalVisible(false);
     } catch (error) {
       console.log(error);
@@ -205,11 +204,10 @@ const SettingsScreen = ({ navigation }) => {
 
       await AsyncStorage.setItem("transactionPin", newPin);
 
-      Alert.alert("Success", "Transaction PIN changed successfully");
+      Alert.alert("Bellaj Data Hub", "Transaction PIN changed successfully");
 
       setOldPin("");
       setNewPin("");
-
       setChangePinModalVisible(false);
     } catch (error) {
       console.log(error);
@@ -222,11 +220,9 @@ const SettingsScreen = ({ navigation }) => {
         text: "Cancel",
         style: "cancel",
       },
-
       {
         text: "Logout",
         style: "destructive",
-
         onPress: async () => {
           try {
             await AsyncStorage.clear();
@@ -237,7 +233,6 @@ const SettingsScreen = ({ navigation }) => {
             });
           } catch (error) {
             console.log(error);
-
             Alert.alert("Error", "Logout failed. Try again.");
           }
         },
@@ -247,15 +242,23 @@ const SettingsScreen = ({ navigation }) => {
 
   if (loading) {
     return (
-      <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#2563eb" />
+      <View
+        style={[
+          styles.loaderContainer,
+          { backgroundColor: isDarkMode ? COLORS.dark : COLORS.light },
+        ]}
+      >
+        <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
     );
   }
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, isDarkMode && styles.darkContainer]}
+      style={[
+        styles.container,
+        { backgroundColor: isDarkMode ? COLORS.dark : COLORS.light },
+      ]}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView
@@ -267,11 +270,16 @@ const SettingsScreen = ({ navigation }) => {
             <Ionicons
               name="arrow-back"
               size={26}
-              color={isDarkMode ? "#fff" : "#1e293b"}
+              color={isDarkMode ? COLORS.white : COLORS.primary}
             />
           </TouchableOpacity>
 
-          <Text style={[styles.title, isDarkMode && styles.darkText]}>
+          <Text
+            style={[
+              styles.title,
+              { color: isDarkMode ? COLORS.white : COLORS.dark },
+            ]}
+          >
             Settings
           </Text>
         </View>
@@ -284,7 +292,11 @@ const SettingsScreen = ({ navigation }) => {
             onPress={() => setPinModalVisible(true)}
           >
             <View style={styles.itemLeft}>
-              <Ionicons name="lock-closed-outline" size={22} color="#2563eb" />
+              <Ionicons
+                name="lock-closed-outline"
+                size={22}
+                color={COLORS.primary}
+              />
 
               <Text
                 style={[styles.itemText, isDarkMode && styles.darkItemText]}
@@ -302,7 +314,7 @@ const SettingsScreen = ({ navigation }) => {
               <MaterialCommunityIcons
                 name="lock-reset"
                 size={22}
-                color="#7c3aed"
+                color={COLORS.secondary}
               />
 
               <Text
@@ -315,7 +327,11 @@ const SettingsScreen = ({ navigation }) => {
 
           <View style={[styles.item, isDarkMode && styles.darkItem]}>
             <View style={styles.itemLeft}>
-              <Ionicons name="finger-print-outline" size={22} color="#0ea5e9" />
+              <Ionicons
+                name="finger-print-outline"
+                size={22}
+                color={COLORS.primary}
+              />
 
               <Text
                 style={[styles.itemText, isDarkMode && styles.darkItemText]}
@@ -327,6 +343,8 @@ const SettingsScreen = ({ navigation }) => {
             <Switch
               value={useFingerprintLogin}
               onValueChange={() => toggleBiometric("login")}
+              trackColor={{ false: "#CBD5E1", true: COLORS.softGreen }}
+              thumbColor={useFingerprintLogin ? COLORS.secondary : "#F4F4F5"}
             />
           </View>
 
@@ -335,7 +353,7 @@ const SettingsScreen = ({ navigation }) => {
               <MaterialCommunityIcons
                 name="shield-key-outline"
                 size={22}
-                color="#16a34a"
+                color={COLORS.secondary}
               />
 
               <Text
@@ -348,6 +366,10 @@ const SettingsScreen = ({ navigation }) => {
             <Switch
               value={useFingerprintTransaction}
               onValueChange={() => toggleBiometric("transaction")}
+              trackColor={{ false: "#CBD5E1", true: COLORS.softGreen }}
+              thumbColor={
+                useFingerprintTransaction ? COLORS.secondary : "#F4F4F5"
+              }
             />
           </View>
         </View>
@@ -357,7 +379,7 @@ const SettingsScreen = ({ navigation }) => {
 
           <View style={[styles.item, isDarkMode && styles.darkItem]}>
             <View style={styles.itemLeft}>
-              <Ionicons name="moon-outline" size={22} color="#f59e0b" />
+              <Ionicons name="moon-outline" size={22} color="#F59E0B" />
 
               <Text
                 style={[styles.itemText, isDarkMode && styles.darkItemText]}
@@ -366,7 +388,12 @@ const SettingsScreen = ({ navigation }) => {
               </Text>
             </View>
 
-            <Switch value={isDarkMode} onValueChange={toggleDarkMode} />
+            <Switch
+              value={isDarkMode}
+              onValueChange={toggleDarkMode}
+              trackColor={{ false: "#CBD5E1", true: COLORS.softGreen }}
+              thumbColor={isDarkMode ? COLORS.secondary : "#F4F4F5"}
+            />
           </View>
         </View>
 
@@ -375,20 +402,39 @@ const SettingsScreen = ({ navigation }) => {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* SET PIN MODAL */}
       <Modal visible={pinModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Set Transaction PIN</Text>
+          <View
+            style={[
+              styles.modalBox,
+              { backgroundColor: isDarkMode ? COLORS.cardDark : COLORS.white },
+            ]}
+          >
+            <Text
+              style={[
+                styles.modalTitle,
+                { color: isDarkMode ? COLORS.white : COLORS.dark },
+              ]}
+            >
+              Set Transaction PIN
+            </Text>
 
             <TextInput
               placeholder="Enter 4-digit PIN"
+              placeholderTextColor="#94A3B8"
               secureTextEntry
               keyboardType="number-pad"
               maxLength={4}
               value={transactionPin}
               onChangeText={setTransactionPin}
-              style={styles.input}
+              style={[
+                styles.input,
+                isDarkMode && {
+                  backgroundColor: COLORS.dark,
+                  color: COLORS.white,
+                  borderColor: "#334155",
+                },
+              ]}
             />
 
             <TouchableOpacity style={styles.modalBtn} onPress={handleSetPin}>
@@ -407,30 +453,57 @@ const SettingsScreen = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* CHANGE PIN MODAL */}
       <Modal visible={changePinModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Change Transaction PIN</Text>
+          <View
+            style={[
+              styles.modalBox,
+              { backgroundColor: isDarkMode ? COLORS.cardDark : COLORS.white },
+            ]}
+          >
+            <Text
+              style={[
+                styles.modalTitle,
+                { color: isDarkMode ? COLORS.white : COLORS.dark },
+              ]}
+            >
+              Change Transaction PIN
+            </Text>
 
             <TextInput
               placeholder="Old PIN"
+              placeholderTextColor="#94A3B8"
               secureTextEntry
               keyboardType="number-pad"
               maxLength={4}
               value={oldPin}
               onChangeText={setOldPin}
-              style={styles.input}
+              style={[
+                styles.input,
+                isDarkMode && {
+                  backgroundColor: COLORS.dark,
+                  color: COLORS.white,
+                  borderColor: "#334155",
+                },
+              ]}
             />
 
             <TextInput
               placeholder="New PIN"
+              placeholderTextColor="#94A3B8"
               secureTextEntry
               keyboardType="number-pad"
               maxLength={4}
               value={newPin}
               onChangeText={setNewPin}
-              style={styles.input}
+              style={[
+                styles.input,
+                isDarkMode && {
+                  backgroundColor: COLORS.dark,
+                  color: COLORS.white,
+                  borderColor: "#334155",
+                },
+              ]}
             />
 
             <TouchableOpacity style={styles.modalBtn} onPress={handleChangePin}>
@@ -456,55 +529,38 @@ const SettingsScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8fafc",
   },
-
-  darkContainer: {
-    backgroundColor: "#0f172a",
-  },
-
   contentContainer: {
     padding: 20,
     paddingBottom: 120,
   },
-
   loaderContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
-
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
     marginTop: 50,
     marginBottom: 30,
   },
-
   title: {
     fontSize: 26,
     fontWeight: "bold",
     marginLeft: 15,
-    color: "#0f172a",
   },
-
-  darkText: {
-    color: "#fff",
-  },
-
   section: {
     marginBottom: 30,
   },
-
   sectionLabel: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#64748b",
+    color: COLORS.secondary,
     marginBottom: 15,
   },
-
   item: {
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.white,
     borderRadius: 18,
     padding: 18,
     marginBottom: 14,
@@ -512,87 +568,79 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     elevation: 2,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.primary,
   },
-
   darkItem: {
-    backgroundColor: "#1e293b",
+    backgroundColor: COLORS.cardDark,
+    borderColor: "#334155",
   },
-
   itemLeft: {
     flexDirection: "row",
     alignItems: "center",
   },
-
   itemText: {
     marginLeft: 15,
     fontSize: 15,
     fontWeight: "600",
-    color: "#1e293b",
+    color: COLORS.dark,
   },
-
   darkItemText: {
-    color: "#fff",
+    color: COLORS.white,
   },
-
   logoutBtn: {
-    backgroundColor: "#dc2626",
+    backgroundColor: COLORS.primary,
     padding: 18,
     borderRadius: 18,
     alignItems: "center",
     marginTop: 10,
   },
-
   logoutText: {
-    color: "#fff",
+    color: COLORS.white,
     fontWeight: "bold",
     fontSize: 16,
   },
-
   modalOverlay: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(0,0,0,0.55)",
   },
-
   modalBox: {
     width: "85%",
-    backgroundColor: "#fff",
     borderRadius: 20,
     padding: 25,
   },
-
   modalTitle: {
     fontSize: 20,
     fontWeight: "bold",
     marginBottom: 20,
-    color: "#0f172a",
   },
-
   input: {
     borderWidth: 1,
-    borderColor: "#cbd5e1",
+    borderColor: COLORS.border,
     borderRadius: 14,
     padding: 15,
     marginBottom: 15,
+    color: COLORS.dark,
+    backgroundColor: COLORS.light,
   },
-
   modalBtn: {
-    backgroundColor: "#2563eb",
+    backgroundColor: COLORS.primary,
     padding: 15,
     borderRadius: 14,
     alignItems: "center",
   },
-
   modalBtnText: {
-    color: "#fff",
+    color: COLORS.white,
     fontWeight: "bold",
   },
-
   cancelText: {
     textAlign: "center",
     marginTop: 15,
-    color: "#ef4444",
+    color: COLORS.primary,
     fontWeight: "600",
   },
 });

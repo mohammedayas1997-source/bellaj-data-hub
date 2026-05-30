@@ -13,6 +13,17 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import axios from "axios";
+import BASE_URL from "../config/api";
+
+const COLORS = {
+  primary: "#E60000",
+  secondary: "#0B5E3C",
+  dark: "#121212",
+  white: "#FFFFFF",
+  light: "#F8FAFC",
+  muted: "#64748B",
+  border: "#E2E8F0",
+};
 
 const NIMCHistory = ({ navigation }) => {
   const [myRequests, setMyRequests] = useState([]);
@@ -21,9 +32,8 @@ const NIMCHistory = ({ navigation }) => {
 
   const fetchMyHistory = async () => {
     try {
-      // Tabbatar URL din nan ya yi daidai da na backend dinka
       const { data } = await axios.get("/api/v1/nimc/my-requests");
-      setMyRequests(data.data);
+      setMyRequests(data.data || []);
     } catch (err) {
       console.log("Error fetching history", err);
     } finally {
@@ -44,22 +54,22 @@ const NIMCHistory = ({ navigation }) => {
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
       case "pending":
-        return "#64748b"; // Grey
+        return "#64748B";
       case "processing":
-        return "#f59e0b"; // Orange
+        return "#F59E0B";
       case "completed":
-        return "#10b981"; // Green
+        return COLORS.secondary;
       case "rejected":
-        return "#ef4444"; // Red
+        return COLORS.primary;
       default:
-        return "#94a3b8";
+        return "#94A3B8";
     }
   };
 
   const downloadFile = (url) => {
     if (url) {
       Linking.openURL(url).catch((err) =>
-        console.error("Couldn't load page", err),
+        console.error("Couldn't open file", err),
       );
     }
   };
@@ -71,15 +81,17 @@ const NIMCHistory = ({ navigation }) => {
           <Text style={styles.serviceType}>
             {item.serviceType?.toUpperCase()}
           </Text>
+
           <Text style={styles.dateText}>
             {item.createdAt
               ? new Date(item.createdAt).toLocaleDateString()
-              : "Date N/A"}
+              : "Date Not Available"}
           </Text>
         </View>
+
         <MaterialCommunityIcons
           name={item.status === "completed" ? "check-circle" : "clock-outline"}
-          size={24}
+          size={26}
           color={getStatusColor(item.status)}
         />
       </View>
@@ -87,7 +99,9 @@ const NIMCHistory = ({ navigation }) => {
       <View
         style={[
           styles.statusTag,
-          { backgroundColor: getStatusColor(item.status) },
+          {
+            backgroundColor: getStatusColor(item.status),
+          },
         ]}
       >
         <Text style={styles.statusText}>
@@ -97,14 +111,14 @@ const NIMCHistory = ({ navigation }) => {
         </Text>
       </View>
 
-      {/* Wannan shine wajen Download idan Admin ya saka file */}
       {item.status === "completed" && item.slipUrl && (
         <TouchableOpacity
           style={styles.downloadBtn}
           onPress={() => downloadFile(item.slipUrl)}
-          activeOpacity={0.7}
+          activeOpacity={0.8}
         >
           <MaterialCommunityIcons name="file-download" size={20} color="#fff" />
+
           <Text style={styles.downloadText}>Download Result Slip</Text>
         </TouchableOpacity>
       )}
@@ -113,21 +127,22 @@ const NIMCHistory = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      {/* Custom Header */}
+      {/* Header */}
       <View style={styles.headerContainer}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+          <Ionicons name="arrow-back" size={25} color={COLORS.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Application History</Text>
-        <View style={{ width: 24 }} />
+
+        <Text style={styles.headerTitle}>Bellaj Service History</Text>
+
+        <View style={{ width: 25 }} />
       </View>
 
       {loading ? (
         <View style={styles.loader}>
-          <ActivityIndicator size="large" color="#1e3a8a" />
-          <Text style={{ marginTop: 10, color: "#64748b" }}>
-            Loading history...
-          </Text>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+
+          <Text style={styles.loadingText}>Loading Bellaj history...</Text>
         </View>
       ) : (
         <FlatList
@@ -136,17 +151,26 @@ const NIMCHistory = ({ navigation }) => {
           renderItem={renderItem}
           contentContainerStyle={{ padding: 20 }}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[COLORS.primary]}
+            />
           }
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <MaterialCommunityIcons
                 name="folder-open-outline"
-                size={80}
-                color="#e2e8f0"
+                size={85}
+                color="#CBD5E1"
               />
+
               <Text style={styles.emptyText}>
-                Baka da wani aiki a halin yanzu.
+                No service requests found yet.
+              </Text>
+
+              <Text style={styles.emptySubText}>
+                Your completed and pending requests will appear here.
               </Text>
             </View>
           }
@@ -157,37 +181,69 @@ const NIMCHistory = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f8fafc" },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.light,
+  },
+
   headerContainer: {
-    backgroundColor: "#0f172a",
-    paddingTop: 50,
+    backgroundColor: COLORS.primary,
+    paddingTop: 55,
     paddingBottom: 20,
     paddingHorizontal: 20,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    elevation: 8,
   },
-  headerTitle: { fontSize: 18, fontWeight: "bold", color: "#fff" },
-  loader: { flex: 1, justifyContent: "center", alignItems: "center" },
+
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: COLORS.white,
+  },
+
+  loader: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  loadingText: {
+    marginTop: 12,
+    color: COLORS.muted,
+    fontSize: 14,
+  },
+
   historyCard: {
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.white,
     padding: 18,
-    borderRadius: 16,
+    borderRadius: 18,
     marginBottom: 15,
     elevation: 3,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.primary,
   },
+
   cardTop: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
     marginBottom: 12,
   },
-  serviceType: { fontSize: 15, fontWeight: "800", color: "#1e293b" },
-  dateText: { fontSize: 12, color: "#94a3b8", marginTop: 2 },
+
+  serviceType: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: COLORS.dark,
+  },
+
+  dateText: {
+    fontSize: 12,
+    color: "#94A3B8",
+    marginTop: 3,
+  },
+
   statusTag: {
     alignSelf: "flex-start",
     paddingHorizontal: 12,
@@ -195,14 +251,16 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 12,
   },
+
   statusText: {
-    color: "#fff",
+    color: COLORS.white,
     fontSize: 10,
     fontWeight: "900",
     letterSpacing: 0.5,
   },
+
   downloadBtn: {
-    backgroundColor: "#1e3a8a",
+    backgroundColor: COLORS.primary,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -210,14 +268,33 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginTop: 5,
   },
+
   downloadText: {
-    color: "#fff",
+    color: COLORS.white,
     marginLeft: 8,
     fontWeight: "bold",
     fontSize: 14,
   },
-  emptyState: { flex: 1, alignItems: "center", marginTop: 100 },
-  emptyText: { color: "#94a3b8", marginTop: 15, fontSize: 16 },
+
+  emptyState: {
+    flex: 1,
+    alignItems: "center",
+    marginTop: 100,
+  },
+
+  emptyText: {
+    color: COLORS.dark,
+    marginTop: 15,
+    fontSize: 17,
+    fontWeight: "700",
+  },
+
+  emptySubText: {
+    color: COLORS.muted,
+    marginTop: 5,
+    textAlign: "center",
+    fontSize: 13,
+  },
 });
 
 export default NIMCHistory;

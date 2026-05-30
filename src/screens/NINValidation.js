@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -10,7 +10,24 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
-// Ana dauko API URL daga Environment Variables
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import BASE_URL from "../config/api";
+
+const COLORS = {
+  primary: "#E60000",
+  secondary: "#0B5E3C",
+  dark: "#121212",
+  white: "#FFFFFF",
+  light: "#F8FAFC",
+  muted: "#64748B",
+  border: "#E2E8F0",
+  softRed: "#FFF1F1",
+  softGreen: "#EAF7F1",
+};
+
+const API_ENDPOINTS = {
+  ninValidate: "",
+};
 
 const NINValidation = () => {
   const [selectedType, setSelectedType] = useState("No Record Found");
@@ -18,52 +35,72 @@ const NINValidation = () => {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [formData, setFormData] = useState({ nin: "", pin: "" });
 
-  // Farashin kowane nau'i (Admin na iya iko da wannan daga API)
   const validationTypes = [
-    { id: 1, name: "No Record Found", cost: 1300 }, // Hoton 1000412429.jpg
-    { id: 2, name: "SIM Validation", cost: 1300 }, // Hoton 1000412430.jpg
-    { id: 3, name: "vNIN Validation", cost: 1300 }, // Hoton 1000412431.jpg
-    { id: 4, name: "Update Records Validation", cost: 1300 }, // Hoton 1000412432.jpg
-    { id: 5, name: "Bank Validation", cost: 1300 }, // Hoton 1000412433.jpg
-    { id: 6, name: "Modification Validation", cost: 1700 }, // Hoton 1000412434.jpg
-    { id: 7, name: "Photographic Error", cost: 1400 }, // Hoton 1000412435.jpg
+    { id: 1, name: "No Record Found", cost: 1300 },
+    { id: 2, name: "SIM Validation", cost: 1300 },
+    { id: 3, name: "vNIN Validation", cost: 1300 },
+    { id: 4, name: "Update Records Validation", cost: 1300 },
+    { id: 5, name: "Bank Validation", cost: 1300 },
+    { id: 6, name: "Modification Validation", cost: 1700 },
+    { id: 7, name: "Photographic Error", cost: 1400 },
   ];
 
-  const BASE_URL = "https://ayax-api-v2.vercel.app/api/v1";
-
-  const currentCost = validationTypes.find(
-    (t) => t.name === selectedType,
-  )?.cost;
+  const currentCost =
+    validationTypes.find((t) => t.name === selectedType)?.cost || 0;
 
   const handleSubmit = async () => {
-    if (!formData.nin || !formData.pin || !isAuthorized) {
+    if (!formData.nin.trim() || !formData.pin.trim() || !isAuthorized) {
       Alert.alert(
         "Error",
-        "Da fatan ka cika dukkan gure sannan ka yarda da Authorization.",
+        "Da fatan ka cika dukkan gurabe sannan ka yarda da Authorization.",
       );
       return;
     }
 
+    if (formData.nin.trim().length !== 11) {
+      Alert.alert("Error", "Enter valid 11-digit NIN number.");
+      return;
+    }
+
+    if (formData.pin.trim().length !== 4) {
+      Alert.alert("Error", "Enter valid 4-digit transaction PIN.");
+      return;
+    }
+
+    if (!API_ENDPOINTS.ninValidate) {
+      Alert.alert("Not Configured", "NIN validation API is not configured.");
+      return;
+    }
+
     setLoading(true);
+
     try {
-      const response = await fetch(`${API_BASE_URL}/nin/validate`, {
+      const token = await AsyncStorage.getItem("userToken");
+
+      const response = await fetch(API_ENDPOINTS.ninValidate, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${API_AUTH_TOKEN}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           type: selectedType,
-          nin: formData.nin,
-          pin: formData.pin,
+          nin: formData.nin.trim(),
+          pin: formData.pin.trim(),
           amount: currentCost,
           timestamp: new Date().toISOString(),
         }),
       });
 
       const result = await response.json();
+
       if (response.ok) {
-        Alert.alert("Success", "An aika da validation dinka cikin nasara.");
+        Alert.alert(
+          "Bellaj Data Hub",
+          "An aika da validation dinka cikin nasara.",
+        );
+        setFormData({ nin: "", pin: "" });
+        setIsAuthorized(false);
       } else {
         throw new Error(result.message || "Akwai matsala gurin aikawa.");
       }
@@ -75,16 +112,17 @@ const NINValidation = () => {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.card}>
         <View style={styles.header}>
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Ionicons name="list" size={20} color="#1a73e8" />
+          <View style={styles.headerLeft}>
+            <Ionicons name="list" size={20} color={COLORS.primary} />
             <Text style={styles.title}>Select the validation you want</Text>
           </View>
+
           <View style={styles.priceBadge}>
             <Text style={styles.priceText}>
-              Cost: ₦{currentCost?.toLocaleString()}
+              Cost: ₦{currentCost.toLocaleString()}
             </Text>
           </View>
         </View>
@@ -114,32 +152,42 @@ const NINValidation = () => {
 
       <View style={styles.card}>
         <Text style={styles.label}>NIN Number</Text>
+
         <TextInput
           style={styles.input}
           placeholder="Enter 11-digit NIN"
+          placeholderTextColor="#94A3B8"
           keyboardType="numeric"
+          maxLength={11}
+          value={formData.nin}
           onChangeText={(v) => setFormData({ ...formData, nin: v })}
         />
 
         <Text style={[styles.label, { marginTop: 15 }]}>Transaction PIN</Text>
+
         <TextInput
           style={styles.input}
           placeholder="Enter 4-digit PIN"
+          placeholderTextColor="#94A3B8"
           secureTextEntry
           keyboardType="numeric"
+          maxLength={4}
+          value={formData.pin}
           onChangeText={(v) => setFormData({ ...formData, pin: v })}
         />
       </View>
 
       <View style={styles.card}>
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <View style={styles.headerLeft}>
           <MaterialCommunityIcons
             name="shield-check"
             size={18}
-            color="#1a73e8"
+            color={COLORS.secondary}
           />
+
           <Text style={styles.authTitle}>Authorization</Text>
         </View>
+
         <TouchableOpacity
           style={styles.checkboxRow}
           onPress={() => setIsAuthorized(!isAuthorized)}
@@ -147,98 +195,162 @@ const NINValidation = () => {
           <MaterialCommunityIcons
             name={isAuthorized ? "checkbox-marked" : "checkbox-blank-outline"}
             size={24}
-            color={isAuthorized ? "#1a73e8" : "#ccc"}
+            color={isAuthorized ? COLORS.secondary : "#CBD5E1"}
           />
+
           <Text style={styles.authText}>
             I confirm that I have obtained authorization from the NIN owner.
           </Text>
         </TouchableOpacity>
+
         <Text style={styles.linkText}>View full consent text</Text>
 
         <TouchableOpacity
           style={[
             styles.submitBtn,
-            (!isAuthorized || loading) && { backgroundColor: "#ccc" },
+            (!isAuthorized || loading) && styles.disabledBtn,
           ]}
           onPress={handleSubmit}
           disabled={!isAuthorized || loading}
         >
           {loading ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={COLORS.white} />
           ) : (
             <Text style={styles.submitBtnText}>Submit Validation Request</Text>
           )}
         </TouchableOpacity>
       </View>
+
+      <View style={{ height: 40 }} />
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f5f5", padding: 15 },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.light,
+    padding: 15,
+  },
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 10,
+    backgroundColor: COLORS.white,
+    borderRadius: 14,
     padding: 15,
     marginBottom: 15,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.primary,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 15,
+    gap: 10,
   },
-  title: { fontSize: 14, fontWeight: "bold", marginLeft: 8 },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  title: {
+    fontSize: 14,
+    fontWeight: "bold",
+    marginLeft: 8,
+    color: COLORS.dark,
+  },
   priceBadge: {
-    backgroundColor: "#e8f0fe",
+    backgroundColor: COLORS.softGreen,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 15,
+    alignSelf: "flex-start",
   },
-  priceText: { color: "#1a73e8", fontSize: 12, fontWeight: "bold" },
-  chipContainer: { flexDirection: "row", flexWrap: "wrap" },
+  priceText: {
+    color: COLORS.secondary,
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+  chipContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
   chip: {
     borderWidth: 1,
-    borderColor: "#ddd",
+    borderColor: COLORS.border,
     borderRadius: 20,
     paddingHorizontal: 15,
     paddingVertical: 8,
     marginRight: 8,
     marginBottom: 10,
+    backgroundColor: COLORS.white,
   },
-  selectedChip: { backgroundColor: "#e8f0fe", borderColor: "#1a73e8" },
-  chipText: { fontSize: 12, color: "#666" },
-  selectedChipText: { color: "#1a73e8", fontWeight: "bold" },
-  label: { fontSize: 14, fontWeight: "bold", color: "#333", marginBottom: 8 },
+  selectedChip: {
+    backgroundColor: COLORS.softRed,
+    borderColor: COLORS.primary,
+  },
+  chipText: {
+    fontSize: 12,
+    color: COLORS.muted,
+  },
+  selectedChipText: {
+    color: COLORS.primary,
+    fontWeight: "bold",
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: COLORS.dark,
+    marginBottom: 8,
+  },
   input: {
     borderWidth: 1,
-    borderColor: "#eee",
-    borderRadius: 8,
-    padding: 12,
-    backgroundColor: "#fafafa",
+    borderColor: COLORS.border,
+    borderRadius: 10,
+    padding: 13,
+    backgroundColor: COLORS.light,
+    color: COLORS.dark,
   },
-  authTitle: { fontSize: 14, fontWeight: "bold", marginLeft: 8 },
+  authTitle: {
+    fontSize: 14,
+    fontWeight: "bold",
+    marginLeft: 8,
+    color: COLORS.secondary,
+  },
   checkboxRow: {
     flexDirection: "row",
     marginTop: 15,
     alignItems: "flex-start",
   },
-  authText: { fontSize: 12, color: "#444", marginLeft: 10, flex: 1 },
+  authText: {
+    fontSize: 12,
+    color: "#444",
+    marginLeft: 10,
+    flex: 1,
+    lineHeight: 18,
+  },
   linkText: {
-    color: "#1a73e8",
+    color: COLORS.primary,
     fontSize: 12,
     marginTop: 5,
     marginLeft: 35,
     textDecorationLine: "underline",
   },
   submitBtn: {
-    backgroundColor: "#1a73e8",
+    backgroundColor: COLORS.primary,
     padding: 15,
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: "center",
     marginTop: 20,
   },
-  submitBtnText: { color: "#fff", fontWeight: "bold" },
+  disabledBtn: {
+    backgroundColor: "#CBD5E1",
+  },
+  submitBtnText: {
+    color: COLORS.white,
+    fontWeight: "bold",
+  },
 });
 
 export default NINValidation;

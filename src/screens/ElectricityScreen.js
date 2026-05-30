@@ -14,6 +14,25 @@ import {
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
+import BASE_URL from "../config/api";
+
+const COLORS = {
+  primary: "#E60000",
+  secondary: "#0B5E3C",
+  dark: "#121212",
+  white: "#FFFFFF",
+  light: "#F8FAFC",
+  muted: "#94A3B8",
+  card: "#1E293B",
+  border: "#334155",
+  softRed: "rgba(230, 0, 0, 0.14)",
+  softGreen: "rgba(11, 94, 60, 0.18)",
+};
+
+const API_ENDPOINTS = {
+  verifyMeter: "",
+  electricityPayment: "",
+};
 
 const allDiscos = [
   { label: "Abuja Electricity (AEDC)", value: "abuja-electric" },
@@ -39,40 +58,63 @@ const ElectricityScreen = ({ navigation }) => {
   const [verifying, setVerifying] = useState(false);
   const [paying, setPaying] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [fee, setFee] = useState(100); // Admin-set service charge
+  const [fee, setFee] = useState(100);
   const [newFee, setNewFee] = useState("");
 
   useEffect(() => {
     const checkRole = async () => {
       const user = await AsyncStorage.getItem("userData");
+
       if (user) {
         const parsed = JSON.parse(user);
-        setIsAdmin(parsed.role === "admin");
+        setIsAdmin(parsed?.role === "admin");
       }
     };
+
     checkRole();
   }, []);
 
   const handleAdminUpdate = () => {
-    if (!newFee) return;
-    setFee(parseInt(newFee));
+    if (!newFee.trim()) return;
+
+    setFee(parseInt(newFee, 10));
     setNewFee("");
+
     Alert.alert("Admin", "Global service charge updated.");
   };
 
   const verifyMeter = async () => {
-    if (!disco || !meterNo)
-      return Alert.alert("Required", "Select DISCO and enter Meter No");
+    if (!disco || !meterNo.trim()) {
+      Alert.alert("Required", "Select DISCO and enter Meter Number.");
+      return;
+    }
+
+    if (!API_ENDPOINTS.verifyMeter) {
+      Alert.alert(
+        "Not Configured",
+        "Meter verification API is not configured.",
+      );
+      return;
+    }
 
     setVerifying(true);
     setCustomerName("");
+
     try {
       const token = await AsyncStorage.getItem("userToken");
+
       const res = await axios.post(
-        "https://ayax-data-xpress-server.vercel.app/api/v1/vtu/verify-meter",
-        { disco, meterNumber: meterNo, meterType },
-        { headers: { Authorization: `Bearer ${token}` } },
+        API_ENDPOINTS.verifyMeter,
+        {
+          disco,
+          meterNumber: meterNo.trim(),
+          meterType,
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
       );
+
       if (res.data.success) {
         setCustomerName(res.data.name);
       }
@@ -84,29 +126,47 @@ const ElectricityScreen = ({ navigation }) => {
   };
 
   const handlePayment = async () => {
-    if (!customerName)
-      return Alert.alert("Error", "Verify meter details first");
-    if (parseInt(amount) < 500)
-      return Alert.alert("Error", "Minimum purchase is ₦500");
-    if (pin.length < 4)
-      return Alert.alert("Error", "Enter your Transaction PIN");
+    if (!customerName) {
+      Alert.alert("Error", "Verify meter details first.");
+      return;
+    }
+
+    if (parseInt(amount || 0, 10) < 500) {
+      Alert.alert("Error", "Minimum purchase is ₦500.");
+      return;
+    }
+
+    if (pin.length < 4) {
+      Alert.alert("Error", "Enter your Transaction PIN.");
+      return;
+    }
+
+    if (!API_ENDPOINTS.electricityPayment) {
+      Alert.alert(
+        "Not Configured",
+        "Electricity payment API is not configured.",
+      );
+      return;
+    }
 
     setPaying(true);
+
     try {
       const token = await AsyncStorage.getItem("userToken");
-      const totalAmount = parseInt(amount) + fee;
 
       const res = await axios.post(
-        "https://ayax-data-xpress-server.vercel.app/api/v1/vtu/electricity",
+        API_ENDPOINTS.electricityPayment,
         {
           disco,
-          meterNumber: meterNo,
-          amount: amount,
-          fee: fee,
+          meterNumber: meterNo.trim(),
+          amount,
+          fee,
           meterType,
           transactionPin: pin,
         },
-        { headers: { Authorization: `Bearer ${token}` } },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
       );
 
       if (res.data.success) {
@@ -131,29 +191,31 @@ const ElectricityScreen = ({ navigation }) => {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.dark} />
 
       <TouchableOpacity
         onPress={() => navigation.goBack()}
         style={styles.backBtn}
       >
-        <Ionicons name="arrow-back" size={28} color="#38bdf8" />
+        <Ionicons name="arrow-back" size={28} color={COLORS.primary} />
       </TouchableOpacity>
 
-      <Text style={styles.header}>Utility Payments</Text>
+      <Text style={styles.header}>Electricity Payment</Text>
 
       {isAdmin && (
         <View style={styles.adminPane}>
           <Text style={styles.adminLabel}>Admin Settings: Service Fee (₦)</Text>
+
           <View style={styles.adminRow}>
             <TextInput
               style={styles.adminInput}
               placeholder={fee.toString()}
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={COLORS.muted}
               keyboardType="numeric"
               value={newFee}
               onChangeText={setNewFee}
             />
+
             <TouchableOpacity
               style={styles.adminUpdate}
               onPress={handleAdminUpdate}
@@ -165,6 +227,7 @@ const ElectricityScreen = ({ navigation }) => {
       )}
 
       <Text style={styles.label}>Select Meter Classification</Text>
+
       <View style={styles.typeRow}>
         {["prepaid", "postpaid"].map((t) => (
           <TouchableOpacity
@@ -185,6 +248,7 @@ const ElectricityScreen = ({ navigation }) => {
       </View>
 
       <Text style={styles.label}>Distribution Company (DISCO)</Text>
+
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -215,22 +279,24 @@ const ElectricityScreen = ({ navigation }) => {
       </ScrollView>
 
       <Text style={styles.label}>Meter / Account Number</Text>
+
       <View style={styles.inputGroup}>
         <TextInput
           style={[styles.input, { flex: 1, marginBottom: 0 }]}
           placeholder="Enter ID Number"
-          placeholderTextColor="#64748b"
+          placeholderTextColor="#64748B"
           keyboardType="numeric"
           value={meterNo}
           onChangeText={setMeterNo}
         />
+
         <TouchableOpacity
           style={styles.inlineVerify}
           onPress={verifyMeter}
           disabled={verifying}
         >
           {verifying ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={COLORS.white} />
           ) : (
             <Text style={styles.whiteText}>Verify</Text>
           )}
@@ -239,7 +305,8 @@ const ElectricityScreen = ({ navigation }) => {
 
       {customerName ? (
         <View style={styles.nameCard}>
-          <Ionicons name="flash" size={20} color="#fbbf24" />
+          <Ionicons name="flash" size={20} color={COLORS.primary} />
+
           <View style={styles.nameDetails}>
             <Text style={styles.nameLabel}>Verified Customer</Text>
             <Text style={styles.nameValue}>{customerName}</Text>
@@ -250,19 +317,22 @@ const ElectricityScreen = ({ navigation }) => {
       <View style={styles.billingRow}>
         <View style={{ flex: 1, marginRight: 10 }}>
           <Text style={styles.label}>Amount (₦)</Text>
+
           <TextInput
             style={styles.input}
             placeholder="500+"
-            placeholderTextColor="#64748b"
+            placeholderTextColor="#64748B"
             keyboardType="numeric"
             value={amount}
             onChangeText={setAmount}
           />
         </View>
+
         <View style={{ flex: 1 }}>
           <Text style={styles.label}>Charge (₦)</Text>
+
           <TextInput
-            style={[styles.input, { backgroundColor: "#1e293b", opacity: 0.8 }]}
+            style={[styles.input, { opacity: 0.8 }]}
             value={fee.toString()}
             editable={false}
           />
@@ -270,10 +340,11 @@ const ElectricityScreen = ({ navigation }) => {
       </View>
 
       <Text style={styles.label}>Transaction PIN</Text>
+
       <TextInput
         style={styles.input}
         placeholder="****"
-        placeholderTextColor="#64748b"
+        placeholderTextColor="#64748B"
         keyboardType="numeric"
         secureTextEntry
         maxLength={4}
@@ -287,10 +358,10 @@ const ElectricityScreen = ({ navigation }) => {
         disabled={paying}
       >
         {paying ? (
-          <ActivityIndicator color="#fff" />
+          <ActivityIndicator color={COLORS.white} />
         ) : (
           <Text style={styles.whiteText}>
-            CONFIRM & PAY ₦{(parseInt(amount || 0) + fee).toLocaleString()}
+            CONFIRM & PAY ₦{(parseInt(amount || 0, 10) + fee).toLocaleString()}
           </Text>
         )}
       </TouchableOpacity>
@@ -301,89 +372,127 @@ const ElectricityScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0f172a", paddingHorizontal: 20 },
-  backBtn: { marginTop: 50, marginBottom: 15 },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.dark,
+    paddingHorizontal: 20,
+  },
+  backBtn: {
+    marginTop: 50,
+    marginBottom: 15,
+  },
   header: {
     fontSize: 26,
     fontWeight: "bold",
-    color: "#38bdf8",
+    color: COLORS.primary,
     marginBottom: 30,
   },
   adminPane: {
-    backgroundColor: "#1e293b",
+    backgroundColor: COLORS.card,
     padding: 15,
     borderRadius: 12,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: "#334155",
+    borderColor: COLORS.border,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.secondary,
   },
   adminLabel: {
-    color: "#38bdf8",
+    color: COLORS.secondary,
     fontSize: 12,
     fontWeight: "bold",
     marginBottom: 10,
   },
-  adminRow: { flexDirection: "row" },
+  adminRow: {
+    flexDirection: "row",
+  },
   adminInput: {
     flex: 1,
-    backgroundColor: "#0f172a",
-    color: "#fff",
+    backgroundColor: COLORS.dark,
+    color: COLORS.white,
     borderRadius: 8,
     paddingHorizontal: 15,
     height: 40,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   adminUpdate: {
-    backgroundColor: "#38bdf8",
+    backgroundColor: COLORS.primary,
     marginLeft: 10,
     paddingHorizontal: 15,
     borderRadius: 8,
     justifyContent: "center",
   },
-  adminUpdateText: { color: "#0f172a", fontWeight: "bold", fontSize: 12 },
+  adminUpdateText: {
+    color: COLORS.white,
+    fontWeight: "bold",
+    fontSize: 12,
+  },
   label: {
     fontSize: 13,
     fontWeight: "bold",
-    color: "#94a3b8",
+    color: COLORS.muted,
     marginBottom: 8,
     marginTop: 15,
     letterSpacing: 0.5,
   },
-  typeRow: { flexDirection: "row", justifyContent: "space-between" },
+  typeRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
   typeBtn: {
     width: "48%",
     padding: 14,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#334155",
+    borderColor: COLORS.border,
     alignItems: "center",
-    backgroundColor: "#1e293b",
+    backgroundColor: COLORS.card,
   },
-  activeType: { backgroundColor: "#1d4ed8", borderColor: "#38bdf8" },
-  typeText: { color: "#94a3b8", fontWeight: "bold" },
-  discoRow: { flexDirection: "row" },
+  activeType: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  typeText: {
+    color: COLORS.muted,
+    fontWeight: "bold",
+  },
+  discoRow: {
+    flexDirection: "row",
+  },
   discoChip: {
     paddingHorizontal: 22,
     paddingVertical: 14,
     borderRadius: 15,
-    backgroundColor: "#1e293b",
+    backgroundColor: COLORS.card,
     marginRight: 12,
     borderWidth: 1,
-    borderColor: "#334155",
+    borderColor: COLORS.border,
   },
-  activeDisco: { backgroundColor: "#1d4ed8", borderColor: "#38bdf8" },
-  chipText: { color: "#94a3b8", fontWeight: "bold", fontSize: 13 },
-  inputGroup: { flexDirection: "row", alignItems: "center" },
+  activeDisco: {
+    backgroundColor: COLORS.secondary,
+    borderColor: COLORS.secondary,
+  },
+  chipText: {
+    color: COLORS.muted,
+    fontWeight: "bold",
+    fontSize: 13,
+  },
+  inputGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   input: {
-    backgroundColor: "#1e293b",
+    backgroundColor: COLORS.card,
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#334155",
-    color: "#fff",
+    borderColor: COLORS.border,
+    color: COLORS.white,
     fontSize: 16,
   },
   inlineVerify: {
-    backgroundColor: "#0ea5e9",
+    backgroundColor: COLORS.primary,
     height: 58,
     paddingHorizontal: 25,
     borderRadius: 12,
@@ -393,29 +502,46 @@ const styles = StyleSheet.create({
   nameCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#1e3a8a",
+    backgroundColor: COLORS.softGreen,
     padding: 18,
     borderRadius: 15,
     marginTop: 15,
     borderWidth: 1,
-    borderColor: "#38bdf8",
+    borderColor: COLORS.secondary,
   },
-  nameDetails: { marginLeft: 15 },
-  nameLabel: { color: "#38bdf8", fontSize: 11, fontWeight: "bold" },
-  nameValue: { color: "#fff", fontWeight: "bold", fontSize: 16 },
-  billingRow: { flexDirection: "row", justifyContent: "space-between" },
+  nameDetails: {
+    marginLeft: 15,
+  },
+  nameLabel: {
+    color: COLORS.secondary,
+    fontSize: 11,
+    fontWeight: "bold",
+  },
+  nameValue: {
+    color: COLORS.white,
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  billingRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
   payBtn: {
-    backgroundColor: "#1d4ed8",
+    backgroundColor: COLORS.primary,
     padding: 20,
     borderRadius: 16,
     alignItems: "center",
     marginTop: 35,
-    shadowColor: "#38bdf8",
+    shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.35,
     elevation: 10,
   },
-  whiteText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
+  whiteText: {
+    color: COLORS.white,
+    fontWeight: "bold",
+    fontSize: 16,
+  },
 });
 
 export default ElectricityScreen;

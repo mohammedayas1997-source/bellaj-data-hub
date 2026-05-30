@@ -14,36 +14,59 @@ import {
 } from "react-native";
 import axios from "axios";
 import { Ionicons } from "@expo/vector-icons";
+import BASE_URL from "../config/api";
+
+const COLORS = {
+  primary: "#E60000",
+  secondary: "#0B5E3C",
+  dark: "#121212",
+  white: "#FFFFFF",
+  light: "#F8FAFC",
+  muted: "#94A3B8",
+  card: "#1E293B",
+  border: "#334155",
+  softRed: "rgba(230, 0, 0, 0.12)",
+};
+
+const API_ENDPOINTS = {
+  forgotPassword: "",
+};
 
 const ForgotPasswordScreen = ({ navigation }) => {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Helper to validate email format before sending to server
   const validateEmail = (text) => {
-    let reg = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w\w+)+$/;
+    const reg = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w\w+)+$/;
     return reg.test(text);
   };
 
   const handleReset = async () => {
-    if (!email) {
+    if (!email.trim()) {
       return Alert.alert("Required", "Please enter your email address.");
     }
 
-    if (!validateEmail(email)) {
+    if (!validateEmail(email.trim())) {
       return Alert.alert(
         "Invalid Email",
         "Please enter a valid email address format.",
       );
     }
 
+    if (!API_ENDPOINTS.forgotPassword) {
+      return Alert.alert(
+        "Not Configured",
+        "Forgot password API endpoint has not been configured.",
+      );
+    }
+
     setLoading(true);
+
     try {
-      // Points to your production-ready API endpoint
       const response = await axios.post(
-        "https://ayax-data-xpress-server.vercel.app/api/v1/auth/forgot-password",
-        { email },
-        { timeout: 15000 }, // 15 second timeout for slow connections
+        API_ENDPOINTS.forgotPassword,
+        { email: email.trim().toLowerCase() },
+        { timeout: 15000 },
       );
 
       if (response.data.success || response.status === 200) {
@@ -57,6 +80,7 @@ const ForgotPasswordScreen = ({ navigation }) => {
       const errorMessage =
         error.response?.data?.message ||
         "Unable to connect to the server. Please check your internet and try again.";
+
       Alert.alert("Request Failed", errorMessage);
     } finally {
       setLoading(false);
@@ -66,39 +90,41 @@ const ForgotPasswordScreen = ({ navigation }) => {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={{ flex: 1 }}
+      style={styles.flex}
     >
       <ScrollView contentContainerStyle={styles.container} bounces={false}>
-        <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+        <StatusBar barStyle="light-content" backgroundColor={COLORS.dark} />
 
         <TouchableOpacity
           style={styles.backArrow}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={28} color="#38bdf8" />
+          <Ionicons name="arrow-back" size={28} color={COLORS.primary} />
         </TouchableOpacity>
 
         <View style={styles.iconCircle}>
-          <Ionicons name="lock-open-outline" size={45} color="#38bdf8" />
+          <Ionicons name="lock-open-outline" size={45} color={COLORS.primary} />
         </View>
 
         <Text style={styles.title}>Forgot Password?</Text>
+
         <Text style={styles.subtitle}>
-          No worries! Enter your registered email address and we will send you a
-          link to reset your password.
+          No worries! Enter your registered email address and Bellaj Data Hub
+          will send you a link to reset your password.
         </Text>
 
         <View style={styles.inputWrapper}>
           <Ionicons
             name="mail-outline"
             size={20}
-            color="#94a3b8"
+            color={COLORS.muted}
             style={styles.inputIcon}
           />
+
           <TextInput
             style={styles.inputText}
             placeholder="Email Address"
-            placeholderTextColor="#64748b"
+            placeholderTextColor="#64748B"
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
@@ -113,7 +139,7 @@ const ForgotPasswordScreen = ({ navigation }) => {
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color="#ffffff" />
+            <ActivityIndicator color={COLORS.white} />
           ) : (
             <Text style={styles.resetText}>SEND RESET LINK</Text>
           )}
@@ -121,6 +147,7 @@ const ForgotPasswordScreen = ({ navigation }) => {
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>Remember your password? </Text>
+
           <TouchableOpacity onPress={() => navigation.navigate("Login")}>
             <Text style={styles.loginLink}>Login</Text>
           </TouchableOpacity>
@@ -131,9 +158,12 @@ const ForgotPasswordScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
   container: {
     flexGrow: 1,
-    backgroundColor: "#0f172a",
+    backgroundColor: COLORS.dark,
     alignItems: "center",
     justifyContent: "center",
     padding: 24,
@@ -148,27 +178,27 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: "#1e293b",
+    backgroundColor: COLORS.card,
     borderWidth: 1,
-    borderColor: "#334155",
+    borderColor: COLORS.border,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 24,
-    shadowColor: "#38bdf8",
+    shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.22,
     shadowRadius: 10,
     elevation: 10,
   },
   title: {
     fontSize: 28,
     fontWeight: "800",
-    color: "#f8fafc",
+    color: COLORS.white,
     marginBottom: 12,
     letterSpacing: 0.5,
   },
   subtitle: {
-    color: "#94a3b8",
+    color: COLORS.muted,
     textAlign: "center",
     marginBottom: 40,
     lineHeight: 24,
@@ -179,13 +209,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     width: "100%",
-    backgroundColor: "#1e293b",
+    backgroundColor: COLORS.card,
     borderRadius: 16,
     height: 60,
     marginBottom: 24,
     paddingHorizontal: 18,
     borderWidth: 1,
-    borderColor: "#334155",
+    borderColor: COLORS.border,
   },
   inputIcon: {
     marginRight: 12,
@@ -193,25 +223,25 @@ const styles = StyleSheet.create({
   inputText: {
     flex: 1,
     height: "100%",
-    color: "#f8fafc",
+    color: COLORS.light,
     fontSize: 16,
   },
   resetBtn: {
     width: "100%",
-    backgroundColor: "#1d4ed8",
+    backgroundColor: COLORS.primary,
     borderRadius: 16,
     height: 60,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 8,
-    shadowColor: "#1d4ed8",
+    shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
   },
   resetText: {
-    color: "#ffffff",
+    color: COLORS.white,
     fontWeight: "bold",
     fontSize: 16,
     letterSpacing: 1,
@@ -222,11 +252,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   footerText: {
-    color: "#94a3b8",
+    color: COLORS.muted,
     fontSize: 15,
   },
   loginLink: {
-    color: "#38bdf8",
+    color: COLORS.secondary,
     fontWeight: "bold",
     fontSize: 15,
   },

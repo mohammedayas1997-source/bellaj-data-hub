@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -9,12 +9,21 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+const COLORS = {
+  primary: "#E60000",
+  secondary: "#0B5E3C",
+  dark: "#121212",
+  white: "#FFFFFF",
+  light: "#F8FAFC",
+  muted: "#64748B",
+  softGreen: "#EAF7F1",
+};
+
 const SuccessScreen = ({ navigation }) => {
-  const scaleValue = new Animated.Value(0);
+  const scaleValue = useRef(new Animated.Value(0)).current;
   const [userRole, setUserRole] = useState("");
 
   useEffect(() => {
-    // Gyaran syntax na Animated.spring don cire jan kuskure
     Animated.spring(scaleValue, {
       toValue: 1,
       friction: 4,
@@ -24,8 +33,10 @@ const SuccessScreen = ({ navigation }) => {
     const fetchRegisteredRole = async () => {
       try {
         const storedUserData = await AsyncStorage.getItem("userData");
+
         if (storedUserData) {
           const user = JSON.parse(storedUserData);
+
           const detectedRole = (
             user?.role ||
             user?.data?.role ||
@@ -34,18 +45,16 @@ const SuccessScreen = ({ navigation }) => {
           )
             .trim()
             .toLowerCase();
+
           setUserRole(detectedRole);
         }
       } catch (error) {
-        console.log(
-          "Error reading user role context on success screen:",
-          error,
-        );
+        console.log("Error reading user role:", error);
       }
     };
 
     fetchRegisteredRole();
-  }, []);
+  }, [scaleValue]);
 
   const isAgent = userRole === "agent";
 
@@ -54,24 +63,29 @@ const SuccessScreen = ({ navigation }) => {
       <Animated.View
         style={[styles.iconCircle, { transform: [{ scale: scaleValue }] }]}
       >
-        <Ionicons name="checkmark-done-circle" size={100} color="#10b981" />
+        <Ionicons
+          name="checkmark-done-circle"
+          size={105}
+          color={COLORS.secondary}
+        />
       </Animated.View>
 
       <Text style={styles.title}>
-        {isAgent ? "AGENT DEPLOYMENT COMPLETE" : "DEPLOYMENT COMPLETE"}
+        {isAgent ? "AGENT ACCOUNT READY" : "ACCOUNT CREATED SUCCESSFULLY"}
       </Text>
 
       <Text style={styles.subtitle}>
         {isAgent
-          ? "Your elite agent profile, merchant terminal access, and corporate virtual banking infrastructure have been successfully integrated into the Ayax architecture."
-          : "Your profile and virtual banking infrastructure have been successfully integrated into the Ayax architecture."}
+          ? "Your Bellaj Data Hub agent profile, merchant access, and virtual wallet infrastructure have been successfully created."
+          : "Your Bellaj Data Hub profile and virtual wallet infrastructure have been successfully created."}
       </Text>
 
       <TouchableOpacity
         style={styles.button}
         onPress={() => navigation.navigate("Login")}
+        activeOpacity={0.85}
       >
-        <Text style={styles.buttonText}>ACCESS TERMINAL</Text>
+        <Text style={styles.buttonText}>ACCESS BELLAJ DASHBOARD</Text>
       </TouchableOpacity>
     </View>
   );
@@ -80,21 +94,29 @@ const SuccessScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#ffffff",
+    backgroundColor: COLORS.light,
     alignItems: "center",
     justifyContent: "center",
     padding: 20,
   },
-  iconCircle: { marginBottom: 30 },
+  iconCircle: {
+    marginBottom: 30,
+    backgroundColor: COLORS.softGreen,
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   title: {
     fontSize: 22,
     fontWeight: "900",
-    color: "#0f172a",
+    color: COLORS.primary,
     letterSpacing: 1,
     textAlign: "center",
   },
   subtitle: {
-    color: "#64748b",
+    color: COLORS.muted,
     textAlign: "center",
     fontSize: 14,
     marginTop: 10,
@@ -103,21 +125,18 @@ const styles = StyleSheet.create({
   },
   button: {
     marginTop: 40,
-    backgroundColor: "#1e3a8a",
+    backgroundColor: COLORS.primary,
     paddingVertical: 15,
-    paddingHorizontal: 40,
+    paddingHorizontal: 35,
     borderRadius: 12,
     elevation: 5,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
   },
   buttonText: {
-    color: "#ffffff",
+    color: COLORS.white,
     fontWeight: "800",
-    fontSize: 15,
+    fontSize: 14,
     letterSpacing: 1,
+    textAlign: "center",
   },
 });
 

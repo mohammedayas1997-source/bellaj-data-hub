@@ -5,35 +5,64 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  ScrollView,
   ActivityIndicator,
   Alert,
   FlatList,
 } from "react-native";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import BASE_URL from "../config/api";
+const COLORS = {
+  primary: "#E60000",
+  secondary: "#0B5E3C",
+  dark: "#121212",
+  white: "#FFFFFF",
+  light: "#F8FAFC",
+  muted: "#64748B",
+  border: "#E2E8F0",
+  softRed: "#FFF1F1",
+  softGreen: "#EAF7F1",
+};
+
+const API_ENDPOINTS = {
+  traceService: "",
+  refund: "",
+};
 
 const ServiceTracker = () => {
   const [identifier, setIdentifier] = useState("");
-  const [serviceType, setServiceType] = useState("data"); // Default type
+  const [serviceType, setServiceType] = useState("data");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState([]);
 
   const handleTrace = async () => {
-    if (!identifier)
-      return Alert.alert("Required", "Please enter a phone number or ID");
+    if (!identifier.trim()) {
+      Alert.alert("Required", "Please enter a phone number or ID");
+      return;
+    }
+
+    if (!API_ENDPOINTS.traceService) {
+      Alert.alert("Not Configured", "Trace service API is not configured.");
+      return;
+    }
 
     setLoading(true);
+
     try {
       const token = await AsyncStorage.getItem("userToken");
-      const config = { headers: { Authorization: `Bearer ${token}` } };
-      const BASE_URL = "https://ayax-api.com/api/v1/support"; // Update your URL
+
+      const config = {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      };
 
       const response = await axios.get(
-        `${BASE_URL}/trace/${serviceType}/${identifier}`,
+        `${API_ENDPOINTS.traceService}/${serviceType}/${identifier.trim()}`,
         config,
       );
-      setResults(response.data.data);
+
+      setResults(response?.data?.data || []);
     } catch (err) {
       setResults([]);
       Alert.alert(
@@ -54,14 +83,25 @@ const ServiceTracker = () => {
         {
           text: "Submit",
           onPress: async (reason) => {
+            if (!API_ENDPOINTS.refund) {
+              Alert.alert("Not Configured", "Refund API is not configured.");
+              return;
+            }
+
             try {
               const token = await AsyncStorage.getItem("userToken");
+
               await axios.post(
-                "https://ayax-api.com/api/v1/support/refund",
+                API_ENDPOINTS.refund,
                 { transactionId, reason },
-                { headers: { Authorization: `Bearer ${token}` } },
+                {
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                  },
+                },
               );
-              Alert.alert("Success", "Refund request has been logged.");
+
+              Alert.alert("Bellaj Data Hub", "Refund request has been logged.");
             } catch (err) {
               Alert.alert("Error", "Could not process refund.");
             }
@@ -74,26 +114,28 @@ const ServiceTracker = () => {
   const renderResultItem = ({ item }) => (
     <View style={styles.resultCard}>
       <View style={styles.cardHeader}>
-        <Text style={styles.statusBadge}>{item.status || "Completed"}</Text>
+        <Text style={styles.statusBadge}>{item?.status || "Completed"}</Text>
+
         <Text style={styles.dateText}>
-          {new Date(item.createdAt).toLocaleDateString()}
+          {item?.createdAt ? new Date(item.createdAt).toLocaleDateString() : ""}
         </Text>
       </View>
 
       <Text style={styles.amountText}>
-        {item.amount ? `₦${item.amount}` : `${item.dataAmountGB || 0} GB`}
+        {item?.amount ? `₦${item.amount}` : `${item?.dataAmountGB || 0} GB`}
       </Text>
 
       <Text style={styles.detailText}>
-        Ref: {item.reference || item.transactionId}
+        Ref: {item?.reference || item?.transactionId || "N/A"}
       </Text>
+
       <Text style={styles.detailText}>
-        User: {item.user?.firstName} {item.user?.surname}
+        User: {item?.user?.firstName || ""} {item?.user?.surname || ""}
       </Text>
 
       <TouchableOpacity
         style={styles.refundBtn}
-        onPress={() => initiateRefund(item._id)}
+        onPress={() => initiateRefund(item?._id)}
       >
         <Text style={styles.refundBtnText}>Initiate Refund</Text>
       </TouchableOpacity>
@@ -103,7 +145,7 @@ const ServiceTracker = () => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Service Investigation</Text>
+        <Text style={styles.title}>Bellaj Service Investigation</Text>
         <Text style={styles.subtitle}>
           Trace NIMC, BVN, Data & Utility transactions
         </Text>
@@ -132,13 +174,14 @@ const ServiceTracker = () => {
         <TextInput
           style={styles.input}
           placeholder={`Enter ${serviceType} number or Phone...`}
+          placeholderTextColor="#94A3B8"
           value={identifier}
           onChangeText={setIdentifier}
         />
 
         <TouchableOpacity style={styles.searchBtn} onPress={handleTrace}>
           {loading ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={COLORS.white} />
           ) : (
             <Text style={styles.searchBtnText}>Trace Request</Text>
           )}
@@ -148,12 +191,12 @@ const ServiceTracker = () => {
       <FlatList
         data={results}
         renderItem={renderResultItem}
-        keyExtractor={(item) => item._id}
+        keyExtractor={(item, index) => item?._id || index.toString()}
         contentContainerStyle={styles.listPadding}
         ListEmptyComponent={
           !loading && (
             <Text style={styles.emptyText}>
-              Enter an identifier to begin investigation.
+              Enter an identifier to begin Bellaj investigation.
             </Text>
           )
         }
@@ -163,11 +206,31 @@ const ServiceTracker = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f4f7f6" },
-  header: { padding: 20, backgroundColor: "#1e293b" },
-  title: { fontSize: 20, fontWeight: "bold", color: "#fff" },
-  subtitle: { fontSize: 12, color: "#94a3b8", marginTop: 4 },
-  searchSection: { padding: 20, backgroundColor: "#fff", elevation: 2 },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.light,
+  },
+  header: {
+    padding: 20,
+    backgroundColor: COLORS.primary,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: COLORS.white,
+  },
+  subtitle: {
+    fontSize: 12,
+    color: "#FFE4E4",
+    marginTop: 4,
+  },
+  searchSection: {
+    padding: 20,
+    backgroundColor: COLORS.white,
+    elevation: 2,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
   tabContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -177,33 +240,53 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 20,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: COLORS.light,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
-  activeTab: { backgroundColor: "#1e293b" },
-  tabText: { fontSize: 10, fontWeight: "bold", color: "#64748b" },
-  activeTabText: { color: "#fff" },
+  activeTab: {
+    backgroundColor: COLORS.secondary,
+    borderColor: COLORS.secondary,
+  },
+  tabText: {
+    fontSize: 10,
+    fontWeight: "bold",
+    color: COLORS.muted,
+  },
+  activeTabText: {
+    color: COLORS.white,
+  },
   input: {
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: COLORS.border,
     padding: 12,
     borderRadius: 8,
     marginBottom: 10,
+    color: COLORS.dark,
+    backgroundColor: COLORS.light,
   },
   searchBtn: {
-    backgroundColor: "#2563eb",
+    backgroundColor: COLORS.primary,
     padding: 15,
     borderRadius: 8,
     alignItems: "center",
   },
-  searchBtnText: { color: "#fff", fontWeight: "bold" },
-  listPadding: { padding: 20 },
+  searchBtnText: {
+    color: COLORS.white,
+    fontWeight: "bold",
+  },
+  listPadding: {
+    padding: 20,
+  },
   resultCard: {
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.white,
     padding: 15,
     borderRadius: 12,
     marginBottom: 15,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: COLORS.border,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.primary,
   },
   cardHeader: {
     flexDirection: "row",
@@ -213,27 +296,43 @@ const styles = StyleSheet.create({
   statusBadge: {
     fontSize: 10,
     fontWeight: "bold",
-    color: "#059669",
+    color: COLORS.secondary,
     textTransform: "uppercase",
   },
-  dateText: { fontSize: 11, color: "#94a3b8" },
+  dateText: {
+    fontSize: 11,
+    color: "#94A3B8",
+  },
   amountText: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#1e293b",
+    color: COLORS.dark,
     marginBottom: 5,
   },
-  detailText: { fontSize: 12, color: "#64748b", marginTop: 2 },
+  detailText: {
+    fontSize: 12,
+    color: COLORS.muted,
+    marginTop: 2,
+  },
   refundBtn: {
     marginTop: 15,
     padding: 8,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: "#ef4444",
+    borderColor: COLORS.primary,
     alignItems: "center",
+    backgroundColor: COLORS.softRed,
   },
-  refundBtnText: { color: "#ef4444", fontWeight: "bold", fontSize: 12 },
-  emptyText: { textAlign: "center", color: "#94a3b8", marginTop: 50 },
+  refundBtnText: {
+    color: COLORS.primary,
+    fontWeight: "bold",
+    fontSize: 12,
+  },
+  emptyText: {
+    textAlign: "center",
+    color: "#94A3B8",
+    marginTop: 50,
+  },
 });
 
 export default ServiceTracker;

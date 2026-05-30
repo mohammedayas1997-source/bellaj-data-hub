@@ -12,11 +12,27 @@ import {
 } from "react-native";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import BASE_URL from "../config/api";
+
+const COLORS = {
+  primary: "#E60000",
+  secondary: "#0B5E3C",
+  dark: "#121212",
+  white: "#FFFFFF",
+  light: "#F8FAFC",
+  muted: "#64748B",
+  border: "#E2E8F0",
+  softRed: "#FFF1F1",
+};
+
+const API_ENDPOINTS = {
+  buyAirtime: "",
+};
 
 const networks = [
   { id: "01", name: "MTN", color: "#FFCC00" },
-  { id: "02", name: "GLO", color: "#2ecc71" },
-  { id: "04", name: "Airtel", color: "#e74c3c" },
+  { id: "02", name: "GLO", color: "#2ECC71" },
+  { id: "04", name: "Airtel", color: "#E74C3C" },
   { id: "03", name: "9Mobile", color: "#006600" },
 ];
 
@@ -27,35 +43,48 @@ const AirtimeScreen = () => {
   const [loading, setLoading] = useState(false);
 
   const handleAirtimePurchase = async () => {
-    if (!phone || !amount) {
-      return Alert.alert("Error", "Please fill in all fields.");
+    if (!phone.trim() || !amount.trim()) {
+      Alert.alert("Error", "Please fill in all fields.");
+      return;
     }
 
-    if (parseInt(amount) < 50) {
-      return Alert.alert("Error", "Minimum airtime is ₦50");
+    if (phone.length < 11) {
+      Alert.alert("Error", "Enter a valid 11-digit phone number.");
+      return;
+    }
+
+    if (parseInt(amount, 10) < 50) {
+      Alert.alert("Error", "Minimum airtime is ₦50.");
+      return;
+    }
+
+    if (!API_ENDPOINTS.buyAirtime) {
+      Alert.alert("Not Configured", "Buy airtime API is not configured.");
+      return;
     }
 
     setLoading(true);
+
     try {
-      // Get the token for the 'protect' middleware
       const token = await AsyncStorage.getItem("userToken");
 
       const response = await axios.post(
-        "https://ayax-data-xpress-server.vercel.app/api/v1/vtu/buy-airtime",
+        API_ENDPOINTS.buyAirtime,
         {
           network: selectedNet,
-          phoneNumber: phone, // Matches backend controller
-          amount: amount,
+          phoneNumber: phone.trim(),
+          amount,
         },
         {
           headers: {
-            Authorization: `Bearer ${token}`, // Required for protected routes
+            Authorization: `Bearer ${token}`,
           },
         },
       );
 
       if (response.data.success) {
-        Alert.alert("Success!", `₦${amount} airtime sent to ${phone}`);
+        Alert.alert("Bellaj Data Hub", `₦${amount} airtime sent to ${phone}`);
+
         setPhone("");
         setAmount("");
       }
@@ -70,82 +99,95 @@ const AirtimeScreen = () => {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
 
       <Text style={styles.headerText}>Buy Airtime</Text>
+      <Text style={styles.subHeader}>
+        Recharge instantly with Bellaj Data Hub
+      </Text>
 
-      {/* Network Selection */}
       <Text style={styles.label}>Select Network</Text>
+
       <View style={styles.netGrid}>
-        {networks.map((net) => (
-          <TouchableOpacity
-            key={net.id}
-            style={[
-              styles.netBox,
-              {
-                backgroundColor: selectedNet === net.id ? net.color : "#f8fafc",
-                borderColor: selectedNet === net.id ? "#1e3a8a" : "#f1f5f9",
-                borderWidth: selectedNet === net.id ? 2 : 1,
-              },
-            ]}
-            onPress={() => setSelectedNet(net.id)}
-          >
-            <Text
+        {networks.map((net) => {
+          const isSelected = selectedNet === net.id;
+
+          return (
+            <TouchableOpacity
+              key={net.id}
               style={[
-                styles.netText,
-                { color: selectedNet === net.id ? "#000" : "#64748b" },
+                styles.netBox,
+                {
+                  backgroundColor: isSelected ? net.color : COLORS.light,
+                  borderColor: isSelected ? COLORS.primary : COLORS.border,
+                  borderWidth: isSelected ? 2 : 1,
+                },
               ]}
+              onPress={() => setSelectedNet(net.id)}
             >
-              {net.name}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Text
+                style={[
+                  styles.netText,
+                  { color: isSelected ? COLORS.dark : COLORS.muted },
+                ]}
+              >
+                {net.name}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
-      {/* Phone Number */}
       <Text style={styles.label}>Phone Number</Text>
+
       <TextInput
         style={styles.input}
         placeholder="08012345678"
-        placeholderTextColor="#cbd5e1"
+        placeholderTextColor="#CBD5E1"
         keyboardType="numeric"
         value={phone}
         onChangeText={setPhone}
+        maxLength={11}
       />
 
-      {/* Amount Input */}
       <Text style={styles.label}>Amount (₦)</Text>
+
       <TextInput
         style={styles.input}
         placeholder="e.g. 100"
-        placeholderTextColor="#cbd5e1"
+        placeholderTextColor="#CBD5E1"
         keyboardType="numeric"
         value={amount}
         onChangeText={setAmount}
       />
 
-      {/* Quick Selection Amounts */}
       <View style={styles.quickAmountRow}>
         {["100", "200", "500", "1000"].map((val) => (
           <TouchableOpacity
             key={val}
-            style={styles.quickBtn}
+            style={[styles.quickBtn, amount === val && styles.activeQuickBtn]}
             onPress={() => setAmount(val)}
           >
-            <Text style={styles.quickText}>₦{val}</Text>
+            <Text
+              style={[
+                styles.quickText,
+                amount === val && styles.activeQuickText,
+              ]}
+            >
+              ₦{val}
+            </Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      {/* Submit Button */}
       <TouchableOpacity
-        style={[styles.buyBtn, { opacity: loading ? 0.7 : 1 }]}
+        style={[styles.buyBtn, loading && { opacity: 0.7 }]}
         onPress={handleAirtimePurchase}
         disabled={loading}
       >
         {loading ? (
-          <ActivityIndicator color="#fff" />
+          <ActivityIndicator color={COLORS.white} />
         ) : (
           <Text style={styles.buyBtnText}>BUY AIRTIME</Text>
         )}
@@ -157,12 +199,21 @@ const AirtimeScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#ffffff", paddingHorizontal: 20 },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.white,
+    paddingHorizontal: 20,
+  },
   headerText: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: "bold",
-    color: "#0f172a",
+    color: COLORS.primary,
     marginTop: 20,
+  },
+  subHeader: {
+    color: COLORS.secondary,
+    fontSize: 14,
+    marginTop: 4,
   },
   label: {
     fontSize: 14,
@@ -171,7 +222,10 @@ const styles = StyleSheet.create({
     marginTop: 25,
     color: "#475569",
   },
-  netGrid: { flexDirection: "row", justifyContent: "space-between" },
+  netGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
   netBox: {
     width: "22%",
     height: 55,
@@ -179,15 +233,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  netText: { fontWeight: "800", fontSize: 12 },
+  netText: {
+    fontWeight: "800",
+    fontSize: 12,
+  },
   input: {
-    backgroundColor: "#f8fafc",
+    backgroundColor: COLORS.light,
     padding: 16,
     borderRadius: 12,
     fontSize: 16,
     borderWidth: 1.5,
-    borderColor: "#f1f5f9",
-    color: "#1e293b",
+    borderColor: COLORS.border,
+    color: COLORS.dark,
     marginBottom: 5,
   },
   quickAmountRow: {
@@ -196,16 +253,26 @@ const styles = StyleSheet.create({
     marginTop: 15,
   },
   quickBtn: {
-    backgroundColor: "#eff6ff",
+    backgroundColor: COLORS.softRed,
     paddingVertical: 8,
     paddingHorizontal: 15,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#bfdbfe",
+    borderColor: COLORS.primary,
   },
-  quickText: { color: "#1e3a8a", fontWeight: "bold", fontSize: 13 },
+  activeQuickBtn: {
+    backgroundColor: COLORS.primary,
+  },
+  quickText: {
+    color: COLORS.primary,
+    fontWeight: "bold",
+    fontSize: 13,
+  },
+  activeQuickText: {
+    color: COLORS.white,
+  },
   buyBtn: {
-    backgroundColor: "#1e3a8a",
+    backgroundColor: COLORS.primary,
     padding: 18,
     borderRadius: 15,
     alignItems: "center",
@@ -213,7 +280,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   buyBtnText: {
-    color: "#fff",
+    color: COLORS.white,
     fontSize: 16,
     fontWeight: "bold",
     letterSpacing: 1,

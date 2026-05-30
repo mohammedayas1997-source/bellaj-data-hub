@@ -18,9 +18,25 @@ import {
 } from "@expo/vector-icons";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
+import BASE_URL from "../config/api";
 const { width } = Dimensions.get("window");
-const BASE_URL = "https://ayax-api-v2.vercel.app/api/v1";
+
+const COLORS = {
+  primary: "#E60000",
+  secondary: "#0B5E3C",
+  dark: "#121212",
+  white: "#FFFFFF",
+  light: "#F8FAFC",
+  muted: "#64748B",
+  border: "#E2E8F0",
+  softRed: "#FFF1F1",
+  softGreen: "#EAF7F1",
+};
+
+const API_ENDPOINTS = {
+  nimcPrices: "",
+  verifyAndCharge: "",
+};
 
 const NIMCScreen = ({ navigation }) => {
   const [view, setView] = useState("main");
@@ -34,7 +50,10 @@ const NIMCScreen = ({ navigation }) => {
   useEffect(() => {
     const fetchPrices = async () => {
       try {
-        const res = await axios.get(`${BASE_URL}/nimc/prices`);
+        if (!API_ENDPOINTS.nimcPrices) return;
+
+        const res = await axios.get(API_ENDPOINTS.nimcPrices);
+
         if (res.data.success) {
           setPrices(res.data.prices);
         }
@@ -44,22 +63,30 @@ const NIMCScreen = ({ navigation }) => {
         setFetchingPrices(false);
       }
     };
+
     fetchPrices();
   }, []);
 
   const handleVerification = async () => {
-    if (!formData.searchValue || !formData.pin) {
+    if (!formData.searchValue.trim() || !formData.pin.trim()) {
       Alert.alert("Required", "Please enter ID number and Transaction PIN.");
       return;
     }
 
+    if (!API_ENDPOINTS.verifyAndCharge) {
+      Alert.alert("Not Configured", "NIMC verification API is not configured.");
+      return;
+    }
+
     setLoading(true);
+
     try {
       const token = await AsyncStorage.getItem("userToken");
+
       const res = await axios.post(
-        `${BASE_URL}/nimc/verify-and-charge`,
+        API_ENDPOINTS.verifyAndCharge,
         {
-          searchValue: formData.searchValue,
+          searchValue: formData.searchValue.trim(),
           searchType: searchType.id,
           pin: formData.pin,
         },
@@ -82,7 +109,7 @@ const NIMCScreen = ({ navigation }) => {
 
   const generatePDF = async () => {
     if (!userData) return;
-    Alert.alert("Success", "Generating your document for printing...");
+    Alert.alert("Bellaj Data Hub", "Generating your document for printing...");
   };
 
   if (view === "main" && !searchType) {
@@ -90,14 +117,21 @@ const NIMCScreen = ({ navigation }) => {
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.headerSection}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color="#1e3a8a" />
+            <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
           </TouchableOpacity>
+
           <Text style={styles.headerTitle}>NIMC Printing Services</Text>
+
           <View style={{ width: 24 }} />
         </View>
 
         <View style={styles.bannerCard}>
-          <MaterialCommunityIcons name="printer-check" size={40} color="#fff" />
+          <MaterialCommunityIcons
+            name="printer-check"
+            size={40}
+            color={COLORS.white}
+          />
+
           <View style={{ marginLeft: 15 }}>
             <Text style={styles.bannerText}>Print NIMC Slips</Text>
             <Text style={styles.bannerSub}>
@@ -109,7 +143,6 @@ const NIMCScreen = ({ navigation }) => {
         <Text style={styles.sectionLabel}>Verification & Printing Options</Text>
 
         <View style={styles.grid}>
-          {/* Search Methods */}
           <ServiceCard
             title="NIN Verification"
             icon="fingerprint"
@@ -118,6 +151,7 @@ const NIMCScreen = ({ navigation }) => {
               setSearchType({ id: "nin", name: "NIN Verification" })
             }
           />
+
           <ServiceCard
             title="Phone Search"
             icon="phone-alt"
@@ -126,6 +160,7 @@ const NIMCScreen = ({ navigation }) => {
               setSearchType({ id: "phone", name: "Phone Number Search" })
             }
           />
+
           <ServiceCard
             title="Tracking ID"
             icon="barcode"
@@ -135,7 +170,6 @@ const NIMCScreen = ({ navigation }) => {
             }
           />
 
-          {/* Printing Services */}
           <ServiceCard
             title="Premium ID Card"
             icon="id-card"
@@ -147,6 +181,7 @@ const NIMCScreen = ({ navigation }) => {
               })
             }
           />
+
           <ServiceCard
             title="Standard Slip"
             icon="file-alt"
@@ -155,6 +190,7 @@ const NIMCScreen = ({ navigation }) => {
               setSearchType({ id: "standardSlip", name: "Standard NIMC Slip" })
             }
           />
+
           <ServiceCard
             title="Basic NIMC Slip"
             icon="print"
@@ -170,13 +206,15 @@ const NIMCScreen = ({ navigation }) => {
           onPress={() => navigation.navigate("NIMCModification")}
         >
           <View style={styles.modIconBox}>
-            <FontAwesome5 name="edit" size={20} color="#1e3a8a" />
+            <FontAwesome5 name="edit" size={20} color={COLORS.primary} />
           </View>
+
           <View style={{ flex: 1, marginLeft: 15 }}>
             <Text style={styles.modTitle}>Data Modifications</Text>
             <Text style={styles.modSub}>Correct Name, DOB or Phone Number</Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color="#cbd5e1" />
+
+          <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
         </TouchableOpacity>
       </ScrollView>
     );
@@ -187,27 +225,35 @@ const NIMCScreen = ({ navigation }) => {
       <View style={styles.container}>
         <View style={styles.headerSection}>
           <TouchableOpacity onPress={() => setSearchType(null)}>
-            <Ionicons name="arrow-back" size={24} color="#1e3a8a" />
+            <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
           </TouchableOpacity>
+
           <Text style={styles.headerTitle}>{searchType.name}</Text>
+
           <View style={{ width: 24 }} />
         </View>
 
         <View style={styles.formCard}>
           <Text style={styles.inputLabel}>Identification Number / Face ID</Text>
+
           <TextInput
-            placeholder={`Enter ID or Number`}
+            placeholder="Enter ID or Number"
+            placeholderTextColor="#94A3B8"
             style={styles.input}
+            value={formData.searchValue}
             onChangeText={(v) => setFormData({ ...formData, searchValue: v })}
           />
 
           <Text style={styles.inputLabel}>Transaction PIN</Text>
+
           <TextInput
             placeholder="****"
+            placeholderTextColor="#94A3B8"
             style={styles.input}
             secureTextEntry
             keyboardType="numeric"
             maxLength={4}
+            value={formData.pin}
             onChangeText={(v) => setFormData({ ...formData, pin: v })}
           />
 
@@ -217,12 +263,12 @@ const NIMCScreen = ({ navigation }) => {
           </View>
 
           <TouchableOpacity
-            style={styles.submitBtn}
+            style={[styles.submitBtn, loading && { opacity: 0.75 }]}
             onPress={handleVerification}
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={COLORS.white} />
             ) : (
               <Text style={styles.submitText}>Verify & Print</Text>
             )}
@@ -234,12 +280,14 @@ const NIMCScreen = ({ navigation }) => {
 
   if (view === "result") {
     return (
-      <ScrollView style={styles.container}>
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.headerSection}>
           <TouchableOpacity onPress={() => setView("main")}>
-            <Ionicons name="close" size={24} color="#1e3a8a" />
+            <Ionicons name="close" size={24} color={COLORS.primary} />
           </TouchableOpacity>
+
           <Text style={styles.headerTitle}>Verification Success</Text>
+
           <View style={{ width: 24 }} />
         </View>
 
@@ -250,6 +298,7 @@ const NIMCScreen = ({ navigation }) => {
               style={styles.userPhoto}
             />
           )}
+
           <View style={styles.infoBox}>
             <InfoRow label="Full Name" value={userData?.fullName} />
             <InfoRow label="NIN Number" value={userData?.nin} />
@@ -260,8 +309,9 @@ const NIMCScreen = ({ navigation }) => {
             <MaterialCommunityIcons
               name="file-pdf-box"
               size={24}
-              color="#fff"
+              color={COLORS.white}
             />
+
             <Text style={styles.downloadText}>Download Printing Slip</Text>
           </TouchableOpacity>
         </View>
@@ -273,10 +323,11 @@ const NIMCScreen = ({ navigation }) => {
 };
 
 const ServiceCard = ({ title, icon, price, onPress }) => (
-  <TouchableOpacity style={styles.card} onPress={onPress}>
+  <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85}>
     <View style={styles.iconCircle}>
-      <FontAwesome5 name={icon} size={20} color="#1e3a8a" />
+      <FontAwesome5 name={icon} size={20} color={COLORS.primary} />
     </View>
+
     <Text style={styles.cardTitle}>{title}</Text>
     <Text style={styles.cardPrice}>₦{price}</Text>
   </TouchableOpacity>
@@ -290,7 +341,11 @@ const InfoRow = ({ label, value }) => (
 );
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f8fafc", padding: 20 },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.light,
+    padding: 20,
+  },
   headerSection: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -298,21 +353,33 @@ const styles = StyleSheet.create({
     marginTop: 40,
     marginBottom: 25,
   },
-  headerTitle: { fontSize: 18, fontWeight: "900", color: "#1e3a8a" },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: COLORS.primary,
+    textAlign: "center",
+  },
   bannerCard: {
-    backgroundColor: "#1e3a8a",
+    backgroundColor: COLORS.primary,
     padding: 20,
     borderRadius: 20,
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 25,
   },
-  bannerText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
-  bannerSub: { color: "rgba(255,255,255,0.7)", fontSize: 12 },
+  bannerText: {
+    color: COLORS.white,
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  bannerSub: {
+    color: "#FFE4E4",
+    fontSize: 12,
+  },
   sectionLabel: {
     fontSize: 16,
     fontWeight: "800",
-    color: "#334155",
+    color: COLORS.dark,
     marginBottom: 15,
   },
   grid: {
@@ -321,18 +388,20 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   card: {
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.white,
     width: (width - 55) / 2,
     padding: 20,
     borderRadius: 20,
     alignItems: "center",
     marginBottom: 15,
     elevation: 3,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   iconCircle: {
     width: 50,
     height: 50,
-    backgroundColor: "#eff6ff",
+    backgroundColor: COLORS.softRed,
     borderRadius: 25,
     justifyContent: "center",
     alignItems: "center",
@@ -347,69 +416,97 @@ const styles = StyleSheet.create({
   cardPrice: {
     fontSize: 14,
     fontWeight: "900",
-    color: "#1e3a8a",
+    color: COLORS.secondary,
     marginTop: 5,
   },
   modCard: {
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.white,
     flexDirection: "row",
     padding: 15,
     borderRadius: 20,
     alignItems: "center",
     marginTop: 10,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: COLORS.border,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.secondary,
   },
   modIconBox: {
     width: 45,
     height: 45,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: COLORS.softGreen,
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
   },
-  modTitle: { fontWeight: "800", color: "#1e3a8a" },
-  modSub: { fontSize: 11, color: "#64748b" },
+  modTitle: {
+    fontWeight: "800",
+    color: COLORS.secondary,
+  },
+  modSub: {
+    fontSize: 11,
+    color: COLORS.muted,
+  },
   formCard: {
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.white,
     padding: 25,
     borderRadius: 25,
     elevation: 5,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.primary,
   },
   inputLabel: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#64748b",
+    color: COLORS.muted,
     marginBottom: 8,
     marginLeft: 5,
   },
   input: {
-    backgroundColor: "#f1f5f9",
+    backgroundColor: COLORS.light,
     padding: 18,
     borderRadius: 15,
     marginBottom: 20,
     fontSize: 16,
     fontWeight: "600",
+    color: COLORS.dark,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   priceTag: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 25,
   },
-  priceLabel: { fontWeight: "700", color: "#64748b" },
-  priceValue: { fontWeight: "900", color: "#16a34a", fontSize: 16 },
+  priceLabel: {
+    fontWeight: "700",
+    color: COLORS.muted,
+  },
+  priceValue: {
+    fontWeight: "900",
+    color: COLORS.secondary,
+    fontSize: 16,
+  },
   submitBtn: {
-    backgroundColor: "#1e3a8a",
+    backgroundColor: COLORS.primary,
     padding: 20,
     borderRadius: 18,
     alignItems: "center",
   },
-  submitText: { color: "#fff", fontWeight: "900", fontSize: 16 },
+  submitText: {
+    color: COLORS.white,
+    fontWeight: "900",
+    fontSize: 16,
+  },
   resultCard: {
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.white,
     padding: 20,
     borderRadius: 25,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   userPhoto: {
     width: 120,
@@ -417,28 +514,28 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     marginBottom: 20,
     borderWidth: 3,
-    borderColor: "#1e3a8a",
+    borderColor: COLORS.primary,
   },
   infoBox: {
     width: "100%",
     borderTopWidth: 1,
-    borderTopColor: "#f1f5f9",
+    borderTopColor: COLORS.border,
     paddingTop: 20,
   },
   infoLabel: {
     fontSize: 11,
-    color: "#94a3b8",
+    color: "#94A3B8",
     fontWeight: "700",
     textTransform: "uppercase",
   },
   infoValue: {
     fontSize: 16,
-    color: "#1e293b",
+    color: COLORS.dark,
     fontWeight: "800",
     marginBottom: 15,
   },
   downloadBtn: {
-    backgroundColor: "#dc2626",
+    backgroundColor: COLORS.primary,
     flexDirection: "row",
     width: "100%",
     padding: 18,
@@ -447,7 +544,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 10,
   },
-  downloadText: { color: "#fff", fontWeight: "900", marginLeft: 10 },
+  downloadText: {
+    color: COLORS.white,
+    fontWeight: "900",
+    marginLeft: 10,
+  },
 });
 
 export default NIMCScreen;

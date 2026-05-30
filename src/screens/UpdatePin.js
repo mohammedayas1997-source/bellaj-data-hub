@@ -14,6 +14,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
+import BASE_URL from "../config/api";
 
 const UpdatePin = ({ navigation }) => {
   const [hasPin, setHasPin] = useState(false);

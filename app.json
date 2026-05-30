@@ -1,41 +1,48 @@
 {
   "expo": {
-    "name": "Ayax Data Xpress",
-    "slug": "Ayax-Data-Xpress",
+    "name": "Bellaj Data Hub",
+    "slug": "bellaj-data-hub",
     "version": "1.0.0",
     "jsEngine": "hermes",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": false,
+
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.ayas8724.AyaxDataXpress"
+      "bundleIdentifier": "com.bellajdatahub.app"
     },
+
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.ayas8724.AyaxDataXpress",
+      "package": "com.bellajdatahub.app",
       "edgeToEdgeEnabled": true,
       "permissions": ["INTERNET"],
       "usesCleartextTraffic": true
     },
+
     "web": {
       "favicon": "./assets/favicon.png"
     },
+
     "extra": {
       "eas": {
         "projectId": "84b7adc6-0b27-4dd2-abbd-d119de52bc66"
       }
     },
+
     "owner": "ayas8724",
+
     "plugins": []
   }
 }

@@ -14,6 +14,25 @@ import * as Clipboard from "expo-clipboard";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
+import BASE_URL from "../config/api";
+
+const COLORS = {
+  primary: "#E60000",
+  secondary: "#0B5E3C",
+  dark: "#121212",
+  white: "#FFFFFF",
+  light: "#F8FAFC",
+  muted: "#94A3B8",
+  card: "#1E293B",
+  border: "#334155",
+  softGreen: "rgba(11, 94, 60, 0.18)",
+  softRed: "rgba(230, 0, 0, 0.12)",
+};
+
+const API_ENDPOINTS = {
+  walletDetails: "",
+  generateVirtualAccount: "",
+};
 
 const FundWalletScreen = ({ navigation }) => {
   const [userData, setUserData] = useState(null);
@@ -21,22 +40,24 @@ const FundWalletScreen = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [generating, setGenerating] = useState(false);
 
-  // Fetch user profile and existing virtual accounts
   const fetchWalletDetails = async () => {
     try {
       const token = await AsyncStorage.getItem("userToken");
-      const res = await axios.get(
-        "https://ayax-data-xpress-server.vercel.app/api/v1/auth/me",
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
+
+      if (!API_ENDPOINTS.walletDetails) {
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
+      const res = await axios.get(API_ENDPOINTS.walletDetails, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
       if (res.data.success) {
         const data = res.data.data;
         setUserData(data);
 
-        // Auto-trigger generation if no account exists yet
         if (!data.virtualAccounts || data.virtualAccounts.length === 0) {
           handleGenerateAccount();
         }
@@ -52,13 +73,19 @@ const FundWalletScreen = ({ navigation }) => {
     }
   };
 
-  // Explicitly call the backend to create Paystack Dedicated Virtual Account
   const handleGenerateAccount = async () => {
     setGenerating(true);
+
     try {
       const token = await AsyncStorage.getItem("userToken");
+
+      if (!API_ENDPOINTS.generateVirtualAccount) {
+        setGenerating(false);
+        return;
+      }
+
       const res = await axios.post(
-        "https://ayax-data-xpress-server.vercel.app/api/v1/auth/generate-virtual-account",
+        API_ENDPOINTS.generateVirtualAccount,
         {},
         { headers: { Authorization: `Bearer ${token}` } },
       );
@@ -92,8 +119,8 @@ const FundWalletScreen = ({ navigation }) => {
   if (loading) {
     return (
       <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#38bdf8" />
-        <Text style={styles.loaderText}>Syncing Secure Accounts...</Text>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loaderText}>Syncing Bellaj Secure Accounts...</Text>
       </View>
     );
   }
@@ -101,23 +128,26 @@ const FundWalletScreen = ({ navigation }) => {
   return (
     <ScrollView
       style={styles.container}
+      showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
           onRefresh={onRefresh}
-          tintColor="#38bdf8"
+          tintColor={COLORS.primary}
+          colors={[COLORS.primary]}
         />
       }
     >
-      <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.dark} />
 
       <View style={styles.headerRow}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backBtn}
         >
-          <Ionicons name="arrow-back" size={26} color="#38bdf8" />
+          <Ionicons name="arrow-back" size={26} color={COLORS.primary} />
         </TouchableOpacity>
+
         <Text style={styles.headerTitle}>Fund Your Wallet</Text>
       </View>
 
@@ -126,17 +156,17 @@ const FundWalletScreen = ({ navigation }) => {
           <MaterialCommunityIcons
             name="shield-check"
             size={16}
-            color="#10b981"
+            color={COLORS.secondary}
           />
-          <Text style={styles.badgeText}>Automated via Paystack</Text>
+          <Text style={styles.badgeText}>Automated Funding</Text>
         </View>
+
         <Text style={styles.heroSubtitle}>
           Funds transferred to the account details below will reflect in your
-          wallet instantly.
+          Bellaj Data Hub wallet instantly.
         </Text>
       </View>
 
-      {/* Check if virtualAccounts array exists and has data */}
       {userData?.virtualAccounts && userData.virtualAccounts.length > 0 ? (
         userData.virtualAccounts.map((acc, index) => (
           <View key={index} style={styles.bankCard}>
@@ -144,18 +174,20 @@ const FundWalletScreen = ({ navigation }) => {
               <View>
                 <Text style={styles.bankTag}>PROVIDER</Text>
                 <Text style={styles.bankName}>
-                  {acc.bankName.toUpperCase()}
+                  {acc?.bankName?.toUpperCase() || "BANK"}
                 </Text>
               </View>
+
               <MaterialCommunityIcons
                 name="bank-outline"
                 size={28}
-                color="#38bdf8"
+                color={COLORS.primary}
               />
             </View>
 
             <View style={styles.accContainer}>
               <Text style={styles.label}>Account Number</Text>
+
               <TouchableOpacity
                 style={styles.numberRow}
                 onPress={() =>
@@ -165,10 +197,11 @@ const FundWalletScreen = ({ navigation }) => {
                 <Text style={styles.accountNumberText}>
                   {acc.accountNumber}
                 </Text>
+
                 <MaterialCommunityIcons
                   name="content-copy"
                   size={20}
-                  color="#38bdf8"
+                  color={COLORS.primary}
                 />
               </TouchableOpacity>
             </View>
@@ -184,17 +217,19 @@ const FundWalletScreen = ({ navigation }) => {
       ) : (
         <View style={styles.emptyCard}>
           {generating ? (
-            <ActivityIndicator color="#38bdf8" />
+            <ActivityIndicator color={COLORS.primary} />
           ) : (
             <>
               <MaterialCommunityIcons
                 name="account-clock"
                 size={40}
-                color="#64748b"
+                color={COLORS.muted}
               />
+
               <Text style={styles.emptyText}>
-                Processing your dedicated bank account...
+                Processing your dedicated Bellaj bank account...
               </Text>
+
               <TouchableOpacity style={styles.retryBtn} onPress={onRefresh}>
                 <Text style={styles.retryText}>Check Status</Text>
               </TouchableOpacity>
@@ -205,6 +240,7 @@ const FundWalletScreen = ({ navigation }) => {
 
       <View style={styles.alternativeSection}>
         <Text style={styles.sectionTitle}>Other Payment Options</Text>
+
         <TouchableOpacity
           style={styles.cardBtn}
           onPress={() => navigation.navigate("PaystackWebview")}
@@ -213,24 +249,27 @@ const FundWalletScreen = ({ navigation }) => {
             <MaterialCommunityIcons
               name="credit-card-plus"
               size={24}
-              color="#fff"
+              color={COLORS.white}
             />
           </View>
+
           <View style={styles.cardBtnTextCont}>
             <Text style={styles.cardBtnTitle}>Card / USSD / QR</Text>
             <Text style={styles.cardBtnSub}>
-              Instant funding via Paystack Secure Checkout
+              Instant funding via secure checkout
             </Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color="#475569" />
+
+          <Ionicons name="chevron-forward" size={20} color={COLORS.muted} />
         </TouchableOpacity>
       </View>
 
       <View style={styles.noticeBox}>
-        <Ionicons name="information-circle" size={20} color="#38bdf8" />
+        <Ionicons name="information-circle" size={20} color={COLORS.primary} />
+
         <Text style={styles.noticeText}>
-          Standard Paystack processing fee of ₦50 applies to all automated
-          transfers. Minimum deposit: ₦100.
+          Processing fee may apply to automated transfers. Minimum deposit:
+          ₦100.
         </Text>
       </View>
 
@@ -240,31 +279,49 @@ const FundWalletScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0f172a", paddingHorizontal: 20 },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.dark,
+    paddingHorizontal: 20,
+  },
   loaderContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#0f172a",
+    backgroundColor: COLORS.dark,
   },
-  loaderText: { marginTop: 15, color: "#94a3b8", fontSize: 14 },
+  loaderText: {
+    marginTop: 15,
+    color: COLORS.muted,
+    fontSize: 14,
+  },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
     marginTop: 60,
     marginBottom: 25,
   },
+  backBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: COLORS.softRed,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   headerTitle: {
     fontSize: 22,
     fontWeight: "bold",
     marginLeft: 15,
-    color: "#f8fafc",
+    color: COLORS.white,
   },
-  heroSection: { marginBottom: 25 },
+  heroSection: {
+    marginBottom: 25,
+  },
   infoBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#064e3b",
+    backgroundColor: COLORS.softGreen,
     alignSelf: "flex-start",
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -272,19 +329,25 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   badgeText: {
-    color: "#10b981",
+    color: COLORS.secondary,
     fontSize: 11,
     fontWeight: "bold",
     marginLeft: 5,
   },
-  heroSubtitle: { color: "#94a3b8", fontSize: 14, lineHeight: 20 },
+  heroSubtitle: {
+    color: COLORS.muted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
   bankCard: {
-    backgroundColor: "#1e293b",
+    backgroundColor: COLORS.card,
     borderRadius: 24,
     padding: 25,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: "#334155",
+    borderColor: COLORS.border,
+    borderLeftWidth: 5,
+    borderLeftColor: COLORS.primary,
   },
   bankHeader: {
     flexDirection: "row",
@@ -292,15 +355,21 @@ const styles = StyleSheet.create({
     marginBottom: 25,
   },
   bankTag: {
-    color: "#64748b",
+    color: COLORS.muted,
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 1,
   },
-  bankName: { color: "#38bdf8", fontSize: 18, fontWeight: "bold" },
-  accContainer: { marginBottom: 15 },
+  bankName: {
+    color: COLORS.primary,
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  accContainer: {
+    marginBottom: 15,
+  },
   label: {
-    color: "#64748b",
+    color: COLORS.muted,
     fontSize: 11,
     fontWeight: "700",
     textTransform: "uppercase",
@@ -312,40 +381,53 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   accountNumberText: {
-    color: "#ffffff",
+    color: COLORS.white,
     fontSize: 28,
     fontWeight: "800",
     letterSpacing: 1.5,
   },
-  divider: { height: 1, backgroundColor: "#334155", marginVertical: 18 },
-  accountNameText: { color: "#f8fafc", fontSize: 16, fontWeight: "600" },
+  divider: {
+    height: 1,
+    backgroundColor: COLORS.border,
+    marginVertical: 18,
+  },
+  accountNameText: {
+    color: COLORS.light,
+    fontSize: 16,
+    fontWeight: "600",
+  },
   emptyCard: {
-    backgroundColor: "#1e293b",
+    backgroundColor: COLORS.card,
     padding: 40,
     borderRadius: 24,
     alignItems: "center",
     justifyContent: "center",
     borderStyle: "dashed",
     borderWidth: 2,
-    borderColor: "#334155",
+    borderColor: COLORS.border,
   },
   emptyText: {
-    color: "#94a3b8",
+    color: COLORS.muted,
     textAlign: "center",
     marginTop: 15,
     fontSize: 14,
   },
   retryBtn: {
     marginTop: 20,
-    backgroundColor: "#334155",
+    backgroundColor: COLORS.softRed,
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 10,
   },
-  retryText: { color: "#38bdf8", fontWeight: "bold" },
-  alternativeSection: { marginTop: 10 },
+  retryText: {
+    color: COLORS.primary,
+    fontWeight: "bold",
+  },
+  alternativeSection: {
+    marginTop: 10,
+  },
   sectionTitle: {
-    color: "#f8fafc",
+    color: COLORS.white,
     fontSize: 16,
     fontWeight: "bold",
     marginBottom: 15,
@@ -353,26 +435,37 @@ const styles = StyleSheet.create({
   cardBtn: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#1e293b",
+    backgroundColor: COLORS.card,
     padding: 18,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: "#334155",
+    borderColor: COLORS.border,
   },
   cardBtnIcon: {
     width: 45,
     height: 45,
     borderRadius: 12,
-    backgroundColor: "#1d4ed8",
+    backgroundColor: COLORS.secondary,
     justifyContent: "center",
     alignItems: "center",
   },
-  cardBtnTextCont: { flex: 1, marginLeft: 15 },
-  cardBtnTitle: { color: "#f8fafc", fontSize: 15, fontWeight: "bold" },
-  cardBtnSub: { color: "#64748b", fontSize: 12, marginTop: 2 },
+  cardBtnTextCont: {
+    flex: 1,
+    marginLeft: 15,
+  },
+  cardBtnTitle: {
+    color: COLORS.light,
+    fontSize: 15,
+    fontWeight: "bold",
+  },
+  cardBtnSub: {
+    color: COLORS.muted,
+    fontSize: 12,
+    marginTop: 2,
+  },
   noticeBox: {
     flexDirection: "row",
-    backgroundColor: "rgba(56, 189, 248, 0.1)",
+    backgroundColor: COLORS.softRed,
     padding: 15,
     borderRadius: 15,
     marginTop: 30,
@@ -380,7 +473,7 @@ const styles = StyleSheet.create({
   },
   noticeText: {
     flex: 1,
-    color: "#94a3b8",
+    color: COLORS.muted,
     fontSize: 12,
     marginLeft: 12,
     lineHeight: 18,

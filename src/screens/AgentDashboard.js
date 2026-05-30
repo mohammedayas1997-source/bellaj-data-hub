@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useContext } from "react";
-
 import {
   View,
   Text,
@@ -10,58 +9,60 @@ import {
   StatusBar,
   Dimensions,
   ToastAndroid,
-  ImageBackground,
   Linking,
-  Switch,
   Alert,
   Platform,
   ActivityIndicator,
   RefreshControl,
-  Modal,
 } from "react-native";
 
 import * as Clipboard from "expo-clipboard";
-
 import {
   MaterialCommunityIcons,
   Ionicons,
   FontAwesome5,
 } from "@expo/vector-icons";
-
-// NAN NE ZA KA SAKA SHI:
 import { CommonActions } from "@react-navigation/native";
-
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
-
 import { ThemeContext } from "../context/ThemeContext";
+import BASE_URL from "../config/api";
 
 const { width } = Dimensions.get("window");
 
-const BASE_URL = "https://ayax-data-xpress-server.onrender.com/api/v1";
+const COLORS = {
+  primary: "#E60000",
+  secondary: "#0B5E3C",
+  dark: "#121212",
+  white: "#FFFFFF",
+  light: "#F8FAFC",
+  muted: "#64748B",
+  border: "#E2E8F0",
+  softRed: "#FFF1F1",
+  softGreen: "#EAF7F1",
+};
+
+const API_ENDPOINTS = {
+  profile: "",
+  performance: "",
+  supervisor: "",
+  notifications: "",
+};
 
 const AgentDashboard = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
-
   const [refreshing, setRefreshing] = useState(false);
-
   const [userData, setUserData] = useState(null);
-
   const [isBalanceVisible, setIsBalanceVisible] = useState(true);
-  const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const { isDarkMode, toggleTheme } = useContext(ThemeContext);
+  const { isDarkMode } = useContext(ThemeContext);
 
   const [performance, setPerformance] = useState({
     totalGB: 0,
-
     totalSalesValue: 0,
-
     commissionsEarned: 0,
-
     bonusEarned: 0,
-
     monthlyTargetSales: 100000,
   });
 
@@ -72,61 +73,54 @@ const AgentDashboard = ({ navigation }) => {
       const token = await AsyncStorage.getItem("userToken");
 
       if (!token) {
-        // Idan babu token, mu kashe loading din kafin mu tura mai amfani zuwa Login
-
         setLoading(false);
-
         navigation.reset({ index: 0, routes: [{ name: "Login" }] });
-
         return;
       }
 
       const config = {
         headers: {
           Authorization: `Bearer ${token}`,
-
           Accept: "application/json",
         },
       };
 
+      if (
+        !API_ENDPOINTS.profile &&
+        !API_ENDPOINTS.performance &&
+        !API_ENDPOINTS.supervisor
+      ) {
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
       const [profileRes, perfRes, supRes] = await Promise.all([
-        axios
+        API_ENDPOINTS.profile
+          ? axios
+              .get(API_ENDPOINTS.profile, config)
+              .catch(() => ({ data: { success: false } }))
+          : Promise.resolve({ data: { success: false } }),
 
-          .get(`${BASE_URL}/user/profile`, config)
+        API_ENDPOINTS.performance
+          ? axios
+              .get(API_ENDPOINTS.performance, config)
+              .catch(() => ({ data: { data: null } }))
+          : Promise.resolve({ data: { data: null } }),
 
-          .catch((e) => ({ data: { success: false } })),
-
-        axios
-
-          .get(`${BASE_URL}/agent/performance`, config)
-
-          .catch((e) => ({ data: { data: null } })),
-
-        axios
-
-          .get(`${BASE_URL}/agent/my-supervisor`, config)
-
-          .catch((e) => ({ data: { data: null } })),
+        API_ENDPOINTS.supervisor
+          ? axios
+              .get(API_ENDPOINTS.supervisor, config)
+              .catch(() => ({ data: { data: null } }))
+          : Promise.resolve({ data: { data: null } }),
       ]);
 
-      if (profileRes.data && profileRes.data.success) {
+      if (profileRes.data?.success) {
         setUserData(profileRes.data.user || profileRes.data.data);
       }
 
       if (perfRes.data?.data) {
         setPerformance(perfRes.data.data);
-      } else {
-        setPerformance({
-          totalGB: 0,
-
-          totalSalesValue: 0,
-
-          commissionsEarned: 0,
-
-          bonusEarned: 0,
-
-          monthlyTargetSales: 100000,
-        });
       }
 
       if (supRes.data?.data) {
@@ -135,52 +129,46 @@ const AgentDashboard = ({ navigation }) => {
         setSupervisor("No Supervisor Assigned Yet");
       }
     } catch (err) {
-      console.log("Comprehensive Agent Dashboard Fetch Error:", err);
+      console.log("Bellaj Agent Dashboard Fetch Error:", err);
 
-      if (err.response && err.response.status === 401) {
+      if (err.response?.status === 401) {
         navigation.reset({ index: 0, routes: [{ name: "Login" }] });
       }
     } finally {
       setLoading(false);
-
       setRefreshing(false);
+    }
+  };
+
+  const fetchNotifications = async () => {
+    try {
+      if (!API_ENDPOINTS.notifications) return;
+
+      const response = await axios.get(API_ENDPOINTS.notifications);
+      const data = response.data || [];
+      const unread = data.filter((n) => n.read === false).length;
+
+      setUnreadCount(unread);
+    } catch (error) {
+      console.log("Notification fetch error:", error);
     }
   };
 
   useEffect(() => {
     fetchAgentAndProfileData();
-  }, []);
-
-  useEffect(() => {
-    const fetchNotifications = async () => {
-      try {
-        const response = await axios.get(
-          "https://ayax-data-xpress-server.onrender.com/api/v1/notifications",
-        );
-        const data = response.data;
-        setNotifications(data);
-
-        // Assuming api yana da wani field kamar 'read' (true/false)
-        const unread = data.filter((n) => n.read === false).length;
-        setUnreadCount(unread);
-      } catch (error) {
-        console.log("Notification fetch error:", error);
-      }
-    };
     fetchNotifications();
   }, []);
+
   const onRefresh = () => {
     setRefreshing(true);
-
     fetchAgentAndProfileData();
+    fetchNotifications();
   };
 
   const copyToClipboard = async (text) => {
-    // Ƙara 'async'
-
     if (!text) return;
 
-    await Clipboard.setStringAsync(text); // Canja zuwa setStringAsync
+    await Clipboard.setStringAsync(text);
 
     if (Platform.OS === "android") {
       ToastAndroid.show("Copied to clipboard", ToastAndroid.SHORT);
@@ -189,10 +177,12 @@ const AgentDashboard = ({ navigation }) => {
 
   const openWhatsApp = () => {
     const phoneNumber = "+2349061244444";
+    const message =
+      "Hello Bellaj Data Hub Support, I need assistance with my Agent account.";
 
-    const message = `Hello Ayax Xpress Support, I need assistance with my Agent account.`;
-
-    const url = `whatsapp://send?phone=${phoneNumber}&text=${encodeURIComponent(message)}`;
+    const url = `whatsapp://send?phone=${phoneNumber}&text=${encodeURIComponent(
+      message,
+    )}`;
 
     Linking.openURL(url).catch(() =>
       Linking.openURL(`https://wa.me/${phoneNumber.replace("+", "")}`),
@@ -200,9 +190,7 @@ const AgentDashboard = ({ navigation }) => {
   };
 
   const currentSales = performance.totalSalesValue || 0;
-
   const targetSales = performance.monthlyTargetSales || 0;
-
   const remainingToTarget =
     targetSales - currentSales > 0 ? targetSales - currentSales : 0;
 
@@ -214,7 +202,7 @@ const AgentDashboard = ({ navigation }) => {
   const handleLogout = async () => {
     try {
       await AsyncStorage.clear();
-      // Muna amfani da navigation.dispatch don mu sake saita (reset) navigation stack ɗin mu zuwa Login
+
       navigation.dispatch(
         CommonActions.reset({
           index: 0,
@@ -229,7 +217,7 @@ const AgentDashboard = ({ navigation }) => {
   if (loading) {
     return (
       <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#2563eb" />
+        <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
     );
   }
@@ -238,77 +226,72 @@ const AgentDashboard = ({ navigation }) => {
     <View
       style={[
         styles.mainContainer,
-
-        {
-          backgroundColor: isDarkMode ? "#020617" : "#f8fafc",
-        },
+        { backgroundColor: isDarkMode ? COLORS.dark : COLORS.light },
       ]}
     >
       <StatusBar
-        barStyle="dark-content"
-        translucent
+        barStyle={isDarkMode ? "light-content" : "dark-content"}
         backgroundColor="transparent"
+        translucent
       />
 
-      <ImageBackground
-        source={require("../assets/ayax_promo_hijab.png")}
-        resizeMode="cover"
-        style={{
-          flex: 1,
-        }}
-        imageStyle={{
-          opacity: 0.15,
-        }}
+      <LinearGradient
+        colors={
+          isDarkMode ? [COLORS.dark, "#1A1A1A"] : [COLORS.white, COLORS.light]
+        }
+        style={styles.screenBg}
       >
-        <View style={styles.fullOverlayGradient}>
-          <LinearGradient
-            colors={["rgba(255,255,255,0.6)", "rgba(248,250,252,0.95)"]}
-            style={styles.fullOverlay}
-          />
-        </View>
-
         <View style={styles.topHeader}>
           <View style={styles.navRow}>
             <View style={styles.logoCircle}>
               <Image
-                source={require("../assets/Logo.png")}
+                source={require("../assets/bellaj_logo.png")}
                 style={styles.logoImg}
               />
             </View>
 
-            {/* Notification Icon */}
-            <TouchableOpacity
-              onPress={() => navigation.navigate("Notifications")}
-              style={{ marginRight: 20 }}
-            >
-              <Ionicons
-                name="notifications-outline"
-                size={28}
-                color={isDarkMode ? "#fff" : "#0f172a"}
-              />
-              {unreadCount > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{unreadCount}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
+            <View style={styles.headerActions}>
+              <TouchableOpacity
+                onPress={() => navigation.navigate("Notifications")}
+                style={styles.notificationBtn}
+              >
+                <Ionicons
+                  name="notifications-outline"
+                  size={28}
+                  color={isDarkMode ? COLORS.white : COLORS.dark}
+                />
 
-            <TouchableOpacity onPress={() => navigation.openDrawer()}>
-              <Ionicons
-                name="menu"
-                size={32}
-                color={isDarkMode ? "#fff" : "#0f172a"}
-              />
-            </TouchableOpacity>
+                {unreadCount > 0 && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{unreadCount}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => navigation.openDrawer()}>
+                <Ionicons
+                  name="menu"
+                  size={32}
+                  color={isDarkMode ? COLORS.white : COLORS.dark}
+                />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View style={styles.welcomeSection}>
-            <Text style={styles.welcomeText}>Agent Control Panel,</Text>
+            <Text style={styles.welcomeText}>Bellaj Agent Panel,</Text>
 
-            <Text style={styles.userName}>
+            <Text
+              style={[
+                styles.userName,
+                { color: isDarkMode ? COLORS.white : COLORS.dark },
+              ]}
+            >
               {userData
-                ? `${userData.firstName || userData.name || ""} ${userData.surname || ""}`
-                : "Loading..."}
+                ? `${userData.firstName || userData.name || ""} ${
+                    userData.surname || ""
+                  }`
+                : "Agent"}
             </Text>
           </View>
         </View>
@@ -318,17 +301,19 @@ const AgentDashboard = ({ navigation }) => {
           style={{ flex: 1 }}
           contentContainerStyle={{
             paddingHorizontal: 16,
-
             paddingBottom: 180,
-
             flexGrow: 1,
           }}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[COLORS.primary]}
+            />
           }
         >
           <LinearGradient
-            colors={["#1e40af", "#1e3a8a"]}
+            colors={[COLORS.primary, "#990000"]}
             style={styles.walletCard}
           >
             <View style={styles.walletTop}>
@@ -360,7 +345,7 @@ const AgentDashboard = ({ navigation }) => {
                 <Ionicons
                   name={isBalanceVisible ? "eye-outline" : "eye-off-outline"}
                   size={24}
-                  color="#38bdf8"
+                  color={COLORS.white}
                   style={{ marginLeft: 15 }}
                 />
               </TouchableOpacity>
@@ -372,28 +357,20 @@ const AgentDashboard = ({ navigation }) => {
                 onPress={() => navigation.navigate("FundWallet")}
               >
                 <LinearGradient
-                  colors={["#38bdf8", "#0ea5e9"]}
+                  colors={[COLORS.secondary, "#063B26"]}
                   style={styles.innerBtnGradient}
                 >
-                  <Ionicons name="add-circle" size={18} color="#fff" />
-
+                  <Ionicons name="add-circle" size={18} color={COLORS.white} />
                   <Text style={styles.actionBtnText}>FUND WALLET</Text>
                 </LinearGradient>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[
-                  styles.actionBtn,
-
-                  { backgroundColor: "rgba(255,255,255,0.15)" },
-                ]}
+                style={styles.supportBtn}
                 onPress={openWhatsApp}
               >
-                <Ionicons name="logo-whatsapp" size={18} color="#22c55e" />
-
-                <Text style={[styles.actionBtnText, { color: "#fff" }]}>
-                  SUPPORT
-                </Text>
+                <Ionicons name="logo-whatsapp" size={18} color="#22C55E" />
+                <Text style={styles.actionBtnText}>SUPPORT</Text>
               </TouchableOpacity>
             </View>
           </LinearGradient>
@@ -405,19 +382,19 @@ const AgentDashboard = ({ navigation }) => {
             <BankCard
               bank={userData.bankName || "Wema Bank"}
               acc={userData.accountNumber}
-              code="WB"
+              code="BD"
               isDarkMode={isDarkMode}
               onCopy={() => copyToClipboard(userData.accountNumber)}
             />
           ) : (
             <BankCard
-              bank="Wema Bank (Pending)"
+              bank="Bellaj Account Pending"
               acc="Generating..."
-              code=".."
+              code="BD"
+              isDarkMode={isDarkMode}
               onCopy={() =>
                 Alert.alert(
                   "Wait",
-
                   "Your unique virtual agent account is being provisioned automatically.",
                 )
               }
@@ -428,11 +405,11 @@ const AgentDashboard = ({ navigation }) => {
             bank="Paystack Terminal"
             acc="Automated Funding"
             code="PAY"
+            isDarkMode={isDarkMode}
             onCopy={() =>
               Alert.alert(
                 "Note",
-
-                "Transfer to your assigned Wema account for instant automated wallet credit.",
+                "Transfer to your assigned account for instant automated wallet credit.",
               )
             }
           />
@@ -444,14 +421,14 @@ const AgentDashboard = ({ navigation }) => {
               title="Monthly Volume"
               value={performance.totalGB || 0}
               unit="GB"
-              color="#2563eb"
+              color={COLORS.primary}
             />
 
             <StatCard
               title="Monthly Revenue"
               value={`₦${currentSales}`}
               unit=""
-              color="#059669"
+              color={COLORS.secondary}
             />
           </View>
 
@@ -460,14 +437,14 @@ const AgentDashboard = ({ navigation }) => {
               title="Commissions Earned"
               value={`₦${performance.commissionsEarned || 0}`}
               unit=""
-              color="#d4af37"
+              color="#F97316"
             />
 
             <StatCard
               title="Bonus Earned"
               value={`₦${performance.bonusEarned || 0}`}
               unit=""
-              color="#dc2626"
+              color="#DC2626"
             />
           </View>
 
@@ -480,13 +457,11 @@ const AgentDashboard = ({ navigation }) => {
               <View style={styles.targetRow}>
                 <View>
                   <Text style={styles.targetLabel}>Monthly Target</Text>
-
                   <Text style={styles.targetValue}>₦{targetSales}</Text>
                 </View>
 
                 <View style={styles.rightAlign}>
                   <Text style={styles.targetLabel}>Achievement</Text>
-
                   <Text style={styles.percentageText}>
                     {achievementPercentage}%
                   </Text>
@@ -497,7 +472,6 @@ const AgentDashboard = ({ navigation }) => {
                 <View
                   style={[
                     styles.progressBar,
-
                     { width: `${achievementPercentage}%` },
                   ]}
                 />
@@ -516,69 +490,69 @@ const AgentDashboard = ({ navigation }) => {
             </View>
           </View>
 
-          <Text style={styles.sectionLabel}>Agent Utilities Services</Text>
+          <Text style={styles.sectionLabel}>Bellaj Agent Services</Text>
 
           <View style={styles.servicesContainer}>
             <View style={styles.grid}>
               <ServiceItem
                 icon="wifi"
-                color="#0ea5e9"
+                color={COLORS.primary}
                 label="Data"
                 onPress={() => navigation.navigate("BuyData")}
               />
 
               <ServiceItem
                 icon="phone-alt"
-                color="#22c55e"
+                color={COLORS.secondary}
                 label="Airtime"
                 onPress={() => navigation.navigate("BuyAirtime")}
               />
 
               <ServiceItem
                 icon="bolt"
-                color="#eab308"
+                color="#EAB308"
                 label="Power"
                 onPress={() => navigation.navigate("Electricity")}
               />
 
               <ServiceItem
                 icon="tv"
-                color="#8b5cf6"
+                color="#8B5CF6"
                 label="Cable"
                 onPress={() => navigation.navigate("Cable")}
               />
 
               <ServiceItem
                 icon="id-card"
-                color="#f43f5e"
+                color="#F43F5E"
                 label="NIMC Verify"
                 onPress={() => navigation.navigate("NIMC")}
               />
 
               <ServiceItem
                 icon="fingerprint"
-                color="#ec4899"
+                color="#EC4899"
                 label="NIMC Mod"
                 onPress={() => navigation.navigate("NIMCModification")}
               />
 
               <ServiceItem
                 icon="user-shield"
-                color="#64748b"
+                color="#64748B"
                 label="BVN"
                 onPress={() => navigation.navigate("BVNScreen")}
               />
 
               <ServiceItem
                 icon="shield-alt"
-                color="#1e40af"
+                color={COLORS.secondary}
                 label="NIN Valid"
                 onPress={() => navigation.navigate("NINValidation")}
               />
 
               <ServiceItem
                 icon="history"
-                color="#f97316"
+                color="#F97316"
                 label="History"
                 onPress={() =>
                   navigation.navigate("Main", { screen: "Wallet History" })
@@ -598,7 +572,6 @@ const AgentDashboard = ({ navigation }) => {
                   <Text style={styles.supName}>
                     {supervisor?.name || "N/A"}
                   </Text>
-
                   <Text style={styles.supPhone}>
                     {supervisor?.phone || "No Contact"}
                   </Text>
@@ -618,7 +591,7 @@ const AgentDashboard = ({ navigation }) => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.actionBtnFull}
+              style={styles.actionBtnFullAlt}
               onPress={() => navigation.navigate("SalesHistory")}
             >
               <Text style={styles.actionBtnTextFull}>View Sales History</Text>
@@ -626,29 +599,31 @@ const AgentDashboard = ({ navigation }) => {
           </View>
 
           <View style={styles.footerBranding}>
-            <Text style={styles.footerHeadline}>Why Choose Ayax Xpress?</Text>
+            <Text style={styles.footerHeadline}>
+              Why Choose Bellaj Data Hub?
+            </Text>
 
             <View style={styles.trustGrid}>
               <TrustItem
                 icon="shield-check"
-                color="#16a34a"
-                bg="#dcfce7"
+                color={COLORS.secondary}
+                bg={COLORS.softGreen}
                 title="100% Secure"
                 sub="Encrypted"
               />
 
               <TrustItem
                 icon="flash"
-                color="#ca8a04"
-                bg="#fef9c3"
+                color="#CA8A04"
+                bg="#FEF9C3"
                 title="Instant"
                 sub="Automated"
               />
 
               <TrustItem
                 icon="headset"
-                color="#0284c7"
-                bg="#e0f2fe"
+                color={COLORS.primary}
+                bg={COLORS.softRed}
                 title="24/7 Support"
                 sub="Reliable"
               />
@@ -657,9 +632,7 @@ const AgentDashboard = ({ navigation }) => {
 
           <View style={{ height: 120 }} />
         </ScrollView>
-      </ImageBackground>
-
-      {/* SIDE MENU MODAL END */}
+      </LinearGradient>
 
       <View style={styles.bottomTab}>
         <TabItem icon="home" label="Dashboard" active onPress={() => {}} />
@@ -688,11 +661,9 @@ const AgentDashboard = ({ navigation }) => {
   );
 };
 
-// Sub-components
-
 const BankCard = ({ bank, acc, code, onCopy, isDarkMode }) => (
   <TouchableOpacity
-    style={[styles.bankBox, isDarkMode && { backgroundColor: "#1e293b" }]}
+    style={[styles.bankBox, isDarkMode && { backgroundColor: "#1E293B" }]}
     onPress={onCopy}
   >
     <View style={styles.bankInfo}>
@@ -702,14 +673,13 @@ const BankCard = ({ bank, acc, code, onCopy, isDarkMode }) => (
 
       <View>
         <Text style={styles.bankTitle}>{bank}</Text>
-
-        <Text style={[styles.accNo, isDarkMode && { color: "#fff" }]}>
+        <Text style={[styles.accNo, isDarkMode && { color: COLORS.white }]}>
           {acc}
         </Text>
       </View>
     </View>
 
-    <Ionicons name="copy-outline" size={18} color="#1e40af" />
+    <Ionicons name="copy-outline" size={18} color={COLORS.primary} />
   </TouchableOpacity>
 );
 
@@ -744,16 +714,21 @@ const TrustItem = ({ icon, color, bg, title, sub }) => (
     </View>
 
     <Text style={styles.trustTitle}>{title}</Text>
-
     <Text style={styles.trustSub}>{sub}</Text>
   </View>
 );
 
 const TabItem = ({ icon, label, active, onPress }) => (
   <TouchableOpacity style={styles.tabItem} onPress={onPress}>
-    <Ionicons name={icon} size={24} color={active ? "#1e40af" : "#94a3b8"} />
+    <Ionicons
+      name={icon}
+      size={24}
+      color={active ? COLORS.primary : "#94A3B8"}
+    />
 
-    <Text style={[styles.tabLabel, { color: active ? "#1e40af" : "#94a3b8" }]}>
+    <Text
+      style={[styles.tabLabel, { color: active ? COLORS.primary : "#94A3B8" }]}
+    >
       {label}
     </Text>
   </TouchableOpacity>
@@ -762,646 +737,436 @@ const TabItem = ({ icon, label, active, onPress }) => (
 const styles = StyleSheet.create({
   mainContainer: {
     flex: 1,
-
     width: "100%",
   },
-
-  content: {
+  screenBg: {
     flex: 1,
-
-    width: "100%", // Wannan yana da mahimmanci don kada ya matse
   },
-
-  fullOverlayGradient: { ...StyleSheet.absoluteFillObject },
-
-  fullOverlay: { flex: 1 },
-
-  loaderContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-
-  topHeader: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20 },
-
+  loaderContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: COLORS.light,
+  },
+  topHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 20,
+  },
   navRow: {
     flexDirection: "row",
-
     justifyContent: "space-between",
-
     alignItems: "center",
-
     marginBottom: 20,
   },
-
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  notificationBtn: {
+    marginRight: 20,
+  },
   logoCircle: {
-    width: 45,
-
-    height: 45,
-
-    backgroundColor: "#0f172a",
-
-    borderRadius: 22.5,
-
-    justifyContent: "center",
-
-    alignItems: "center",
-
-    elevation: 4,
-  },
-
-  logoImg: { width: 32, height: 32, resizeMode: "contain" },
-
-  welcomeSection: { marginBottom: 10 },
-
-  welcomeText: { color: "#64748b", fontSize: 14, fontWeight: "500" },
-
-  userName: { color: "#0f172a", fontSize: 24, fontWeight: "bold" },
-
-  scrollContent: {
-    paddingHorizontal: 16,
-
-    paddingTop: 20,
-
-    paddingBottom: 150,
-
-    width: "100%",
-  },
-
-  walletCard: {
+    width: 48,
+    height: 48,
+    backgroundColor: COLORS.white,
     borderRadius: 24,
-
-    padding: 22,
-
-    marginBottom: 25,
-
-    elevation: 10,
-  },
-
-  walletTop: {
-    flexDirection: "row",
-
-    justifyContent: "space-between",
-
-    alignItems: "center",
-  },
-
-  walletLabel: { color: "#dbeafe", fontSize: 13 },
-
-  historyText: { color: "#38bdf8", fontSize: 12, fontWeight: "600" },
-
-  balanceContainer: {
-    flexDirection: "row",
-
-    alignItems: "center",
-
-    marginVertical: 15,
-  },
-
-  currency: { color: "#fff", fontSize: 24, fontWeight: "600" },
-
-  balanceText: {
-    color: "#fff",
-
-    fontSize: 34,
-
-    fontWeight: "bold",
-
-    marginLeft: 8,
-  },
-
-  walletActions: {
-    flexDirection: "row",
-
-    justifyContent: "space-between",
-
-    marginTop: 10,
-  },
-
-  actionBtn: { flex: 0.48, height: 48, borderRadius: 14, overflow: "hidden" },
-
-  innerBtnGradient: {
-    flex: 1,
-
-    flexDirection: "row",
-
     justifyContent: "center",
-
     alignItems: "center",
-  },
-
-  actionBtnText: {
-    color: "#fff",
-
-    fontWeight: "bold",
-
-    fontSize: 12,
-
-    marginLeft: 8,
-  },
-
-  sectionLabel: {
-    fontSize: 16,
-
-    fontWeight: "700",
-
-    color: "#1e293b",
-
-    marginTop: 15,
-
-    marginBottom: 15,
-
-    paddingLeft: 4,
-  },
-
-  bankScroll: { marginBottom: 25 },
-
-  bankBox: {
-    backgroundColor: "#fff",
-
-    width: width * 0.75,
-
-    padding: 16,
-
-    borderRadius: 20,
-
-    flexDirection: "row",
-
-    justifyContent: "space-between",
-
-    alignItems: "center",
-
-    marginRight: 15,
-
-    elevation: 3,
-
-    borderLeftWidth: 4,
-
-    borderLeftColor: "#1e40af",
-  },
-
-  bankLogoCircle: {
-    width: 38,
-
-    height: 38,
-
-    borderRadius: 19,
-
-    backgroundColor: "#f1f5f9",
-
-    justifyContent: "center",
-
-    alignItems: "center",
-
-    marginRight: 12,
-  },
-
-  bankLogoText: { color: "#1e40af", fontWeight: "bold", fontSize: 12 },
-
-  bankTitle: { fontSize: 12, color: "#64748b" },
-
-  accNo: { fontSize: 17, color: "#0f172a", fontWeight: "bold" },
-
-  statsGrid: {
-    flexDirection: "row",
-
-    justifyContent: "space-between",
-
-    marginBottom: 12,
-  },
-
-  statsGridAlt: {
-    flexDirection: "row",
-
-    justifyContent: "space-between",
-
-    marginBottom: 15,
-  },
-
-  statCard: {
-    backgroundColor: "#fff",
-
-    width: "48%",
-
-    padding: 15,
-
-    borderRadius: 12,
-
-    borderLeftWidth: 6,
-
-    elevation: 3,
-  },
-
-  statLabel: { fontSize: 12, color: "#64748b", fontWeight: "600" },
-
-  statValue: {
-    fontSize: 18,
-
-    fontWeight: "bold",
-
-    color: "#1e293b",
-
-    marginTop: 5,
-  },
-
-  statUnit: { fontSize: 12, color: "#94a3b8" },
-
-  targetTrackingSection: { marginTop: 10, marginBottom: 20 },
-
-  sectionTitle: {
-    fontSize: 16,
-
-    fontWeight: "bold",
-
-    color: "#334155",
-
-    marginBottom: 10,
-  },
-
-  targetCard: {
-    backgroundColor: "#fff",
-
-    padding: 20,
-
-    borderRadius: 12,
-
-    elevation: 3,
-
-    borderWidth: 1,
-
-    borderColor: "#e2e8f0",
-  },
-
-  targetRow: {
-    flexDirection: "row",
-
-    justifyContent: "space-between",
-
-    alignItems: "center",
-  },
-
-  targetRowAlt: {
-    flexDirection: "row",
-
-    justifyContent: "space-between",
-
-    alignItems: "center",
-
-    marginTop: 12,
-  },
-
-  targetLabel: { fontSize: 12, color: "#64748b" },
-
-  targetValue: { fontSize: 16, fontWeight: "bold", color: "#0f172a" },
-
-  rightAlign: { alignItems: "flex-end" },
-
-  percentageText: { fontSize: 20, fontWeight: "800", color: "#059669" },
-
-  progressTrack: {
-    width: "100%",
-
-    height: 10,
-
-    backgroundColor: "#e2e8f0",
-
-    borderRadius: 5,
-
-    marginTop: 15,
-
-    overflow: "hidden",
-  },
-
-  progressBar: { height: "100%", backgroundColor: "#059669", borderRadius: 5 },
-
-  progressSubText: { fontSize: 12, color: "#64748b" },
-
-  remainingText: { fontSize: 12, color: "#64748b" },
-
-  boldText: { fontWeight: "700", color: "#0f172a" },
-
-  boldTextRed: { fontWeight: "700", color: "#dc2626" },
-
-  servicesContainer: {
-    borderRadius: 28,
-
-    padding: 20,
-
     elevation: 4,
-
-    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
-
-  grid: {
-    flexDirection: "row",
-
-    flexWrap: "wrap",
-
-    justifyContent: "space-between",
-  },
-
-  gridItem: { width: "23%", alignItems: "center", marginBottom: 22 },
-
-  iconBox: {
-    width: 54,
-
-    height: 54,
-
-    borderRadius: 18,
-
-    backgroundColor: "#f8fafc",
-
-    justifyContent: "center",
-
-    alignItems: "center",
-
-    marginBottom: 8,
-
-    elevation: 1,
-  },
-
-  gridLabel: {
-    color: "#475569",
-
-    fontSize: 11,
-
-    textAlign: "center",
-
-    fontWeight: "600",
-  },
-
-  menuSection: {
-    backgroundColor: "#fff",
-
-    borderRadius: 20,
-
-    padding: 15,
-
-    marginBottom: 20,
-
-    elevation: 2,
-  },
-
-  menuItem: {
-    flexDirection: "row",
-
-    alignItems: "center",
-
-    paddingVertical: 15,
-
-    borderBottomWidth: 1,
-
-    borderBottomColor: "#f1f5f9",
-  },
-
-  menuText: {
-    marginLeft: 15,
-
-    fontSize: 16,
-
-    color: "#334155",
-
-    fontWeight: "500",
-  },
-
-  supervisorSection: { marginBottom: 20 },
-
-  infoBox: {
-    backgroundColor: "#fff",
-
-    padding: 15,
-
-    borderRadius: 15,
-
-    elevation: 2,
-  },
-
-  infoText: { color: "#64748b" },
-
-  supName: { fontWeight: "bold", fontSize: 16 },
-
-  supPhone: { color: "#1e40af", marginTop: 4 },
-
-  actionSection: { marginBottom: 20 },
-
-  actionBtnFull: {
-    backgroundColor: "#1e40af",
-
-    padding: 15,
-
-    borderRadius: 12,
-
-    marginBottom: 10,
-
-    alignItems: "center",
-  },
-
-  actionBtnTextFull: { color: "#fff", fontWeight: "bold" },
-
-  footerBranding: {
-    marginTop: 10,
-
-    paddingBottom: 40,
-
-    backgroundColor: "#f8fafc",
-
-    borderTopLeftRadius: 30,
-
-    borderTopRightRadius: 30,
-
-    paddingTop: 20,
-  },
-
-  footerHeadline: {
-    textAlign: "center",
-
-    fontSize: 16,
-
-    fontWeight: "bold",
-
-    marginBottom: 15,
-  },
-
-  trustGrid: { flexDirection: "row", justifyContent: "space-around" },
-
-  trustItem: { alignItems: "center" },
-
-  trustIconCircle: {
-    width: 60,
-
-    height: 60,
-
-    borderRadius: 30,
-
-    justifyContent: "center",
-
-    alignItems: "center",
-  },
-
-  trustTitle: { fontSize: 12, fontWeight: "bold", marginTop: 8 },
-
-  trustSub: { fontSize: 10, color: "#64748b" },
-
-  bottomTab: {
-    position: "absolute",
-
-    bottom: 0,
-
-    left: 0,
-
-    right: 0,
-
-    zIndex: 999,
-
-    height: 85,
-
-    backgroundColor: "#fff",
-
-    flexDirection: "row",
-
-    borderTopWidth: 1,
-
-    borderTopColor: "#f1f5f9",
-
-    paddingBottom: 20,
-
-    elevation: 20,
-  },
-
-  tabItem: { flex: 1, justifyContent: "center", alignItems: "center" },
-
-  tabLabel: { fontSize: 10, marginTop: 4, fontWeight: "600" },
-
-  sideMenu: {
-    width: width > 768 ? 350 : width * 0.82,
-
-    height: "100%", // Wannan yana da kyau
-
-    backgroundColor: "#081028",
-
-    paddingTop: 60,
-
-    paddingHorizontal: 20,
-
-    // Cire "absolute" domin Modal zai dauki nauyin position din kansa
-
-    // position: "absolute",
-
-    // right: 0,
-
-    // Wannan zai tabbatar da cewa menu din ya kasance a sama a duk girman allo
-
-    zIndex: 9999,
-
-    elevation: 30,
-  },
-
-  menuHeader: {
-    flexDirection: "row",
-
-    justifyContent: "space-between",
-
-    alignItems: "center",
-
-    marginBottom: 30,
-  },
-
-  menuLogo: {
-    width: 50,
-
-    height: 50,
-
+  logoImg: {
+    width: 36,
+    height: 36,
     resizeMode: "contain",
   },
-
-  profileArea: {
-    alignItems: "center",
-
-    marginBottom: 40,
-  },
-
-  avatarCircle: {
-    width: 80,
-
-    height: 80,
-
-    borderRadius: 40,
-
-    backgroundColor: "#2563eb",
-
-    justifyContent: "center",
-
-    alignItems: "center",
-
+  welcomeSection: {
     marginBottom: 10,
   },
-
-  avatarText: {
-    color: "#fff",
-
-    fontSize: 32,
-
+  welcomeText: {
+    color: COLORS.muted,
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  userName: {
+    fontSize: 24,
     fontWeight: "bold",
   },
-
-  profileName: {
-    fontSize: 20,
-
-    fontWeight: "bold",
+  walletCard: {
+    borderRadius: 24,
+    padding: 22,
+    marginBottom: 25,
+    elevation: 10,
   },
-
-  profileEmail: {
-    color: "#94a3b8",
-
-    marginTop: 5,
-  },
-
-  menuOption: {
+  walletTop: {
     flexDirection: "row",
-
+    justifyContent: "space-between",
     alignItems: "center",
-
-    paddingVertical: 18,
-
-    borderBottomWidth: 1,
-
-    borderBottomColor: "#e2e8f0",
   },
-
-  menuOptionText: {
-    marginLeft: 15,
-
-    fontSize: 16,
-
+  walletLabel: {
+    color: "#FFE4E4",
+    fontSize: 13,
+  },
+  historyText: {
+    color: COLORS.white,
+    fontSize: 12,
     fontWeight: "600",
   },
-
-  logoutBtn: {
-    marginTop: 40,
-
-    backgroundColor: "#dc2626",
-
-    padding: 18,
-
-    borderRadius: 16,
-
+  balanceContainer: {
     flexDirection: "row",
-
+    alignItems: "center",
+    marginVertical: 15,
+  },
+  currency: {
+    color: COLORS.white,
+    fontSize: 24,
+    fontWeight: "600",
+  },
+  balanceText: {
+    color: COLORS.white,
+    fontSize: 34,
+    fontWeight: "bold",
+    marginLeft: 8,
+  },
+  walletActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 10,
+  },
+  actionBtn: {
+    flex: 0.48,
+    height: 48,
+    borderRadius: 14,
+    overflow: "hidden",
+  },
+  supportBtn: {
+    flex: 0.48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: "rgba(255,255,255,0.15)",
     justifyContent: "center",
-
+    alignItems: "center",
+    flexDirection: "row",
+  },
+  innerBtnGradient: {
+    flex: 1,
+    flexDirection: "row",
+    justifyContent: "center",
     alignItems: "center",
   },
-
-  logoutText: {
-    color: "#fff",
-
+  actionBtnText: {
+    color: COLORS.white,
     fontWeight: "bold",
-
-    marginLeft: 10,
-
+    fontSize: 12,
+    marginLeft: 8,
+  },
+  sectionLabel: {
     fontSize: 16,
+    fontWeight: "700",
+    color: COLORS.dark,
+    marginTop: 15,
+    marginBottom: 15,
+    paddingLeft: 4,
+  },
+  bankBox: {
+    backgroundColor: COLORS.white,
+    width: width * 0.75,
+    padding: 16,
+    borderRadius: 20,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginRight: 15,
+    marginBottom: 12,
+    elevation: 3,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.primary,
+  },
+  bankInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  bankLogoCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: COLORS.softRed,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  bankLogoText: {
+    color: COLORS.primary,
+    fontWeight: "bold",
+    fontSize: 12,
+  },
+  bankTitle: {
+    fontSize: 12,
+    color: COLORS.muted,
+  },
+  accNo: {
+    fontSize: 17,
+    color: COLORS.dark,
+    fontWeight: "bold",
+  },
+  statsGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  statsGridAlt: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 15,
+  },
+  statCard: {
+    backgroundColor: COLORS.white,
+    width: "48%",
+    padding: 15,
+    borderRadius: 12,
+    borderLeftWidth: 6,
+    elevation: 3,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: COLORS.muted,
+    fontWeight: "600",
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: COLORS.dark,
+    marginTop: 5,
+  },
+  statUnit: {
+    fontSize: 12,
+    color: "#94A3B8",
+  },
+  targetTrackingSection: {
+    marginTop: 10,
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: COLORS.dark,
+    marginBottom: 10,
+  },
+  targetCard: {
+    backgroundColor: COLORS.white,
+    padding: 20,
+    borderRadius: 12,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  targetRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  targetRowAlt: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 12,
+  },
+  targetLabel: {
+    fontSize: 12,
+    color: COLORS.muted,
+  },
+  targetValue: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: COLORS.dark,
+  },
+  rightAlign: {
+    alignItems: "flex-end",
+  },
+  percentageText: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: COLORS.secondary,
+  },
+  progressTrack: {
+    width: "100%",
+    height: 10,
+    backgroundColor: COLORS.border,
+    borderRadius: 5,
+    marginTop: 15,
+    overflow: "hidden",
+  },
+  progressBar: {
+    height: "100%",
+    backgroundColor: COLORS.secondary,
+    borderRadius: 5,
+  },
+  progressSubText: {
+    fontSize: 12,
+    color: COLORS.muted,
+  },
+  remainingText: {
+    fontSize: 12,
+    color: COLORS.muted,
+  },
+  boldText: {
+    fontWeight: "700",
+    color: COLORS.dark,
+  },
+  boldTextRed: {
+    fontWeight: "700",
+    color: COLORS.primary,
+  },
+  servicesContainer: {
+    borderRadius: 28,
+    padding: 20,
+    elevation: 4,
+    marginBottom: 20,
+    backgroundColor: COLORS.white,
+  },
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+  gridItem: {
+    width: "23%",
+    alignItems: "center",
+    marginBottom: 22,
+  },
+  iconBox: {
+    width: 54,
+    height: 54,
+    borderRadius: 18,
+    backgroundColor: COLORS.light,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+    elevation: 1,
+  },
+  gridLabel: {
+    color: "#475569",
+    fontSize: 11,
+    textAlign: "center",
+    fontWeight: "600",
+  },
+  supervisorSection: {
+    marginBottom: 20,
+  },
+  infoBox: {
+    backgroundColor: COLORS.white,
+    padding: 15,
+    borderRadius: 15,
+    elevation: 2,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.secondary,
+  },
+  infoText: {
+    color: COLORS.muted,
+  },
+  supName: {
+    fontWeight: "bold",
+    fontSize: 16,
+    color: COLORS.dark,
+  },
+  supPhone: {
+    color: COLORS.secondary,
+    marginTop: 4,
+  },
+  actionSection: {
+    marginBottom: 20,
+  },
+  actionBtnFull: {
+    backgroundColor: COLORS.primary,
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 10,
+    alignItems: "center",
+  },
+  actionBtnFullAlt: {
+    backgroundColor: COLORS.secondary,
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 10,
+    alignItems: "center",
+  },
+  actionBtnTextFull: {
+    color: COLORS.white,
+    fontWeight: "bold",
+  },
+  footerBranding: {
+    marginTop: 10,
+    paddingBottom: 40,
+    backgroundColor: COLORS.light,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingTop: 20,
+  },
+  footerHeadline: {
+    textAlign: "center",
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 15,
+    color: COLORS.primary,
+  },
+  trustGrid: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+  },
+  trustItem: {
+    alignItems: "center",
+    width: "30%",
+  },
+  trustIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  trustTitle: {
+    fontSize: 12,
+    fontWeight: "bold",
+    marginTop: 8,
+    color: COLORS.dark,
+    textAlign: "center",
+  },
+  trustSub: {
+    fontSize: 10,
+    color: COLORS.muted,
+    textAlign: "center",
+  },
+  bottomTab: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 999,
+    height: 85,
+    backgroundColor: COLORS.white,
+    flexDirection: "row",
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    paddingBottom: 20,
+    elevation: 20,
+  },
+  tabItem: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  tabLabel: {
+    fontSize: 10,
+    marginTop: 4,
+    fontWeight: "600",
   },
   badge: {
     position: "absolute",
     right: -5,
     top: -5,
-    backgroundColor: "#ef4444", // Red color
+    backgroundColor: COLORS.primary,
     borderRadius: 10,
     width: 18,
     height: 18,
@@ -1409,7 +1174,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   badgeText: {
-    color: "#fff",
+    color: COLORS.white,
     fontSize: 10,
     fontWeight: "bold",
   },

@@ -17,6 +17,22 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
+import BASE_URL from "../config/api";
+const COLORS = {
+  primary: "#E60000",
+  secondary: "#0B5E3C",
+  dark: "#121212",
+  white: "#FFFFFF",
+  light: "#F8FAFC",
+  muted: "#64748B",
+  border: "#E2E8F0",
+  softRed: "#FFF1F1",
+  softGreen: "#EAF7F1",
+};
+
+const API_ENDPOINTS = {
+  register: "",
+};
 
 const SignupScreen = ({ navigation }) => {
   const [firstName, setFirstName] = useState("");
@@ -26,11 +42,13 @@ const SignupScreen = ({ navigation }) => {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
   const [role, setRole] = useState("user");
   const [state, setState] = useState("");
   const [lga, setLga] = useState("");
   const [address, setAddress] = useState("");
   const [supervisorId, setSupervisorId] = useState("");
+
   const [image, setImage] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -39,9 +57,7 @@ const SignupScreen = ({ navigation }) => {
   const showAlert = (title, message, buttons = []) => {
     if (Platform.OS === "web") {
       alert(`${title}\n\n${message}`);
-      if (buttons.length > 0 && buttons[0].onPress) {
-        buttons[0].onPress();
-      }
+      if (buttons.length > 0 && buttons[0].onPress) buttons[0].onPress();
     } else {
       Alert.alert(title, message, buttons.length > 0 ? buttons : undefined, {
         cancelable: false,
@@ -53,6 +69,7 @@ const SignupScreen = ({ navigation }) => {
     if (Platform.OS !== "web") {
       const { status } =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
+
       if (status !== "granted") {
         showAlert(
           "Permission Denied",
@@ -62,7 +79,7 @@ const SignupScreen = ({ navigation }) => {
       }
     }
 
-    let result = await ImagePicker.launchImageLibraryAsync({
+    const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
@@ -72,12 +89,9 @@ const SignupScreen = ({ navigation }) => {
 
     if (!result.canceled) {
       const asset = result.assets[0];
-      let base64Img = asset.base64;
 
-      if (!base64Img && asset.uri.startsWith("data:")) {
-        setImage(asset.uri);
-      } else if (base64Img) {
-        setImage(`data:image/jpeg;base64,${base64Img}`);
+      if (asset.base64) {
+        setImage(`data:image/jpeg;base64,${asset.base64}`);
       } else {
         setImage(asset.uri);
       }
@@ -95,40 +109,33 @@ const SignupScreen = ({ navigation }) => {
       !phone.trim() ||
       !password
     ) {
-      showAlert(
-        "Missing Fields",
-        "Please fill all the compulsory fields before proceeding.",
-      );
+      showAlert("Missing Fields", "Please fill all compulsory fields.");
       return false;
     }
+
     if (!emailRegex.test(email.trim())) {
-      showAlert(
-        "Invalid Email",
-        "The email address enter format is wrong. Check it well.",
-      );
+      showAlert("Invalid Email", "Please enter a valid email address.");
       return false;
     }
+
     if (!phoneRegex.test(phone.trim())) {
-      showAlert(
-        "Invalid Phone Number",
-        "Please enter a valid Nigerian phone number.",
-      );
+      showAlert("Invalid Phone Number", "Please enter a valid phone number.");
       return false;
     }
+
     if (password.length < 6) {
       showAlert(
         "Password Too Short",
-        "Your password must be at least 6 characters long.",
+        "Password must be at least 6 characters.",
       );
       return false;
     }
+
     if (password !== confirmPassword) {
-      showAlert(
-        "Password Mismatch",
-        "The two passwords do not match. Please re-enter.",
-      );
+      showAlert("Password Mismatch", "The two passwords do not match.");
       return false;
     }
+
     if (role === "agent" && (!state.trim() || !lga.trim() || !address.trim())) {
       showAlert(
         "Agent Verification Missing",
@@ -136,11 +143,21 @@ const SignupScreen = ({ navigation }) => {
       );
       return false;
     }
+
     return true;
   };
 
   const handleSignup = async () => {
     if (!validateInputs()) return;
+
+    if (!API_ENDPOINTS.register) {
+      showAlert(
+        "Not Configured",
+        "Registration API endpoint is not configured.",
+      );
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -150,7 +167,7 @@ const SignupScreen = ({ navigation }) => {
         otherName: otherName.trim(),
         email: email.trim().toLowerCase(),
         phone: phone.trim(),
-        password: password,
+        password,
         role: role.trim().toLowerCase(),
       };
 
@@ -158,14 +175,19 @@ const SignupScreen = ({ navigation }) => {
         registrationData.state = state.trim();
         registrationData.lga = lga.trim();
         registrationData.address = address.trim();
-        if (supervisorId)
+
+        if (supervisorId.trim()) {
           registrationData.supervisorId = supervisorId.toUpperCase().trim();
-        if (image) registrationData.businessImage = image;
+        }
+
+        if (image) {
+          registrationData.businessImage = image;
+        }
       }
 
       const response = await axios({
         method: "POST",
-        url: "https://ayax-data-xpress-server.onrender.com/api/v1/auth/register",
+        url: API_ENDPOINTS.register,
         data: registrationData,
         headers: {
           "Content-Type": "application/json",
@@ -186,49 +208,30 @@ const SignupScreen = ({ navigation }) => {
           response.data.data || { role: role.trim().toLowerCase() };
 
         await AsyncStorage.setItem("userData", JSON.stringify(userPayload));
+
         if (response.data.token) {
           await AsyncStorage.setItem("userToken", response.data.token);
         }
 
-        setLoading(false);
-
         showAlert(
           "Account Created 🎉",
-          "Your registration has been completed successfully! Click OK to proceed.",
-          [
-            {
-              text: "OK",
-              onPress: () => navigation.replace("Success"),
-            },
-          ],
+          "Your Bellaj Data Hub registration has been completed successfully!",
+          [{ text: "OK", onPress: () => navigation.replace("Success") }],
         );
       } else {
-        setLoading(false);
         showAlert(
           "Registration Alert",
-          response.data?.message ||
-            "Unexpected response from server. Please check.",
+          response.data?.message || "Unexpected response from server.",
         );
       }
     } catch (error) {
-      setLoading(false);
       const serverMsg =
         error.response?.data?.message ||
         "Network connection issue. Please try again.";
 
-      if (error.code === "ECONNABORTED") {
-        showAlert(
-          "Network Timeout",
-          "Connection took too long to respond. Check your internet connection.",
-        );
-      } else {
-        showAlert("Registration Failed ❌", serverMsg);
-      }
-
-      console.error(
-        "Registration Log Error:",
-        error.response?.data || error.message,
-      );
+      showAlert("Registration Failed ❌", serverMsg);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -239,21 +242,22 @@ const SignupScreen = ({ navigation }) => {
     >
       <ScrollView
         contentContainerStyle={styles.container}
-        showsVerticalScrollIndicator={true}
+        showsVerticalScrollIndicator
         keyboardShouldPersistTaps="handled"
       >
-        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+        <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
 
         <View style={styles.headerArea}>
           <Text style={styles.title}>Create Account</Text>
           <Text style={styles.subtitle}>
-            Join Ayax Data Xpress to start enjoying affordable VTU and Data
-            services.
+            Join Bellaj Data Hub to enjoy affordable data, airtime, bills and
+            digital services.
           </Text>
         </View>
 
         <View style={styles.inputContainer}>
           <Text style={styles.label}>Select Account Type</Text>
+
           <View style={styles.roleContainer}>
             <TouchableOpacity
               style={[styles.roleBtn, role === "user" && styles.activeRole]}
@@ -268,6 +272,7 @@ const SignupScreen = ({ navigation }) => {
                 Customer / User
               </Text>
             </TouchableOpacity>
+
             <TouchableOpacity
               style={[styles.roleBtn, role === "agent" && styles.activeRole]}
               onPress={() => setRole("agent")}
@@ -285,17 +290,18 @@ const SignupScreen = ({ navigation }) => {
 
           <View style={styles.row}>
             <View style={{ flex: 1, marginRight: 5 }}>
-              <Text style={styles.label}>Surname (Last Name)</Text>
+              <Text style={styles.label}>Surname</Text>
               <View style={styles.inputView}>
                 <TextInput
                   style={styles.inputText}
                   placeholder="Compulsory"
                   value={surname}
                   onChangeText={setSurname}
-                  placeholderTextColor="#94a3b8"
+                  placeholderTextColor="#94A3B8"
                 />
               </View>
             </View>
+
             <View style={{ flex: 1, marginLeft: 5 }}>
               <Text style={styles.label}>First Name</Text>
               <View style={styles.inputView}>
@@ -304,20 +310,20 @@ const SignupScreen = ({ navigation }) => {
                   placeholder="Compulsory"
                   value={firstName}
                   onChangeText={setFirstName}
-                  placeholderTextColor="#94a3b8"
+                  placeholderTextColor="#94A3B8"
                 />
               </View>
             </View>
           </View>
 
-          <Text style={styles.label}>Middle Name (Optional)</Text>
+          <Text style={styles.label}>Middle Name Optional</Text>
           <View style={styles.inputView}>
             <TextInput
               style={styles.inputText}
               placeholder="Enter Middle Name"
               value={otherName}
               onChangeText={setOtherName}
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor="#94A3B8"
             />
           </View>
 
@@ -330,7 +336,7 @@ const SignupScreen = ({ navigation }) => {
               autoCapitalize="none"
               value={email}
               onChangeText={setEmail}
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor="#94A3B8"
             />
           </View>
 
@@ -342,7 +348,7 @@ const SignupScreen = ({ navigation }) => {
               keyboardType="phone-pad"
               value={phone}
               onChangeText={setPhone}
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor="#94A3B8"
             />
           </View>
 
@@ -353,16 +359,16 @@ const SignupScreen = ({ navigation }) => {
               </Text>
 
               <Text style={styles.label}>
-                Supervisor Referral Code (Optional)
+                Supervisor Referral Code Optional
               </Text>
               <View style={styles.inputView}>
                 <TextInput
                   style={styles.inputText}
-                  placeholder="e.g. AX770"
+                  placeholder="e.g. BD770"
                   autoCapitalize="characters"
                   value={supervisorId}
                   onChangeText={setSupervisorId}
-                  placeholderTextColor="#94a3b8"
+                  placeholderTextColor="#94A3B8"
                 />
               </View>
 
@@ -373,7 +379,7 @@ const SignupScreen = ({ navigation }) => {
                   placeholder="Enter full business address"
                   value={address}
                   onChangeText={setAddress}
-                  placeholderTextColor="#94a3b8"
+                  placeholderTextColor="#94A3B8"
                 />
               </View>
 
@@ -386,10 +392,11 @@ const SignupScreen = ({ navigation }) => {
                       placeholder="e.g. Kano"
                       value={state}
                       onChangeText={setState}
-                      placeholderTextColor="#94a3b8"
+                      placeholderTextColor="#94A3B8"
                     />
                   </View>
                 </View>
+
                 <View style={{ flex: 1, marginLeft: 5 }}>
                   <Text style={styles.label}>LGA</Text>
                   <View style={styles.inputView}>
@@ -398,7 +405,7 @@ const SignupScreen = ({ navigation }) => {
                       placeholder="Local Govt"
                       value={lga}
                       onChangeText={setLga}
-                      placeholderTextColor="#94a3b8"
+                      placeholderTextColor="#94A3B8"
                     />
                   </View>
                 </View>
@@ -424,8 +431,9 @@ const SignupScreen = ({ navigation }) => {
               placeholder="Minimum of 6 characters"
               value={password}
               onChangeText={setPassword}
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor="#94A3B8"
             />
+
             <TouchableOpacity
               onPress={() => setShowPassword(!showPassword)}
               style={styles.eyeIcon}
@@ -433,7 +441,7 @@ const SignupScreen = ({ navigation }) => {
               <Ionicons
                 name={showPassword ? "eye-off-outline" : "eye-outline"}
                 size={20}
-                color="#64748b"
+                color={COLORS.muted}
               />
             </TouchableOpacity>
           </View>
@@ -446,8 +454,9 @@ const SignupScreen = ({ navigation }) => {
               placeholder="Repeat your password"
               value={confirmPassword}
               onChangeText={setConfirmPassword}
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor="#94A3B8"
             />
+
             <TouchableOpacity
               onPress={() => setShowConfirmPassword(!showConfirmPassword)}
               style={styles.eyeIcon}
@@ -455,19 +464,19 @@ const SignupScreen = ({ navigation }) => {
               <Ionicons
                 name={showConfirmPassword ? "eye-off-outline" : "eye-outline"}
                 size={20}
-                color="#64748b"
+                color={COLORS.muted}
               />
             </TouchableOpacity>
           </View>
         </View>
 
         <TouchableOpacity
-          style={styles.signupBtn}
+          style={[styles.signupBtn, loading && { opacity: 0.75 }]}
           onPress={handleSignup}
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color="#ffffff" />
+            <ActivityIndicator color={COLORS.white} />
           ) : (
             <Text style={styles.signupText}>REGISTER ACCOUNT</Text>
           )}
@@ -487,48 +496,51 @@ const SignupScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   mainWrapper: {
     flex: 1,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: COLORS.light,
   },
-  // AN GYARA ALLON WAYA NAN: Maimakon box shape da ke takura layout a waya, mun bar shi ya gudanar da scrolling din sa lami-lafiya a kowane irin allo
   container: {
     flexGrow: 1,
-    backgroundColor: "#ffffff",
+    backgroundColor: COLORS.white,
     paddingVertical: 30,
     paddingHorizontal: 20,
     alignItems: "center",
     width: Platform.OS === "web" ? 450 : "100%",
     alignSelf: "center",
-    // Inuwa don Web browser da PC kadai
     ...Platform.select({
       web: {
         borderRadius: 24,
         marginVertical: 20,
         maxHeight: "90vh",
         elevation: 4,
-        shadowColor: "#0f172a",
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.1,
-        shadowRadius: 15,
       },
     }),
   },
-  headerArea: { alignItems: "center", marginBottom: 25, width: "100%" },
+  headerArea: {
+    alignItems: "center",
+    marginBottom: 25,
+    width: "100%",
+  },
   title: {
     fontSize: 24,
     fontWeight: "800",
-    color: "#0f172a",
-    letterSpacing: -0.5,
+    color: COLORS.primary,
   },
   subtitle: {
-    color: "#64748b",
+    color: COLORS.secondary,
     fontSize: 12,
     marginTop: 5,
     textAlign: "center",
     width: "100%",
     lineHeight: 16,
   },
-  inputContainer: { width: "100%" },
-  row: { flexDirection: "row", justifyContent: "space-between", width: "100%" },
+  inputContainer: {
+    width: "100%",
+  },
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+  },
   label: {
     color: "#334155",
     fontSize: 11,
@@ -546,61 +558,75 @@ const styles = StyleSheet.create({
   roleBtn: {
     flex: 1,
     height: 45,
-    backgroundColor: "#f8fafc",
+    backgroundColor: COLORS.light,
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#e2e8f0",
-    ...Platform.select({
-      web: { cursor: "pointer" },
-    }),
+    borderColor: COLORS.border,
   },
-  activeRole: { backgroundColor: "#1e3a8a", borderColor: "#1e3a8a" },
-  roleBtnText: { color: "#64748b", fontWeight: "700", fontSize: 12 },
-  activeRoleText: { color: "#ffffff" },
+  activeRole: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  roleBtnText: {
+    color: COLORS.muted,
+    fontWeight: "700",
+    fontSize: 12,
+  },
+  activeRoleText: {
+    color: COLORS.white,
+  },
   inputView: {
     width: "100%",
-    backgroundColor: "#f8fafc",
+    backgroundColor: COLORS.light,
     borderRadius: 12,
     height: 48,
     marginBottom: 14,
     justifyContent: "center",
     paddingHorizontal: 14,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: COLORS.border,
+  },
+  inputText: {
+    color: COLORS.dark,
+    fontSize: 14,
+    width: "100%",
+    height: "100%",
   },
   passwordWrapper: {
     flexDirection: "row",
     alignItems: "center",
     width: "100%",
-    backgroundColor: "#f8fafc",
+    backgroundColor: COLORS.light,
     borderRadius: 12,
     height: 48,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: COLORS.border,
     paddingHorizontal: 14,
   },
-  passwordInput: { flex: 1, color: "#0f172a", fontSize: 14, height: "100%" },
+  passwordInput: {
+    flex: 1,
+    color: COLORS.dark,
+    fontSize: 14,
+    height: "100%",
+  },
   eyeIcon: {
     padding: 5,
-    ...Platform.select({
-      web: { cursor: "pointer" },
-    }),
   },
-  // AN GYARA NAN: An ba TextInput din width 100% don ya bude radau a wayoyin Android da iOS
-  inputText: { color: "#0f172a", fontSize: 14, width: "100%", height: "100%" },
   agentSection: {
     marginTop: 5,
     padding: 12,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: COLORS.softGreen,
     borderRadius: 14,
     marginBottom: 14,
     width: "100%",
+    borderWidth: 1,
+    borderColor: COLORS.secondary,
   },
   agentInfoTitle: {
-    color: "#1e3a8a",
+    color: COLORS.secondary,
     fontWeight: "800",
     marginBottom: 10,
     fontSize: 12,
@@ -609,47 +635,56 @@ const styles = StyleSheet.create({
   imagePicker: {
     width: "100%",
     height: 120,
-    backgroundColor: "#ffffff",
+    backgroundColor: COLORS.white,
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 10,
     borderStyle: "dashed",
     borderWidth: 2,
-    borderColor: "#cbd5e1",
+    borderColor: COLORS.primary,
     marginTop: 8,
-    ...Platform.select({
-      web: { cursor: "pointer" },
-    }),
   },
-  imagePickerText: { color: "#64748b", fontSize: 11, fontWeight: "600" },
-  previewImage: { width: "100%", height: "100%", borderRadius: 10 },
+  imagePickerText: {
+    color: COLORS.muted,
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  previewImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 10,
+  },
   signupBtn: {
     width: "100%",
-    backgroundColor: "#1e3a8a",
+    backgroundColor: COLORS.primary,
     borderRadius: 12,
     height: 52,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 15,
     elevation: 4,
-    shadowColor: "#1e3a8a",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    ...Platform.select({
-      web: { cursor: "pointer" },
-    }),
   },
   signupText: {
-    color: "white",
+    color: COLORS.white,
     fontWeight: "800",
     fontSize: 14,
     letterSpacing: 1.2,
   },
-  footer: { flexDirection: "row", marginTop: 20, marginBottom: 10 },
-  footerText: { color: "#64748b", fontSize: 13 },
-  loginLink: { color: "#1e3a8a", fontWeight: "800", fontSize: 13 },
+  footer: {
+    flexDirection: "row",
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  footerText: {
+    color: COLORS.muted,
+    fontSize: 13,
+  },
+  loginLink: {
+    color: COLORS.secondary,
+    fontWeight: "800",
+    fontSize: 13,
+  },
 });
 
 export default SignupScreen;

@@ -12,11 +12,27 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import BASE_URL from "../config/api";
 
-const BASE_URL = "https://ayax-api-v2.vercel.app/api/v1";
+const COLORS = {
+  primary: "#E60000",
+  secondary: "#0B5E3C",
+  dark: "#121212",
+  white: "#FFFFFF",
+  light: "#F8FAFC",
+  muted: "#64748B",
+  border: "#E2E8F0",
+  softRed: "#FFF1F1",
+  softGreen: "#EAF7F1",
+};
+
+const API_ENDPOINTS = {
+  nimcPrices: "",
+  requestModification: "",
+};
 
 const NIMCModification = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
@@ -31,47 +47,80 @@ const NIMCModification = ({ navigation }) => {
 
   const fetchPrices = async () => {
     try {
-      const { data } = await axios.get(`${BASE_URL}/nimc/prices`);
-      if (data.success) setPrices(data.prices);
+      if (!API_ENDPOINTS.nimcPrices) return;
+
+      const { data } = await axios.get(API_ENDPOINTS.nimcPrices);
+
+      if (data.success) {
+        setPrices(data.prices || {});
+      }
     } catch (err) {
-      console.log("Error fetching prices:", err);
+      console.log("Error fetching Bellaj NIMC prices:", err);
     }
   };
 
   const handleInputChange = (name, value) => {
-    setFormData({ ...formData, [name]: value });
+    setFormData({
+      ...formData,
+      [name]: value,
+    });
   };
 
   const handleSubmit = async () => {
     if (!pin || !formData.ninNumber) {
-      return Alert.alert(
-        "Error",
-        "Please fill in your NIN and Transaction PIN",
+      Alert.alert("Error", "Please fill in your NIN and Transaction PIN.");
+      return;
+    }
+
+    if (formData.ninNumber.length !== 11) {
+      Alert.alert("Error", "Please enter a valid 11-digit NIN.");
+      return;
+    }
+
+    if (pin.length !== 4) {
+      Alert.alert("Error", "Please enter your 4-digit transaction PIN.");
+      return;
+    }
+
+    if (!API_ENDPOINTS.requestModification) {
+      Alert.alert(
+        "Not Configured",
+        "NIMC modification API endpoint is not configured.",
       );
+      return;
     }
 
     setLoading(true);
+
     try {
       const token = await AsyncStorage.getItem("userToken");
+
       const response = await axios.post(
-        `${BASE_URL}/nimc/request-modification`,
+        API_ENDPOINTS.requestModification,
         {
           serviceType: selectedType,
-          formData: formData,
+          formData,
           ninNumber: formData.ninNumber,
-          pin: pin,
+          pin,
         },
-        { headers: { Authorization: `Bearer ${token}` } },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
       );
 
       if (response.data.success) {
-        Alert.alert("Success", "Modification request submitted successfully");
+        Alert.alert(
+          "Bellaj Data Hub",
+          "Modification request submitted successfully.",
+        );
         navigation.goBack();
       }
     } catch (err) {
       Alert.alert(
         "Error",
-        err.response?.data?.message || "Something went wrong",
+        err.response?.data?.message || "Something went wrong.",
       );
     } finally {
       setLoading(false);
@@ -95,9 +144,10 @@ const NIMCModification = ({ navigation }) => {
       >
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color="#1e3a8a" />
+            <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>NIMC Modification</Text>
+
+          <Text style={styles.headerTitle}>Bellaj NIMC Modification</Text>
         </View>
 
         <View style={styles.tabContainer}>
@@ -106,33 +156,34 @@ const NIMCModification = ({ navigation }) => {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.tabScroll}
           >
-            {modificationOptions.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={[
-                  styles.tabItem,
-                  selectedType === item.id && styles.activeTabItem,
-                ]}
-                onPress={() => {
-                  setSelectedType(item.id);
-                  setFormData({ ...formData, ninNumber: formData.ninNumber }); // Preserve NIN
-                }}
-              >
-                <Ionicons
-                  name={item.icon}
-                  size={18}
-                  color={selectedType === item.id ? "#fff" : "#64748b"}
-                />
-                <Text
-                  style={[
-                    styles.tabText,
-                    selectedType === item.id && styles.activeTabText,
-                  ]}
+            {modificationOptions.map((item) => {
+              const active = selectedType === item.id;
+
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[styles.tabItem, active && styles.activeTabItem]}
+                  onPress={() => {
+                    setSelectedType(item.id);
+                    setFormData({
+                      ninNumber: formData.ninNumber,
+                    });
+                  }}
                 >
-                  {item.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <Ionicons
+                    name={item.icon}
+                    size={18}
+                    color={active ? COLORS.white : COLORS.muted}
+                  />
+
+                  <Text
+                    style={[styles.tabText, active && styles.activeTabText]}
+                  >
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </ScrollView>
         </View>
 
@@ -143,6 +194,7 @@ const NIMCModification = ({ navigation }) => {
           <View style={styles.card}>
             <View style={styles.cardHeader}>
               <Text style={styles.cardTitle}>Primary Details</Text>
+
               <View style={styles.priceBadge}>
                 <Text style={styles.priceText}>
                   Cost: ₦{prices[selectedType] || "0.00"}
@@ -155,10 +207,10 @@ const NIMCModification = ({ navigation }) => {
               placeholder="11-digit NIN"
               keyboardType="numeric"
               maxLength={11}
+              value={formData.ninNumber || ""}
               onChangeText={(v) => handleInputChange("ninNumber", v)}
             />
 
-            {/* Dynamic Fields based on Selection */}
             {selectedType === "name" && (
               <>
                 <InputField
@@ -166,11 +218,13 @@ const NIMCModification = ({ navigation }) => {
                   placeholder="New first name"
                   onChangeText={(v) => handleInputChange("firstName", v)}
                 />
+
                 <InputField
                   label="Last Name"
                   placeholder="New last name"
                   onChangeText={(v) => handleInputChange("lastName", v)}
                 />
+
                 <InputField
                   label="Middle Name"
                   placeholder="New middle name"
@@ -186,6 +240,7 @@ const NIMCModification = ({ navigation }) => {
                   placeholder="As seen on NIN"
                   onChangeText={(v) => handleInputChange("fullName", v)}
                 />
+
                 <InputField
                   label="New Phone Number"
                   placeholder="080..."
@@ -202,11 +257,13 @@ const NIMCModification = ({ navigation }) => {
                   placeholder="DD/MM/YYYY"
                   onChangeText={(v) => handleInputChange("newDob", v)}
                 />
+
                 <InputField
                   label="L.G.A of Origin"
                   placeholder="Your LGA"
                   onChangeText={(v) => handleInputChange("lgaOrigin", v)}
                 />
+
                 <InputField
                   label="Place of Birth"
                   placeholder="Hospital or Town"
@@ -219,14 +276,16 @@ const NIMCModification = ({ navigation }) => {
               <>
                 <InputField
                   label="Address Line 1"
-                  placeholder="House number/Street"
+                  placeholder="House number / Street"
                   onChangeText={(v) => handleInputChange("addressLine1", v)}
                 />
+
                 <InputField
-                  label="Town/City"
+                  label="Town / City"
                   placeholder="City name"
                   onChangeText={(v) => handleInputChange("townCity", v)}
                 />
+
                 <InputField
                   label="State"
                   placeholder="Current state"
@@ -242,11 +301,13 @@ const NIMCModification = ({ navigation }) => {
                   placeholder="Enter first name"
                   onChangeText={(v) => handleInputChange("newFirstName", v)}
                 />
+
                 <InputField
                   label="New Last Name"
                   placeholder="Enter last name"
                   onChangeText={(v) => handleInputChange("newLastName", v)}
                 />
+
                 {selectedType === "name_dob" ? (
                   <InputField
                     label="New Date of Birth"
@@ -267,23 +328,25 @@ const NIMCModification = ({ navigation }) => {
 
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Authorization</Text>
+
             <InputField
               label="Transaction PIN"
               placeholder="4-digit security PIN"
               secureTextEntry
               keyboardType="numeric"
               maxLength={4}
+              value={pin}
               onChangeText={setPin}
             />
           </View>
 
           <TouchableOpacity
-            style={styles.submitBtn}
+            style={[styles.submitBtn, loading && { opacity: 0.75 }]}
             onPress={handleSubmit}
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={COLORS.white} />
             ) : (
               <Text style={styles.btnText}>Submit Modification Request</Text>
             )}
@@ -297,31 +360,39 @@ const NIMCModification = ({ navigation }) => {
 const InputField = ({ label, ...props }) => (
   <View style={styles.inputGroup}>
     <Text style={styles.label}>{label}</Text>
-    <TextInput style={styles.input} placeholderTextColor="#94a3b8" {...props} />
+    <TextInput style={styles.input} placeholderTextColor="#94A3B8" {...props} />
   </View>
 );
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f8fafc" },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.light,
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 15,
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.white,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: "800",
-    color: "#1e3a8a",
+    color: COLORS.primary,
     marginLeft: 15,
   },
   tabContainer: {
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.white,
     borderBottomWidth: 1,
-    borderBottomColor: "#f1f5f9",
+    borderBottomColor: COLORS.border,
   },
-  tabScroll: { paddingHorizontal: 15, paddingVertical: 10 },
+  tabScroll: {
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+  },
   tabItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -329,18 +400,36 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     marginRight: 10,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: COLORS.light,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
-  activeTabItem: { backgroundColor: "#1e3a8a" },
-  tabText: { fontSize: 13, fontWeight: "600", color: "#64748b", marginLeft: 6 },
-  activeTabText: { color: "#fff" },
-  scrollContent: { padding: 20 },
+  activeTabItem: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  tabText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: COLORS.muted,
+    marginLeft: 6,
+  },
+  activeTabText: {
+    color: COLORS.white,
+  },
+  scrollContent: {
+    padding: 20,
+  },
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 15,
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
     padding: 20,
     marginBottom: 20,
-    elevation: 1,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.primary,
   },
   cardHeader: {
     flexDirection: "row",
@@ -350,37 +439,52 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 15,
-    fontWeight: "700",
-    color: "#334155",
+    fontWeight: "800",
+    color: COLORS.secondary,
     marginBottom: 15,
   },
   priceBadge: {
-    backgroundColor: "#eff6ff",
+    backgroundColor: COLORS.softGreen,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
   },
-  priceText: { color: "#1e3a8a", fontSize: 12, fontWeight: "800" },
-  inputGroup: { marginBottom: 15 },
-  label: { fontSize: 12, fontWeight: "700", color: "#64748b", marginBottom: 8 },
+  priceText: {
+    color: COLORS.secondary,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  inputGroup: {
+    marginBottom: 15,
+  },
+  label: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: COLORS.muted,
+    marginBottom: 8,
+  },
   input: {
-    backgroundColor: "#f8fafc",
+    backgroundColor: COLORS.light,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: COLORS.border,
     padding: 12,
     borderRadius: 10,
     fontSize: 14,
-    color: "#1e293b",
+    color: COLORS.dark,
   },
   submitBtn: {
-    backgroundColor: "#1e3a8a",
+    backgroundColor: COLORS.primary,
     padding: 18,
     borderRadius: 12,
     alignItems: "center",
     marginTop: 10,
     marginBottom: 30,
   },
-  btnText: { color: "#fff", fontSize: 16, fontWeight: "800" },
+  btnText: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: "800",
+  },
 });
 
 export default NIMCModification;

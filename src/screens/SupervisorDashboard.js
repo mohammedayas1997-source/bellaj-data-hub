@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -7,15 +7,35 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   StatusBar,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
+import * as Clipboard from "expo-clipboard";
+import BASE_URL from "../config/api";
+
+const COLORS = {
+  primary: "#E60000",
+  secondary: "#0B5E3C",
+  dark: "#121212",
+  white: "#FFFFFF",
+  light: "#F8FAFC",
+  muted: "#64748B",
+  border: "#E2E8F0",
+  softRed: "#FFF1F1",
+  softGreen: "#EAF7F1",
+};
+
+const API_ENDPOINTS = {
+  supervisorProfile: "",
+};
 
 const SupervisorDashboard = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
+
   const [supervisorData, setSupervisorData] = useState({
-    name: "Supervisor Name",
-    referralId: "AX0000", // Generated automatically on backend during account creation
+    name: "Bellaj Supervisor",
+    referralId: "BD0000",
     agents: [
       { id: "1", name: "Bello Musa", todayGB: "12.5GB", status: "Active" },
       { id: "2", name: "Sani Ahmad", todayGB: "8.2GB", status: "Active" },
@@ -23,31 +43,44 @@ const SupervisorDashboard = ({ navigation }) => {
     ],
   });
 
-  // Protocol for fetching live supervisor profile and identification
   const fetchSupervisorContext = async () => {
     try {
+      if (!API_ENDPOINTS.supervisorProfile) return;
+
       setLoading(true);
-      // Replace with your actual authenticated endpoint
-      const response = await axios.get(
-        "https://ayax-data-xpress-server.onrender.com/api/v1/supervisor/profile",
-      );
+
+      const response = await axios.get(API_ENDPOINTS.supervisorProfile);
+
       if (response.data.success) {
         setSupervisorData(response.data.data);
       }
     } catch (error) {
-      console.error("Context Retrieval Failure:", error);
+      console.error("Bellaj supervisor context error:", error);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    // fetchSupervisorContext(); // Uncomment for live production integration
+    fetchSupervisorContext();
   }, []);
+
+  const copyReferralId = async () => {
+    await Clipboard.setStringAsync(supervisorData.referralId);
+    Alert.alert("Bellaj Data Hub", `ID ${supervisorData.referralId} copied.`);
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loaderContainer}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.light} />
 
       <View style={styles.header}>
         <View>
@@ -56,50 +89,49 @@ const SupervisorDashboard = ({ navigation }) => {
             Welcome back, {supervisorData.name}
           </Text>
         </View>
+
         <TouchableOpacity style={styles.profileBadge}>
-          <Ionicons name="person-circle" size={40} color="#1e3a8a" />
+          <Ionicons name="person-circle" size={42} color={COLORS.primary} />
         </TouchableOpacity>
       </View>
 
-      {/* Institutional Identification Card */}
       <View style={styles.idCard}>
         <View style={styles.idInfo}>
           <Text style={styles.idLabel}>OFFICIAL REFERRAL ID</Text>
           <Text style={styles.idValue}>{supervisorData.referralId}</Text>
         </View>
-        <TouchableOpacity
-          style={styles.copyBtn}
-          onPress={() =>
-            alert(`ID ${supervisorData.referralId} copied to clipboard`)
-          }
-        >
-          <Ionicons name="copy-outline" size={20} color="#fff" />
+
+        <TouchableOpacity style={styles.copyBtn} onPress={copyReferralId}>
+          <Ionicons name="copy-outline" size={20} color={COLORS.white} />
           <Text style={styles.copyText}>COPY</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Target Progress Section */}
       <View style={styles.targetCard}>
         <Text style={styles.cardLabel}>Monthly Target Progress</Text>
+
         <View style={styles.progressRow}>
           <View style={styles.statBox}>
             <Text style={styles.statNum}>7/10</Text>
             <Text style={styles.statSub}>New Agents</Text>
           </View>
+
           <View style={styles.divider} />
+
           <View style={styles.statBox}>
             <Text style={styles.statNum}>65/100</Text>
             <Text style={styles.statSub}>GB Sold</Text>
           </View>
         </View>
+
         <View style={styles.progressBarBg}>
           <View style={[styles.progressBarFill, { width: "65%" }]} />
         </View>
       </View>
 
-      {/* Agents Daily Tracking */}
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Daily Agent Performance</Text>
+
         <TouchableOpacity>
           <Text style={styles.viewAll}>View All</Text>
         </TouchableOpacity>
@@ -113,15 +145,19 @@ const SupervisorDashboard = ({ navigation }) => {
                 styles.statusDot,
                 {
                   backgroundColor:
-                    agent.status === "Active" ? "#22c55e" : "#ef4444",
+                    agent.status === "Active"
+                      ? COLORS.secondary
+                      : COLORS.primary,
                 },
               ]}
             />
+
             <View>
               <Text style={styles.agentName}>{agent.name}</Text>
               <Text style={styles.agentStatus}>{agent.status}</Text>
             </View>
           </View>
+
           <View style={{ alignItems: "flex-end" }}>
             <Text style={styles.gbText}>{agent.todayGB}</Text>
             <Text style={styles.timeText}>Data Consumed</Text>
@@ -131,14 +167,15 @@ const SupervisorDashboard = ({ navigation }) => {
 
       <TouchableOpacity
         style={styles.addAgentBtn}
-        onPress={() => navigation.navigate("Signup")} // Links to the SignupScreen with Supervisor ID context
+        onPress={() => navigation.navigate("Signup")}
       >
         <Ionicons
           name="person-add"
           size={20}
-          color="#1e3a8a"
+          color={COLORS.primary}
           style={{ marginRight: 10 }}
         />
+
         <Text style={styles.addAgentText}>Register New Agent</Text>
       </TouchableOpacity>
 
@@ -148,7 +185,17 @@ const SupervisorDashboard = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f8fafc", padding: 20 },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.light,
+    padding: 20,
+  },
+  loaderContainer: {
+    flex: 1,
+    backgroundColor: COLORS.light,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -159,15 +206,19 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 26,
     fontWeight: "900",
-    color: "#0f172a",
+    color: COLORS.primary,
     letterSpacing: -1,
   },
-  welcomeText: { color: "#64748b", fontSize: 14, fontWeight: "500" },
-  profileBadge: { padding: 5 },
-
-  // ID Card Styling
+  welcomeText: {
+    color: COLORS.muted,
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  profileBadge: {
+    padding: 5,
+  },
   idCard: {
-    backgroundColor: "#1e293b",
+    backgroundColor: COLORS.dark,
     borderRadius: 16,
     padding: 20,
     flexDirection: "row",
@@ -175,38 +226,43 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 20,
     borderLeftWidth: 5,
-    borderLeftColor: "#3b82f6",
+    borderLeftColor: COLORS.primary,
   },
   idLabel: {
-    color: "#94a3b8",
+    color: "#CBD5E1",
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 1,
   },
-  idValue: { color: "#fff", fontSize: 24, fontWeight: "bold", marginTop: 2 },
+  idValue: {
+    color: COLORS.white,
+    fontSize: 24,
+    fontWeight: "bold",
+    marginTop: 2,
+  },
   copyBtn: {
-    backgroundColor: "#334155",
+    backgroundColor: COLORS.primary,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
     flexDirection: "row",
     alignItems: "center",
   },
-  copyText: { color: "#fff", fontSize: 10, fontWeight: "bold", marginLeft: 5 },
-
+  copyText: {
+    color: COLORS.white,
+    fontSize: 10,
+    fontWeight: "bold",
+    marginLeft: 5,
+  },
   targetCard: {
-    backgroundColor: "#1e3a8a",
+    backgroundColor: COLORS.primary,
     borderRadius: 20,
     padding: 20,
     marginBottom: 25,
     elevation: 8,
-    shadowColor: "#1e3a8a",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 15,
   },
   cardLabel: {
-    color: "#bfdbfe",
+    color: "#FFE4E4",
     fontSize: 12,
     fontWeight: "700",
     marginBottom: 15,
@@ -217,28 +273,52 @@ const styles = StyleSheet.create({
     justifyContent: "space-around",
     marginBottom: 20,
   },
-  statBox: { alignItems: "center" },
-  statNum: { color: "#fff", fontSize: 24, fontWeight: "900" },
-  statSub: { color: "#93c5fd", fontSize: 11, fontWeight: "600" },
-  divider: { width: 1, height: 40, backgroundColor: "rgba(255,255,255,0.1)" },
+  statBox: {
+    alignItems: "center",
+  },
+  statNum: {
+    color: COLORS.white,
+    fontSize: 24,
+    fontWeight: "900",
+  },
+  statSub: {
+    color: "#FFE4E4",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  divider: {
+    width: 1,
+    height: 40,
+    backgroundColor: "rgba(255,255,255,0.2)",
+  },
   progressBarBg: {
     height: 10,
     backgroundColor: "rgba(0,0,0,0.2)",
     borderRadius: 5,
   },
-  progressBarFill: { height: 10, backgroundColor: "#38bdf8", borderRadius: 5 },
-
+  progressBarFill: {
+    height: 10,
+    backgroundColor: COLORS.secondary,
+    borderRadius: 5,
+  },
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 15,
   },
-  sectionTitle: { fontSize: 18, fontWeight: "800", color: "#0f172a" },
-  viewAll: { color: "#3b82f6", fontWeight: "700", fontSize: 13 },
-
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: COLORS.dark,
+  },
+  viewAll: {
+    color: COLORS.primary,
+    fontWeight: "700",
+    fontSize: 13,
+  },
   agentRow: {
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.white,
     padding: 18,
     borderRadius: 18,
     flexDirection: "row",
@@ -246,22 +326,43 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: "#f1f5f9",
+    borderColor: COLORS.border,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.primary,
   },
-  agentLeft: { flexDirection: "row", alignItems: "center" },
-  statusDot: { width: 8, height: 8, borderRadius: 4, marginRight: 12 },
-  agentName: { fontWeight: "700", color: "#1e293b", fontSize: 16 },
-  agentStatus: { color: "#64748b", fontSize: 12, fontWeight: "500" },
-  gbText: { fontWeight: "900", color: "#1e3a8a", fontSize: 17 },
+  agentLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 12,
+  },
+  agentName: {
+    fontWeight: "700",
+    color: COLORS.dark,
+    fontSize: 16,
+  },
+  agentStatus: {
+    color: COLORS.muted,
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  gbText: {
+    fontWeight: "900",
+    color: COLORS.secondary,
+    fontSize: 17,
+  },
   timeText: {
-    color: "#94a3b8",
+    color: "#94A3B8",
     fontSize: 10,
     textTransform: "uppercase",
     fontWeight: "700",
   },
-
   addAgentBtn: {
-    backgroundColor: "#eff6ff",
+    backgroundColor: COLORS.softRed,
     padding: 18,
     borderRadius: 18,
     flexDirection: "row",
@@ -269,10 +370,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderStyle: "dashed",
     borderWidth: 2,
-    borderColor: "#3b82f6",
+    borderColor: COLORS.primary,
     marginTop: 10,
   },
-  addAgentText: { color: "#1e3a8a", fontWeight: "800", fontSize: 15 },
+  addAgentText: {
+    color: COLORS.primary,
+    fontWeight: "800",
+    fontSize: 15,
+  },
 });
 
 export default SupervisorDashboard;

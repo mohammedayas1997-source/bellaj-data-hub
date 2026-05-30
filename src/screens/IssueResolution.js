@@ -10,6 +10,18 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { trackTx, getAllReports, resolveIssue } from "../api/adminApi";
+import BASE_URL from "../config/api";
+const COLORS = {
+  primary: "#E60000",
+  secondary: "#0B5E3C",
+  dark: "#121212",
+  white: "#FFFFFF",
+  light: "#F5F5F5",
+  muted: "#64748B",
+  border: "#E2E8F0",
+  softRed: "#FFF1F1",
+  softGreen: "#EAF7F1",
+};
 
 const IssueResolution = () => {
   const [searchId, setSearchId] = useState("");
@@ -17,7 +29,6 @@ const IssueResolution = () => {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Load all reports on component mount
   useEffect(() => {
     loadReports();
   }, []);
@@ -25,19 +36,22 @@ const IssueResolution = () => {
   const loadReports = async () => {
     try {
       const res = await getAllReports();
-      setReports(res.data.requests);
+      setReports(res?.data?.requests || []);
     } catch (err) {
       console.error("Fetch Error:", err);
     }
   };
 
   const handleSearch = async () => {
-    if (!searchId)
-      return Alert.alert("Input Required", "Please enter a Transaction ID.");
+    if (!searchId.trim()) {
+      Alert.alert("Input Required", "Please enter a Transaction ID.");
+      return;
+    }
 
     setLoading(true);
+
     try {
-      const res = await trackTx(searchId);
+      const res = await trackTx(searchId.trim());
       setFoundData(res.data);
     } catch (err) {
       setFoundData(null);
@@ -51,11 +65,12 @@ const IssueResolution = () => {
     try {
       await resolveIssue({
         requestId: id,
-        action: action,
-        adminNote: "Resolved via Administrative Portal",
+        action,
+        adminNote: "Resolved via Bellaj Data Hub Admin Portal",
       });
+
       Alert.alert("Success", `Ticket has been ${action}ed successfully.`);
-      loadReports(); // Refresh the list after action
+      loadReports();
     } catch (err) {
       Alert.alert(
         "Operation Failed",
@@ -65,26 +80,27 @@ const IssueResolution = () => {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.header}>Issue Resolution Center</Text>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <Text style={styles.header}>Bellaj Issue Resolution</Text>
 
-      {/* Transaction Tracker Section */}
       <View style={styles.card}>
         <Text style={styles.inputLabel}>Track Transaction</Text>
+
         <TextInput
           placeholder="Enter Transaction ID or Reference..."
-          placeholderTextColor="#94a3b8"
+          placeholderTextColor="#94A3B8"
           style={styles.input}
           value={searchId}
           onChangeText={setSearchId}
         />
+
         <TouchableOpacity
           style={styles.btnSearch}
           onPress={handleSearch}
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={COLORS.white} />
           ) : (
             <Text style={styles.btnText}>INVESTIGATE ID</Text>
           )}
@@ -93,41 +109,56 @@ const IssueResolution = () => {
 
       {foundData && (
         <View style={styles.resultCard}>
-          <Text style={styles.resultTitle}>Search Result Details:</Text>
+          <Text style={styles.resultTitle}>Search Result Details</Text>
+
           <View style={styles.resultRow}>
             <Text style={styles.label}>User Name:</Text>
-            <Text style={styles.value}>{foundData.userData.name}</Text>
+            <Text style={styles.value}>
+              {foundData?.userData?.name || "N/A"}
+            </Text>
           </View>
+
           <View style={styles.resultRow}>
             <Text style={styles.label}>Amount:</Text>
-            <Text style={styles.value}>₦{foundData.transaction.amount}</Text>
+            <Text style={styles.value}>
+              ₦{foundData?.transaction?.amount || "0.00"}
+            </Text>
           </View>
+
           <View style={styles.resultRow}>
             <Text style={styles.label}>Status:</Text>
-            <Text style={[styles.value, { color: "#2563eb" }]}>
-              {foundData.transaction.status}
+            <Text style={[styles.value, { color: COLORS.secondary }]}>
+              {foundData?.transaction?.status || "Unknown"}
             </Text>
           </View>
         </View>
       )}
 
-      {/* Pending Support Tickets */}
       <Text style={styles.subTitle}>Pending Support Reports</Text>
 
       {reports.length === 0 ? (
-        <Text style={styles.emptyText}>No active support requests found.</Text>
+        <View style={styles.emptyBox}>
+          <Text style={styles.emptyText}>
+            No active support requests found.
+          </Text>
+        </View>
       ) : (
         reports.map((item) => (
           <View key={item._id} style={styles.reportCard}>
             <View style={styles.reportHeader}>
-              <Text style={styles.reportId}>TX ID: {item.transactionId}</Text>
+              <Text style={styles.reportId}>
+                TX ID: {item.transactionId || "N/A"}
+              </Text>
+
               <Text style={styles.timestamp}>
-                {new Date(item.createdAt).toLocaleDateString()}
+                {item.createdAt
+                  ? new Date(item.createdAt).toLocaleDateString()
+                  : "N/A"}
               </Text>
             </View>
 
             <Text style={styles.reasonTitle}>Reason for Dispute:</Text>
-            <Text style={styles.reasonText}>{item.reason}</Text>
+            <Text style={styles.reasonText}>{item.reason || "No reason"}</Text>
 
             <View style={styles.row}>
               <TouchableOpacity
@@ -136,6 +167,7 @@ const IssueResolution = () => {
               >
                 <Text style={styles.btnText}>APPROVE REFUND</Text>
               </TouchableOpacity>
+
               <TouchableOpacity
                 style={styles.btnReject}
                 onPress={() => handleAction(item._id, "reject")}
@@ -146,64 +178,71 @@ const IssueResolution = () => {
           </View>
         ))
       )}
+
       <View style={{ height: 40 }} />
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f8fafc", padding: 15 },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.light,
+    padding: 15,
+  },
   header: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#0f172a",
+    color: COLORS.primary,
     marginBottom: 20,
     marginTop: 10,
   },
   card: {
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.white,
     padding: 20,
     borderRadius: 15,
     elevation: 4,
-    shadowColor: "#000",
+    shadowColor: COLORS.dark,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 4,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.primary,
   },
   inputLabel: {
     fontSize: 12,
     fontWeight: "bold",
-    color: "#64748b",
+    color: COLORS.secondary,
     marginBottom: 8,
     textTransform: "uppercase",
   },
   input: {
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#F8FAFC",
     borderRadius: 8,
     padding: 12,
     marginBottom: 15,
-    color: "#0f172a",
+    color: COLORS.dark,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: COLORS.border,
   },
   btnSearch: {
-    backgroundColor: "#1e3a8a",
+    backgroundColor: COLORS.primary,
     padding: 15,
     borderRadius: 10,
     alignItems: "center",
   },
   resultCard: {
-    backgroundColor: "#eff6ff",
+    backgroundColor: COLORS.softGreen,
     padding: 15,
     marginTop: 15,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#bfdbfe",
+    borderColor: "#B7E4CD",
   },
   resultTitle: {
     fontSize: 14,
     fontWeight: "bold",
-    color: "#1e40af",
+    color: COLORS.secondary,
     marginBottom: 10,
   },
   resultRow: {
@@ -211,15 +250,22 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 5,
   },
-  label: { color: "#64748b", fontSize: 13 },
-  value: { color: "#1e293b", fontWeight: "bold", fontSize: 13 },
+  label: {
+    color: COLORS.muted,
+    fontSize: 13,
+  },
+  value: {
+    color: COLORS.dark,
+    fontWeight: "bold",
+    fontSize: 13,
+  },
   reportCard: {
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.white,
     padding: 18,
     marginTop: 15,
     borderRadius: 15,
     borderLeftWidth: 6,
-    borderLeftColor: "#f59e0b",
+    borderLeftColor: COLORS.secondary,
     elevation: 2,
   },
   reportHeader: {
@@ -227,17 +273,28 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 12,
   },
-  reportId: { fontSize: 12, fontWeight: "bold", color: "#475569" },
-  timestamp: { fontSize: 11, color: "#94a3b8" },
-  reasonTitle: { fontSize: 12, fontWeight: "700", color: "#1e293b" },
+  reportId: {
+    fontSize: 12,
+    fontWeight: "bold",
+    color: COLORS.dark,
+  },
+  timestamp: {
+    fontSize: 11,
+    color: "#94A3B8",
+  },
+  reasonTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: COLORS.secondary,
+  },
   reasonText: {
     fontSize: 13,
-    color: "#64748b",
+    color: COLORS.muted,
     marginTop: 4,
     fontStyle: "italic",
   },
   btnApprove: {
-    backgroundColor: "#059669",
+    backgroundColor: COLORS.secondary,
     padding: 12,
     borderRadius: 8,
     flex: 1,
@@ -245,30 +302,40 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   btnReject: {
-    backgroundColor: "#dc2626",
+    backgroundColor: COLORS.primary,
     padding: 12,
     borderRadius: 8,
     flex: 1,
     alignItems: "center",
   },
   btnText: {
-    color: "#fff",
+    color: COLORS.white,
     fontWeight: "bold",
     fontSize: 11,
     letterSpacing: 0.5,
   },
-  row: { flexDirection: "row", marginTop: 20 },
+  row: {
+    flexDirection: "row",
+    marginTop: 20,
+  },
   subTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#334155",
+    color: COLORS.dark,
     marginTop: 30,
     marginBottom: 10,
   },
+  emptyBox: {
+    backgroundColor: COLORS.white,
+    padding: 20,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginTop: 10,
+  },
   emptyText: {
     textAlign: "center",
-    color: "#94a3b8",
-    marginTop: 20,
+    color: COLORS.muted,
     fontSize: 14,
   },
 });

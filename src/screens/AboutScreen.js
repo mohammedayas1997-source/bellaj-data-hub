@@ -1,64 +1,170 @@
 import React from "react";
 import { ScrollView, Text, StyleSheet, View, Image } from "react-native";
 
+const COLORS = {
+  primary: "#E60000",
+  secondary: "#0B5E3C",
+  dark: "#121212",
+  white: "#FFFFFF",
+  light: "#F8FAFC",
+  muted: "#64748B",
+  border: "#E2E8F0",
+  softRed: "#FFF1F1",
+  softGreen: "#EAF7F1",
+};
+
 const AboutScreen = () => {
   return (
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.contentContainer}
+      showsVerticalScrollIndicator={false}
     >
-      <Text style={styles.headerTitle}>About Ayax Xpress</Text>
+      {/* Logo */}
+      <View style={styles.logoContainer}>
+        <Image
+          source={require("../assets/bellaj_logo.png")}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+      </View>
 
-      <Text style={styles.sectionTitle}>Our Identity</Text>
-      <Text style={styles.bodyText}>
-        Ayax Xpress is a flagship digital product of Ayax Digital Solutions,
-        founded by Abdulrahman Mohammed Ayas. We are a premier technology firm
-        based in Kano State, Nigeria, dedicated to bridging the gap between
-        complex digital infrastructure and everyday utility needs.
-      </Text>
+      <Text style={styles.headerTitle}>About Bellaj Data Hub</Text>
 
-      <Text style={styles.sectionTitle}>Our Mission</Text>
-      <Text style={styles.bodyText}>
-        Our mission is to empower individuals and businesses by providing the
-        most aggressive data rates, seamless airtime top-ups, and lightning-fast
-        bill payment solutions. We believe that connectivity is a right, not a
-        luxury, and we strive to make it affordable for everyone.
-      </Text>
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Our Identity</Text>
 
-      <Text style={styles.sectionTitle}>Why Choose Us?</Text>
-      <Text style={styles.bodyText}>
-        • Unmatched Speed: Our automated systems ensure your transactions are
-        processed in seconds.
-        {"\n"}• Cost Efficiency: We negotiate the best rates to save you money
-        on every Naira spent.
-        {"\n"}• Local Expertise: Built in Nigeria, for Nigeria, understanding
-        our unique digital landscape.
-      </Text>
+        <Text style={styles.bodyText}>
+          Bellaj Data Hub is a modern digital service platform committed to
+          delivering affordable data subscriptions, airtime purchases,
+          electricity payments, cable TV subscriptions, identity verification
+          services, and other essential digital solutions across Nigeria.
+        </Text>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Our Mission</Text>
+
+        <Text style={styles.bodyText}>
+          Our mission is to make digital services faster, cheaper, safer, and
+          accessible to everyone. We believe every Nigerian deserves reliable
+          connectivity and convenient access to digital solutions without
+          unnecessary stress or high costs.
+        </Text>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Our Vision</Text>
+
+        <Text style={styles.bodyText}>
+          To become one of Nigeria's most trusted digital utility platforms by
+          providing innovative technology solutions, exceptional customer
+          service, and dependable transaction processing nationwide.
+        </Text>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Why Choose Bellaj Data Hub?</Text>
+
+        <Text style={styles.bodyText}>
+          • Instant Transaction Processing{"\n"}• Affordable Data & Airtime
+          Rates{"\n"}• Secure Payment Infrastructure{"\n"}• Reliable Utility
+          Services{"\n"}• Professional Customer Support{"\n"}• User-Friendly
+          Experience{"\n"}• Trusted Digital Solutions
+        </Text>
+      </View>
+
+      <View style={styles.highlightBox}>
+        <Text style={styles.highlightTitle}>Fast • Secure • Reliable</Text>
+
+        <Text style={styles.highlightText}>
+          Bellaj Data Hub is designed to provide seamless digital services with
+          speed, transparency, and reliability you can trust.
+        </Text>
+      </View>
+
+      <View style={{ height: 30 }} />
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#ffffff" },
-  contentContainer: { padding: 25, paddingBottom: 50 },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.light,
+  },
+
+  contentContainer: {
+    padding: 25,
+    paddingBottom: 50,
+  },
+
+  logoContainer: {
+    alignItems: "center",
+    marginBottom: 20,
+    marginTop: 10,
+  },
+
+  logo: {
+    width: 120,
+    height: 120,
+  },
+
   headerTitle: {
     fontSize: 28,
     fontWeight: "900",
-    color: "#0a1d37",
+    color: COLORS.primary,
     marginBottom: 20,
+    textAlign: "center",
   },
+
+  card: {
+    backgroundColor: COLORS.white,
+    padding: 18,
+    borderRadius: 15,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.primary,
+    elevation: 2,
+  },
+
   sectionTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#1e3a8a",
-    marginTop: 20,
+    color: COLORS.secondary,
     marginBottom: 10,
   },
+
   bodyText: {
     fontSize: 15,
     color: "#475569",
     lineHeight: 24,
     fontWeight: "500",
+  },
+
+  highlightBox: {
+    backgroundColor: COLORS.softGreen,
+    padding: 20,
+    borderRadius: 15,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: COLORS.secondary,
+  },
+
+  highlightTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: COLORS.secondary,
+    marginBottom: 8,
+    textAlign: "center",
+  },
+
+  highlightText: {
+    color: COLORS.dark,
+    textAlign: "center",
+    lineHeight: 22,
   },
 });
 

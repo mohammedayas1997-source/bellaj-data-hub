@@ -9,29 +9,44 @@ import {
   StatusBar,
   Dimensions,
   ToastAndroid,
-  ImageBackground,
   Linking,
   Alert,
   Platform,
 } from "react-native";
+
 import * as Clipboard from "expo-clipboard";
+
 import {
   MaterialCommunityIcons,
   Ionicons,
   FontAwesome5,
 } from "@expo/vector-icons";
+
 import { LinearGradient } from "expo-linear-gradient";
+
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
+
 import { ThemeContext } from "../context/ThemeContext";
+import BASE_URL from "../config/api";
 
 const { width } = Dimensions.get("window");
-const BASE_URL = "https://ayax-data-xpress-server.onrender.com/api/v1";
+
+// 🔥 BASE URL REMOVED
+// const BASE_URL = "";
+
+const COLORS = {
+  primary: "#E60000",
+  secondary: "#0B5E3C",
+  dark: "#121212",
+  white: "#FFFFFF",
+  light: "#F5F5F5",
+};
 
 const HomeScreen = ({ navigation }) => {
   const { isDarkMode } = useContext(ThemeContext);
-  const [userData, setUserData] = useState(null);
 
+  const [userData, setUserData] = useState(null);
   const [isBalanceVisible, setIsBalanceVisible] = useState(true);
 
   useEffect(() => {
@@ -41,44 +56,48 @@ const HomeScreen = ({ navigation }) => {
   const fetchUserData = async () => {
     try {
       const token = await AsyncStorage.getItem("userToken");
+
       if (!token) {
-        navigation.reset({ index: 0, routes: [{ name: "Login" }] });
+        navigation.reset({
+          index: 0,
+          routes: [{ name: "Login" }],
+        });
         return;
       }
 
-      const response = await axios.get(`${BASE_URL}/user/profile`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/json",
-        },
-      });
+      // 🔥 API REMOVED
+      // Replace with your new Bellaj backend later
 
-      if (response.data && response.data.success) {
-        // Centralized data object to prevent "Undefined" errors
-        setUserData(response.data.user || response.data.data);
-      }
+      // DEMO USER DATA
+      setUserData({
+        firstName: "Bellaj",
+        surname: "User",
+        walletBalance: "25,680.00",
+        bankName: "Wema Bank",
+        accountNumber: "1234567890",
+      });
     } catch (err) {
-      if (err.response && err.response.status === 401) {
-        await AsyncStorage.clear();
-        navigation.reset({ index: 0, routes: [{ name: "Login" }] });
-      } else {
-        console.error("Profile Synchronization Failure:", err.message);
-      }
+      console.log(err.message);
     }
   };
 
   const copyToClipboard = (text) => {
-    if (!text) return;
     Clipboard.setStringAsync(text);
+
     if (Platform.OS === "android") {
-      ToastAndroid.show("Copied to clipboard", ToastAndroid.SHORT);
+      ToastAndroid.show("Copied", ToastAndroid.SHORT);
     }
   };
 
   const openWhatsApp = () => {
     const phoneNumber = "+2349061244444";
-    const message = `Hello Ayax Xpress Support, I need assistance with my account.`;
-    const url = `whatsapp://send?phone=${phoneNumber}&text=${encodeURIComponent(message)}`;
+
+    const message = "Hello Bellaj Data Hub Support, I need assistance.";
+
+    const url = `whatsapp://send?phone=${phoneNumber}&text=${encodeURIComponent(
+      message,
+    )}`;
+
     Linking.openURL(url).catch(() =>
       Linking.openURL(`https://wa.me/${phoneNumber.replace("+", "")}`),
     );
@@ -89,58 +108,52 @@ const HomeScreen = ({ navigation }) => {
       style={[
         styles.mainContainer,
         {
-          backgroundColor: isDarkMode ? "#020617" : "#f8fafc",
+          backgroundColor: isDarkMode ? COLORS.dark : COLORS.light,
         },
       ]}
     >
       <StatusBar
-        barStyle={isDarkMode ? "light-content" : "dark-content"}
         translucent
         backgroundColor="transparent"
+        barStyle={isDarkMode ? "light-content" : "dark-content"}
       />
 
-      <ImageBackground
-        source={require("../assets/ayax_promo_hijab.png")}
-        style={styles.backgroundImage}
-        resizeMode="cover"
-      >
-        <LinearGradient
-          colors={
-            isDarkMode
-              ? ["rgba(2,6,23,0.7)", "rgba(2,6,23,0.95)"]
-              : ["rgba(255,255,255,0.6)", "rgba(248,250,252,0.95)"]
-          }
-          style={styles.fullOverlay}
-        />
+      {/* 🔥 BACKGROUND IMAGE REMOVED */}
 
+      <LinearGradient
+        colors={isDarkMode ? ["#121212", "#0B5E3C"] : ["#ffffff", "#f5f5f5"]}
+        style={styles.fullScreen}
+      >
+        {/* HEADER */}
         <View style={styles.topHeader}>
           <View style={styles.navRow}>
             <View style={styles.logoCircle}>
               <Image
-                source={require("../assets/Logo.png")}
+                source={require("../assets/bellaj_logo.png")}
                 style={styles.logoImg}
               />
             </View>
+
             <TouchableOpacity
-              onPress={(e) => {
-                e.stopPropagation(); // Wannan yana dakatar da event ɗin daga isa ga sauran abubuwa
-                navigation.navigate("Notifications"); // Ko kuma sunan shafin naka
-              }}
+              onPress={() => navigation.navigate("Notifications")}
             >
               <Ionicons
                 name="notifications-outline"
                 size={28}
-                color="#0f172a"
+                color={COLORS.primary}
               />
             </TouchableOpacity>
           </View>
 
           <View style={styles.welcomeSection}>
             <Text style={styles.welcomeText}>Welcome back,</Text>
+
             <Text
               style={[
                 styles.userName,
-                { color: isDarkMode ? "#fff" : "#0f172a" },
+                {
+                  color: isDarkMode ? COLORS.white : COLORS.dark,
+                },
               ]}
             >
               {userData
@@ -151,37 +164,40 @@ const HomeScreen = ({ navigation }) => {
         </View>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {/* 1. Wallet Card */}
+          {/* WALLET */}
           <LinearGradient
-            colors={["#1e40af", "#1e3a8a"]}
+            colors={[COLORS.primary, "#990000"]}
             style={styles.walletCard}
           >
             <View style={styles.walletTop}>
               <Text style={styles.walletLabel}>Available Balance</Text>
+
               <TouchableOpacity
                 onPress={() =>
-                  navigation.navigate("Main", { screen: "Wallet History" })
+                  navigation.navigate("Main", {
+                    screen: "Wallet History",
+                  })
                 }
               >
-                <Text style={styles.historyText}>
-                  Transactions <Ionicons name="chevron-forward" size={12} />
-                </Text>
+                <Text style={styles.historyText}>Transactions</Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.balanceContainer}>
               <Text style={styles.currency}>₦</Text>
+
               <Text style={styles.balanceText}>
-                {isBalanceVisible ? userData?.walletBalance || "0.00" : "****"}
+                {isBalanceVisible ? userData?.walletBalance : "****"}
               </Text>
+
               <TouchableOpacity
                 onPress={() => setIsBalanceVisible(!isBalanceVisible)}
               >
                 <Ionicons
                   name={isBalanceVisible ? "eye-outline" : "eye-off-outline"}
                   size={24}
-                  color="#38bdf8"
-                  style={{ marginLeft: 15 }}
+                  color="#fff"
+                  style={{ marginLeft: 12 }}
                 />
               </TouchableOpacity>
             </View>
@@ -192,200 +208,161 @@ const HomeScreen = ({ navigation }) => {
                 onPress={() => navigation.navigate("FundWallet")}
               >
                 <LinearGradient
-                  colors={["#38bdf8", "#0ea5e9"]}
+                  colors={[COLORS.secondary, "#063B26"]}
                   style={styles.innerBtnGradient}
                 >
                   <Ionicons name="add-circle" size={18} color="#fff" />
+
                   <Text style={styles.actionBtnText}>FUND WALLET</Text>
                 </LinearGradient>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[
-                  styles.actionBtn,
-                  { backgroundColor: "rgba(255,255,255,0.15)" },
-                ]}
+                style={styles.supportBtn}
                 onPress={openWhatsApp}
               >
                 <Ionicons name="logo-whatsapp" size={18} color="#22c55e" />
-                <Text style={[styles.actionBtnText, { color: "#fff" }]}>
-                  SUPPORT
-                </Text>
+
+                <Text style={styles.actionBtnText}>SUPPORT</Text>
               </TouchableOpacity>
             </View>
           </LinearGradient>
 
-          {/* 2. Funding Accounts Section - REAL LIVE DATA */}
+          {/* ACCOUNTS */}
           <Text
             style={[
               styles.sectionLabel,
-              { color: isDarkMode ? "#fff" : "#1e293b" },
+              {
+                color: isDarkMode ? COLORS.white : COLORS.dark,
+              },
             ]}
           >
-            Automatic Funding Accounts
+            Funding Accounts
           </Text>
+
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             style={styles.bankScroll}
           >
-            {userData?.accountNumber ? (
-              <BankCard
-                bank={userData.bankName || "Wema Bank"}
-                acc={userData.accountNumber}
-                code="WB"
-                onCopy={() => copyToClipboard(userData.accountNumber)}
-              />
-            ) : (
-              <BankCard
-                bank="Initializing..."
-                acc="Generating Account"
-                code=".."
-                onCopy={() =>
-                  Alert.alert(
-                    "Wait",
-                    "Your unique virtual account is being provisioned.",
-                  )
-                }
-              />
-            )}
             <BankCard
-              bank="Paystack Terminal"
-              acc="Automated Funding"
-              code="PAY"
-              onCopy={() =>
-                Alert.alert(
-                  "Note",
-                  "Transfer to the Wema account for instant wallet credit.",
-                )
-              }
+              bank={userData?.bankName}
+              acc={userData?.accountNumber}
+              code="BD"
+              onCopy={() => copyToClipboard(userData?.accountNumber)}
             />
           </ScrollView>
 
-          {/* 3. Quick Services Grid */}
+          {/* SERVICES */}
           <Text
             style={[
               styles.sectionLabel,
-              { color: isDarkMode ? "#fff" : "#1e293b" },
+              {
+                color: isDarkMode ? COLORS.white : COLORS.dark,
+              },
             ]}
           >
-            Our Services
+            Bellaj Services
           </Text>
+
           <View style={styles.servicesContainer}>
             <View style={styles.grid}>
               <ServiceItem
                 icon="wifi"
-                color="#0ea5e9"
                 label="Data"
-                isDarkMode={isDarkMode}
+                color={COLORS.primary}
                 onPress={() => navigation.navigate("BuyData")}
               />
+
               <ServiceItem
                 icon="phone-alt"
-                color="#22c55e"
                 label="Airtime"
-                isDarkMode={isDarkMode}
+                color={COLORS.secondary}
                 onPress={() => navigation.navigate("BuyAirtime")}
               />
+
               <ServiceItem
                 icon="bolt"
-                color="#eab308"
-                label="Power"
-                isDarkMode={isDarkMode}
+                label="Electricity"
+                color="#EAB308"
                 onPress={() => navigation.navigate("Electricity")}
               />
+
               <ServiceItem
                 icon="tv"
-                color="#8b5cf6"
                 label="Cable"
-                isDarkMode={isDarkMode}
+                color="#8B5CF6"
                 onPress={() => navigation.navigate("Cable")}
               />
-              <ServiceItem
-                icon="id-card"
-                color="#f43f5e"
-                label="NIMC Varify"
-                isDarkMode={isDarkMode}
-                onPress={() => navigation.navigate("NIMC")}
-              />
-              <ServiceItem
-                icon="fingerprint"
-                color="#ec4899"
-                label="NIMC Mod"
-                isDarkMode={isDarkMode}
-                onPress={() => navigation.navigate("NIMCModification")}
-              />
-              <ServiceItem
-                icon="user-shield"
-                color="#64748b"
-                label="BVN"
-                isDarkMode={isDarkMode}
-                onPress={() => navigation.navigate("BVNScreen")}
-              />
-              <ServiceItem
-                icon="shield-alt"
-                color="#1e40af"
-                label="NIN Valid"
-                onPress={() => navigation.navigate("NINValidation")}
-              />
+
               <ServiceItem
                 icon="history"
-                color="#f97316"
                 label="History"
-                isDarkMode={isDarkMode}
+                color="#F97316"
                 onPress={() =>
-                  navigation.navigate("Main", { screen: "Wallet History" })
+                  navigation.navigate("Main", {
+                    screen: "Wallet History",
+                  })
                 }
               />
             </View>
           </View>
 
-          {/* 4. Branding & Trust */}
+          {/* TRUST */}
           <View style={styles.footerBranding}>
-            <Text style={styles.footerHeadline}>Why Choose Ayax Xpress?</Text>
+            <Text style={styles.footerHeadline}>WHY BELLAJ DATA HUB?</Text>
+
             <View style={styles.trustGrid}>
               <TrustItem
                 icon="shield-check"
+                title="Secure"
+                sub="Protected"
                 color="#16a34a"
-                bg="#dcfce7"
-                title="100% Secure"
-                sub="Encrypted"
+                bg="#DCFCE7"
               />
+
               <TrustItem
                 icon="flash"
-                color="#ca8a04"
-                bg="#fef9c3"
                 title="Instant"
                 sub="Automated"
+                color="#CA8A04"
+                bg="#FEF9C3"
               />
+
               <TrustItem
                 icon="headset"
-                color="#0284c7"
-                bg="#e0f2fe"
-                title="24/7 Support"
-                sub="Reliable"
+                title="Support"
+                sub="24/7 Active"
+                color="#0284C7"
+                bg="#E0F2FE"
               />
             </View>
           </View>
+
           <View style={{ height: 120 }} />
         </ScrollView>
-      </ImageBackground>
+      </LinearGradient>
 
-      {/* Bottom Navigation */}
+      {/* BOTTOM TAB */}
       <View style={styles.bottomTab}>
-        <TabItem icon="home" label="Home" active onPress={() => {}} />
+        <TabItem icon="home" label="Home" active />
+
         <TabItem
           icon="time-outline"
           label="History"
           onPress={() =>
-            navigation.navigate("Main", { screen: "Wallet History" })
+            navigation.navigate("Main", {
+              screen: "Wallet History",
+            })
           }
         />
+
         <TabItem
           icon="person-outline"
           label="Profile"
           onPress={() => navigation.navigate("Profile")}
         />
+
         <TabItem
           icon="help-buoy-outline"
           label="Support"
@@ -396,42 +373,37 @@ const HomeScreen = ({ navigation }) => {
   );
 };
 
-// Sub-Components
+/* ================= COMPONENTS ================= */
+
 const BankCard = ({ bank, acc, code, onCopy }) => (
   <TouchableOpacity style={styles.bankBox} onPress={onCopy}>
     <View style={styles.bankInfo}>
       <View style={styles.bankLogoCircle}>
         <Text style={styles.bankLogoText}>{code}</Text>
       </View>
+
       <View>
         <Text style={styles.bankTitle}>{bank}</Text>
+
         <Text style={styles.accNo}>{acc}</Text>
       </View>
     </View>
-    <Ionicons name="copy-outline" size={18} color="#1e40af" />
+
+    <Ionicons name="copy-outline" size={18} color={COLORS.primary} />
   </TouchableOpacity>
 );
 
-const ServiceItem = ({ icon, label, color, onPress, isDarkMode }) => (
+const ServiceItem = ({ icon, label, color, onPress }) => (
   <TouchableOpacity style={styles.gridItem} onPress={onPress}>
     <View style={styles.iconBox}>
       <FontAwesome5 name={icon} size={20} color={color} />
     </View>
 
-    <Text
-      style={[
-        styles.gridLabel,
-        {
-          color: isDarkMode ? "#fff" : "#475569",
-        },
-      ]}
-    >
-      {label}
-    </Text>
+    <Text style={styles.gridLabel}>{label}</Text>
   </TouchableOpacity>
 );
 
-const TrustItem = ({ icon, color, bg, title, sub }) => (
+const TrustItem = ({ icon, title, sub, color, bg }) => (
   <View style={styles.trustItem}>
     <View style={[styles.trustIconCircle, { backgroundColor: bg }]}>
       {icon === "flash" ? (
@@ -440,98 +412,179 @@ const TrustItem = ({ icon, color, bg, title, sub }) => (
         <MaterialCommunityIcons name={icon} size={28} color={color} />
       )}
     </View>
+
     <Text style={styles.trustTitle}>{title}</Text>
+
     <Text style={styles.trustSub}>{sub}</Text>
   </View>
 );
 
 const TabItem = ({ icon, label, active, onPress }) => (
   <TouchableOpacity style={styles.tabItem} onPress={onPress}>
-    <Ionicons name={icon} size={24} color={active ? "#1e40af" : "#94a3b8"} />
-    <Text style={[styles.tabLabel, { color: active ? "#1e40af" : "#94a3b8" }]}>
+    <Ionicons
+      name={icon}
+      size={24}
+      color={active ? COLORS.primary : "#94A3B8"}
+    />
+
+    <Text
+      style={[
+        styles.tabLabel,
+        {
+          color: active ? COLORS.primary : "#94A3B8",
+        },
+      ]}
+    >
       {label}
     </Text>
   </TouchableOpacity>
 );
 
-// Styles are consistent with your design
+/* ================= STYLES ================= */
+
 const styles = StyleSheet.create({
-  mainContainer: { flex: 1, backgroundColor: "#f8fafc" },
-  backgroundImage: { flex: 1, width: "100%", height: "100%" },
-  fullOverlay: { position: "absolute", width: "100%", height: "100%" },
-  topHeader: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20 },
+  mainContainer: {
+    flex: 1,
+  },
+
+  fullScreen: {
+    flex: 1,
+  },
+
+  topHeader: {
+    paddingTop: 60,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+
   navRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 20,
   },
+
   logoCircle: {
-    width: 45,
-    height: 45,
-    backgroundColor: "#0f172a",
-    borderRadius: 23,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "#fff",
     justifyContent: "center",
     alignItems: "center",
-    elevation: 4,
+    elevation: 5,
   },
-  logoImg: { width: 32, height: 32, resizeMode: "contain" },
-  welcomeSection: { marginBottom: 10 },
-  welcomeText: { color: "#64748b", fontSize: 14, fontWeight: "500" },
-  userName: { color: "#0f172a", fontSize: 24, fontWeight: "bold" },
-  content: { flex: 1, paddingHorizontal: 16 },
+
+  logoImg: {
+    width: 36,
+    height: 36,
+    resizeMode: "contain",
+  },
+
+  welcomeSection: {
+    marginTop: 10,
+  },
+
+  welcomeText: {
+    color: "#64748B",
+    fontSize: 14,
+  },
+
+  userName: {
+    fontSize: 24,
+    fontWeight: "bold",
+  },
+
+  content: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+
   walletCard: {
-    borderRadius: 24,
+    borderRadius: 25,
     padding: 22,
     marginBottom: 25,
-    elevation: 10,
+    elevation: 8,
   },
+
   walletTop: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
   },
-  walletLabel: { color: "#dbeafe", fontSize: 13 },
-  historyText: { color: "#38bdf8", fontSize: 12, fontWeight: "600" },
+
+  walletLabel: {
+    color: "#fff",
+  },
+
+  historyText: {
+    color: "#fff",
+    fontWeight: "600",
+  },
+
   balanceContainer: {
     flexDirection: "row",
     alignItems: "center",
     marginVertical: 15,
   },
-  currency: { color: "#fff", fontSize: 24, fontWeight: "600" },
+
+  currency: {
+    color: "#fff",
+    fontSize: 24,
+    fontWeight: "bold",
+  },
+
   balanceText: {
     color: "#fff",
     fontSize: 34,
     fontWeight: "bold",
     marginLeft: 8,
   },
+
   walletActions: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginTop: 10,
   },
-  actionBtn: { flex: 0.48, height: 48, borderRadius: 14, overflow: "hidden" },
-  innerBtnGradient: {
-    flex: 1,
-    flexDirection: "row",
+
+  actionBtn: {
+    flex: 0.48,
+    height: 48,
+    borderRadius: 14,
+    overflow: "hidden",
+  },
+
+  supportBtn: {
+    flex: 0.48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: "rgba(255,255,255,0.15)",
     justifyContent: "center",
     alignItems: "center",
+    flexDirection: "row",
   },
+
+  innerBtnGradient: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    flexDirection: "row",
+  },
+
   actionBtnText: {
     color: "#fff",
     fontWeight: "bold",
-    fontSize: 12,
     marginLeft: 8,
   },
+
   sectionLabel: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#1e293b",
-    marginTop: 10,
     marginBottom: 15,
-    paddingLeft: 4,
   },
-  bankScroll: { marginBottom: 25 },
+
+  bankScroll: {
+    marginBottom: 25,
+  },
+
   bankBox: {
     backgroundColor: "#fff",
     width: width * 0.75,
@@ -543,97 +596,137 @@ const styles = StyleSheet.create({
     marginRight: 15,
     elevation: 3,
     borderLeftWidth: 4,
-    borderLeftColor: "#1e40af",
+    borderLeftColor: COLORS.primary,
   },
-  bankInfo: { flexDirection: "row", alignItems: "center" },
+
+  bankInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
   bankLogoCircle: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#F1F5F9",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
   },
-  bankLogoText: { color: "#1e40af", fontWeight: "bold", fontSize: 12 },
-  bankTitle: { fontSize: 12, color: "#64748b" },
-  accNo: { fontSize: 17, color: "#0f172a", fontWeight: "bold" },
-  servicesContainer: {
-    borderRadius: 28,
-    padding: 20,
-    elevation: 4,
+
+  bankLogoText: {
+    color: COLORS.primary,
+    fontWeight: "bold",
   },
+
+  bankTitle: {
+    fontSize: 12,
+    color: "#64748B",
+  },
+
+  accNo: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#111827",
+  },
+
+  servicesContainer: {
+    borderRadius: 24,
+    padding: 20,
+  },
+
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
   },
-  gridItem: { width: "23%", alignItems: "center", marginBottom: 22 },
+
+  gridItem: {
+    width: "23%",
+    alignItems: "center",
+    marginBottom: 22,
+  },
+
   iconBox: {
     width: 54,
     height: 54,
     borderRadius: 18,
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#fff",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 8,
-    elevation: 1,
+    elevation: 2,
   },
+
   gridLabel: {
-    color: "#475569",
     fontSize: 11,
     textAlign: "center",
     fontWeight: "600",
+    color: "#374151",
   },
+
+  footerBranding: {
+    marginTop: 25,
+    paddingBottom: 40,
+  },
+
+  footerHeadline: {
+    textAlign: "center",
+    fontWeight: "bold",
+    fontSize: 16,
+    color: COLORS.primary,
+    marginBottom: 20,
+  },
+
+  trustGrid: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+  },
+
+  trustItem: {
+    alignItems: "center",
+    width: "30%",
+  },
+
+  trustIconCircle: {
+    width: 55,
+    height: 55,
+    borderRadius: 28,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+
+  trustTitle: {
+    fontWeight: "bold",
+    fontSize: 12,
+    color: "#111827",
+  },
+
+  trustSub: {
+    fontSize: 10,
+    color: "#94A3B8",
+  },
+
   bottomTab: {
     height: 85,
     backgroundColor: "#fff",
     flexDirection: "row",
     borderTopWidth: 1,
-    borderTopColor: "#f1f5f9",
+    borderTopColor: "#F1F5F9",
     paddingBottom: 20,
-    elevation: 20,
   },
-  tabItem: { flex: 1, justifyContent: "center", alignItems: "center" },
-  tabLabel: { fontSize: 10, marginTop: 4, fontWeight: "600" },
-  footerBranding: {
-    marginTop: 30,
-    paddingBottom: 40,
-    backgroundColor: "#f8fafc",
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    paddingTop: 20,
-  },
-  footerHeadline: {
-    textAlign: "center",
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#64748b",
-    marginBottom: 20,
-    textTransform: "uppercase",
-  },
-  trustGrid: { flexDirection: "row", justifyContent: "space-around" },
-  trustItem: { alignItems: "center", width: "30%" },
-  trustIconCircle: {
-    width: 55,
-    height: 55,
-    borderRadius: 27.5,
+
+  tabItem: {
+    flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 8,
-    elevation: 3,
   },
-  trustTitle: {
-    fontSize: 12,
-    fontWeight: "bold",
-    color: "#1e293b",
-    textAlign: "center",
-  },
-  trustSub: {
+
+  tabLabel: {
     fontSize: 10,
-    color: "#94a3b8",
-    textAlign: "center",
-    marginTop: 2,
+    marginTop: 4,
+    fontWeight: "600",
   },
 });
 
