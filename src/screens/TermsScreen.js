@@ -22,147 +22,119 @@ const COLORS = {
 const TermsScreen = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
+      <View style={styles.page}>
         <Text style={styles.headerTitle}>Terms & Conditions</Text>
         <Text style={styles.headerSub}>Bellaj Data Hub User Agreement</Text>
 
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>1. Acceptance of Terms</Text>
-          <Text style={styles.bodyText}>
-            By creating an account or using Bellaj Data Hub services, you
-            acknowledge that you have read, understood, and agreed to be bound
-            by these Terms and Conditions. Continued use of the platform
-            constitutes acceptance of all applicable rules and policies.
-          </Text>
-        </View>
+        <View style={styles.scrollBox}>
+          <ScrollView
+            style={styles.innerScroll}
+            contentContainerStyle={styles.innerContent}
+            showsVerticalScrollIndicator
+            nestedScrollEnabled
+          >
+            {[
+              [
+                "1. Acceptance of Terms",
+                "By creating an account or using Bellaj Data Hub services, you acknowledge that you have read, understood, and agreed to be bound by these Terms and Conditions. Continued use of the platform constitutes acceptance of all applicable rules and policies.",
+              ],
+              [
+                "2. Account Responsibility",
+                "Users are solely responsible for maintaining the security of their login credentials, transaction PINs, and device access. Any activity carried out through your account shall be considered authorized by the account owner.",
+              ],
+              [
+                "3. Transaction Policy",
+                "All purchases of airtime, data subscriptions, cable TV services, electricity units, and identity verification services should be carefully reviewed before confirmation. Successfully completed digital transactions are generally non-refundable except where service failure is verified by Bellaj Data Hub.",
+              ],
+              [
+                "4. Service Availability",
+                "While Bellaj Data Hub strives to provide uninterrupted services, temporary outages may occur due to maintenance, network provider issues, banking disruptions, or events beyond our reasonable control.",
+              ],
+              [
+                "5. Prohibited Activities",
+                "Users must not engage in fraudulent transactions, unauthorized access attempts, identity theft, money laundering, abuse of promotional offers, or any activity that violates applicable laws and regulations.",
+              ],
+              [
+                "6. Limitation of Liability",
+                "Bellaj Data Hub shall not be liable for indirect, consequential, incidental, or special damages resulting from service interruptions, network failures, banking delays, or third-party system malfunctions beyond our operational control.",
+              ],
+              [
+                "7. Policy Updates",
+                "Bellaj Data Hub reserves the right to modify these Terms and Conditions at any time. Updated versions will become effective immediately after publication within the application.",
+              ],
+            ].map(([title, body]) => (
+              <View style={styles.card} key={title}>
+                <Text style={styles.sectionTitle}>{title}</Text>
+                <Text style={styles.bodyText}>{body}</Text>
+              </View>
+            ))}
 
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>2. Account Responsibility</Text>
-          <Text style={styles.bodyText}>
-            Users are solely responsible for maintaining the security of their
-            login credentials, transaction PINs, and device access. Any activity
-            carried out through your account shall be considered authorized by
-            the account owner.
-          </Text>
+            <View style={styles.noticeBox}>
+              <Text style={styles.noticeTitle}>Important Notice</Text>
+              <Text style={styles.noticeText}>
+                By continuing to use Bellaj Data Hub, you agree to comply with
+                all platform policies, security requirements, and applicable
+                financial regulations.
+              </Text>
+            </View>
+          </ScrollView>
         </View>
-
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>3. Transaction Policy</Text>
-          <Text style={styles.bodyText}>
-            All purchases of airtime, data subscriptions, cable TV services,
-            electricity units, and identity verification services should be
-            carefully reviewed before confirmation. Successfully completed
-            digital transactions are generally non-refundable except where
-            service failure is verified by Bellaj Data Hub.
-          </Text>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>4. Service Availability</Text>
-          <Text style={styles.bodyText}>
-            While Bellaj Data Hub strives to provide uninterrupted services,
-            temporary outages may occur due to maintenance, network provider
-            issues, banking disruptions, or events beyond our reasonable
-            control.
-          </Text>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>5. Prohibited Activities</Text>
-          <Text style={styles.bodyText}>
-            Users must not engage in fraudulent transactions, unauthorized
-            access attempts, identity theft, money laundering, abuse of
-            promotional offers, or any activity that violates applicable laws
-            and regulations.
-          </Text>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>6. Limitation of Liability</Text>
-          <Text style={styles.bodyText}>
-            Bellaj Data Hub shall not be liable for indirect, consequential,
-            incidental, or special damages resulting from service interruptions,
-            network failures, banking delays, or third-party system malfunctions
-            beyond our operational control.
-          </Text>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>7. Policy Updates</Text>
-          <Text style={styles.bodyText}>
-            Bellaj Data Hub reserves the right to modify these Terms and
-            Conditions at any time. Updated versions will become effective
-            immediately after publication within the application.
-          </Text>
-        </View>
-
-        <View style={styles.noticeBox}>
-          <Text style={styles.noticeTitle}>Important Notice</Text>
-          <Text style={styles.noticeText}>
-            By continuing to use Bellaj Data Hub, you agree to comply with all
-            platform policies, security requirements, and applicable financial
-            regulations.
-          </Text>
-        </View>
-
-        <View style={styles.bottomSpace} />
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  safeArea: { flex: 1, backgroundColor: COLORS.light },
+  page: {
     flex: 1,
-    backgroundColor: COLORS.light,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.light,
-  },
-  contentContainer: {
-    flexGrow: 1,
-    width: "100%",
     paddingHorizontal: 18,
     paddingTop: Platform.OS === "android" ? 35 : 20,
-    paddingBottom: 45,
+    paddingBottom: 20,
   },
   headerTitle: {
     fontSize: 29,
     fontWeight: "900",
     color: COLORS.primary,
     textAlign: "center",
-    marginBottom: 5,
   },
   headerSub: {
     color: COLORS.secondary,
     fontSize: 14,
     fontWeight: "700",
     textAlign: "center",
-    marginBottom: 22,
+    marginTop: 5,
+    marginBottom: 16,
+  },
+  scrollBox: {
+    flex: 1,
+    backgroundColor: COLORS.white,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    overflow: "hidden",
+    elevation: 3,
+  },
+  innerScroll: { flex: 1 },
+  innerContent: {
+    padding: 16,
+    paddingBottom: 35,
   },
   card: {
-    width: "100%",
-    backgroundColor: COLORS.white,
-    padding: 18,
-    borderRadius: 16,
-    marginBottom: 15,
+    backgroundColor: COLORS.light,
+    padding: 16,
+    borderRadius: 14,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderLeftWidth: 4,
     borderLeftColor: COLORS.primary,
-    elevation: 2,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "800",
     color: COLORS.primary,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   bodyText: {
     fontSize: 15,
@@ -171,13 +143,11 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   noticeBox: {
-    width: "100%",
     backgroundColor: COLORS.softGreen,
-    padding: 20,
-    borderRadius: 16,
+    padding: 18,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: "#BBF7D0",
-    marginTop: 5,
   },
   noticeTitle: {
     fontSize: 18,
@@ -191,9 +161,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 22,
     fontWeight: "500",
-  },
-  bottomSpace: {
-    height: 35,
   },
 });
 

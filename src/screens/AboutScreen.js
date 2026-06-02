@@ -23,73 +23,84 @@ const COLORS = {
 const AboutScreen = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={styles.logoContainer}>
-          <View style={styles.logoCircle}>
-            <Image
-              source={require("../assets/Logo.png")}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-          </View>
-        </View>
-
+      <View style={styles.page}>
         <Text style={styles.headerTitle}>About Bellaj Data Hub</Text>
 
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Our Identity</Text>
-          <Text style={styles.bodyText}>
-            Bellaj Data Hub is a modern digital service platform committed to
-            delivering affordable data subscriptions, airtime purchases,
-            electricity payments, cable TV subscriptions, identity verification
-            services, and other essential digital solutions across Nigeria.
-          </Text>
-        </View>
+        <View style={styles.scrollBox}>
+          <ScrollView
+            style={styles.innerScroll}
+            contentContainerStyle={styles.innerContent}
+            showsVerticalScrollIndicator={true}
+            nestedScrollEnabled={true}
+          >
+            <View style={styles.logoContainer}>
+              <View style={styles.logoCircle}>
+                <Image
+                  source={require("../assets/Logo.png")}
+                  style={styles.logo}
+                  resizeMode="contain"
+                />
+              </View>
+            </View>
 
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Our Mission</Text>
-          <Text style={styles.bodyText}>
-            Our mission is to make digital services faster, cheaper, safer, and
-            accessible to everyone. We believe every Nigerian deserves reliable
-            connectivity and convenient access to digital solutions without
-            unnecessary stress or high costs.
-          </Text>
-        </View>
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Our Identity</Text>
+              <Text style={styles.bodyText}>
+                Bellaj Data Hub is a modern digital service platform committed
+                to delivering affordable data subscriptions, airtime purchases,
+                electricity payments, cable TV subscriptions, identity
+                verification services, and other essential digital solutions
+                across Nigeria.
+              </Text>
+            </View>
 
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Our Vision</Text>
-          <Text style={styles.bodyText}>
-            To become one of Nigeria&apos;s most trusted digital utility
-            platforms by providing innovative technology solutions, exceptional
-            customer service, and dependable transaction processing nationwide.
-          </Text>
-        </View>
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Our Mission</Text>
+              <Text style={styles.bodyText}>
+                Our mission is to make digital services faster, cheaper, safer,
+                and accessible to everyone. We believe every Nigerian deserves
+                reliable connectivity and convenient access to digital solutions
+                without unnecessary stress or high costs.
+              </Text>
+            </View>
 
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Why Choose Bellaj Data Hub?</Text>
-          <Text style={styles.bodyText}>
-            • Instant Transaction Processing{"\n"}• Affordable Data & Airtime
-            Rates{"\n"}• Secure Payment Infrastructure{"\n"}• Reliable Utility
-            Services{"\n"}• Professional Customer Support{"\n"}• User-Friendly
-            Experience{"\n"}• Trusted Digital Solutions
-          </Text>
-        </View>
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Our Vision</Text>
+              <Text style={styles.bodyText}>
+                To become one of Nigeria's most trusted digital utility
+                platforms by providing innovative technology solutions,
+                exceptional customer service, and dependable transaction
+                processing nationwide.
+              </Text>
+            </View>
 
-        <View style={styles.highlightBox}>
-          <Text style={styles.highlightTitle}>Fast • Secure • Reliable</Text>
-          <Text style={styles.highlightText}>
-            Bellaj Data Hub is designed to provide seamless digital services
-            with speed, transparency, and reliability you can trust.
-          </Text>
-        </View>
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>
+                Why Choose Bellaj Data Hub?
+              </Text>
 
-        <View style={styles.bottomSpace} />
-      </ScrollView>
+              <Text style={styles.bodyText}>
+                • Instant Transaction Processing{"\n"}• Affordable Data &
+                Airtime Rates{"\n"}• Secure Payment Infrastructure{"\n"}•
+                Reliable Utility Services{"\n"}• Professional Customer Support
+                {"\n"}• User-Friendly Experience{"\n"}• Trusted Digital
+                Solutions
+              </Text>
+            </View>
+
+            <View style={styles.highlightBox}>
+              <Text style={styles.highlightTitle}>
+                Fast • Secure • Reliable
+              </Text>
+
+              <Text style={styles.highlightText}>
+                Bellaj Data Hub is designed to provide seamless digital services
+                with speed, transparency, and reliability you can trust.
+              </Text>
+            </View>
+          </ScrollView>
+        </View>
+      </View>
     </SafeAreaView>
   );
 };
@@ -100,22 +111,44 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.light,
   },
 
-  container: {
+  page: {
     flex: 1,
     backgroundColor: COLORS.light,
-  },
-
-  contentContainer: {
-    flexGrow: 1,
-    width: "100%",
     paddingHorizontal: 18,
     paddingTop: Platform.OS === "android" ? 35 : 20,
-    paddingBottom: 45,
+    paddingBottom: 20,
+  },
+
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: "900",
+    color: COLORS.primary,
+    textAlign: "center",
+    marginBottom: 15,
+  },
+
+  scrollBox: {
+    flex: 1,
+    backgroundColor: COLORS.white,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    overflow: "hidden",
+    elevation: 4,
+  },
+
+  innerScroll: {
+    flex: 1,
+  },
+
+  innerContent: {
+    padding: 18,
+    paddingBottom: 40,
   },
 
   logoContainer: {
     alignItems: "center",
-    marginBottom: 18,
+    marginBottom: 20,
   },
 
   logoCircle: {
@@ -135,32 +168,22 @@ const styles = StyleSheet.create({
     height: 90,
   },
 
-  headerTitle: {
-    fontSize: 27,
-    fontWeight: "900",
-    color: COLORS.primary,
-    marginBottom: 22,
-    textAlign: "center",
-  },
-
   card: {
-    width: "100%",
-    backgroundColor: COLORS.white,
-    padding: 18,
-    borderRadius: 16,
-    marginBottom: 15,
+    backgroundColor: COLORS.light,
+    padding: 16,
+    borderRadius: 14,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderLeftWidth: 4,
     borderLeftColor: COLORS.primary,
-    elevation: 2,
   },
 
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "800",
     color: COLORS.primary,
-    marginBottom: 10,
+    marginBottom: 8,
   },
 
   bodyText: {
@@ -171,13 +194,12 @@ const styles = StyleSheet.create({
   },
 
   highlightBox: {
-    width: "100%",
     backgroundColor: COLORS.softGreen,
-    padding: 20,
-    borderRadius: 16,
-    marginTop: 8,
+    padding: 18,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: "#BBF7D0",
+    marginTop: 5,
   },
 
   highlightTitle: {
@@ -193,10 +215,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 22,
     fontWeight: "500",
-  },
-
-  bottomSpace: {
-    height: 35,
   },
 });
 

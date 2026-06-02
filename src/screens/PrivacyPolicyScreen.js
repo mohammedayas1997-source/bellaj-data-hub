@@ -20,96 +20,68 @@ const COLORS = {
 };
 
 const PrivacyPolicyScreen = () => {
+  const privacySections = [
+    [
+      "1. Information We Collect",
+      "Bellaj Data Hub collects information necessary to provide digital services efficiently and securely. This may include your full name, phone number, email address, transaction records, account details, and service usage information.",
+    ],
+    [
+      "2. How We Use Your Information",
+      "Your information is used to process transactions, verify identities, provide customer support, improve our services, maintain platform security, and comply with regulatory requirements where applicable.",
+    ],
+    [
+      "3. Security Measures",
+      "Security is a top priority at Bellaj Data Hub. We utilize industry-standard encryption, secure authentication methods, and protected infrastructure to safeguard customer data and financial transactions.",
+    ],
+    [
+      "4. Biometric Authentication",
+      "Where biometric login features such as Face ID or Fingerprint Authentication are enabled, biometric information remains securely managed by your device and is not stored on Bellaj Data Hub servers.",
+    ],
+    [
+      "5. Third-Party Services",
+      "Bellaj Data Hub may share limited information with trusted service providers, payment processors, telecommunication networks, and utility providers solely for the purpose of completing requested services and transactions.",
+    ],
+    [
+      "6. Data Protection Commitment",
+      "We do not sell customer personal information. Customer data is handled responsibly and protected in accordance with applicable privacy and data protection standards.",
+    ],
+    [
+      "7. Policy Updates",
+      "Bellaj Data Hub reserves the right to update this Privacy Policy when necessary. Updated versions will be made available within the application and become effective immediately after publication.",
+    ],
+  ];
+
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
+      <View style={styles.page}>
         <Text style={styles.headerTitle}>Privacy Policy</Text>
-
         <Text style={styles.date}>Effective Date: May 2026</Text>
 
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>1. Information We Collect</Text>
-          <Text style={styles.bodyText}>
-            Bellaj Data Hub collects information necessary to provide digital
-            services efficiently and securely. This may include your full name,
-            phone number, email address, transaction records, account details,
-            and service usage information.
-          </Text>
-        </View>
+        <View style={styles.scrollBox}>
+          <ScrollView
+            style={styles.innerScroll}
+            contentContainerStyle={styles.innerContent}
+            showsVerticalScrollIndicator
+            nestedScrollEnabled
+            keyboardShouldPersistTaps="handled"
+          >
+            {privacySections.map(([title, body]) => (
+              <View style={styles.card} key={title}>
+                <Text style={styles.sectionTitle}>{title}</Text>
+                <Text style={styles.bodyText}>{body}</Text>
+              </View>
+            ))}
 
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>
-            2. How We Use Your Information
-          </Text>
-          <Text style={styles.bodyText}>
-            Your information is used to process transactions, verify identities,
-            provide customer support, improve our services, maintain platform
-            security, and comply with regulatory requirements where applicable.
-          </Text>
+            <View style={styles.noticeBox}>
+              <Text style={styles.noticeTitle}>Your Privacy Matters</Text>
+              <Text style={styles.noticeText}>
+                We are committed to protecting your information and providing a
+                secure digital experience every time you use Bellaj Data Hub.
+              </Text>
+            </View>
+          </ScrollView>
         </View>
-
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>3. Security Measures</Text>
-          <Text style={styles.bodyText}>
-            Security is a top priority at Bellaj Data Hub. We utilize
-            industry-standard encryption, secure authentication methods, and
-            protected infrastructure to safeguard customer data and financial
-            transactions.
-          </Text>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>4. Biometric Authentication</Text>
-          <Text style={styles.bodyText}>
-            Where biometric login features such as Face ID or Fingerprint
-            Authentication are enabled, biometric information remains securely
-            managed by your device and is not stored on Bellaj Data Hub servers.
-          </Text>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>5. Third-Party Services</Text>
-          <Text style={styles.bodyText}>
-            Bellaj Data Hub may share limited information with trusted service
-            providers, payment processors, telecommunication networks, and
-            utility providers solely for the purpose of completing requested
-            services and transactions.
-          </Text>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>6. Data Protection Commitment</Text>
-          <Text style={styles.bodyText}>
-            We do not sell customer personal information. Customer data is
-            handled responsibly and protected in accordance with applicable
-            privacy and data protection standards.
-          </Text>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>7. Policy Updates</Text>
-          <Text style={styles.bodyText}>
-            Bellaj Data Hub reserves the right to update this Privacy Policy
-            when necessary. Updated versions will be made available within the
-            application and become effective immediately after publication.
-          </Text>
-        </View>
-
-        <View style={styles.noticeBox}>
-          <Text style={styles.noticeTitle}>Your Privacy Matters</Text>
-          <Text style={styles.noticeText}>
-            We are committed to protecting your information and providing a
-            secure digital experience every time you use Bellaj Data Hub.
-          </Text>
-        </View>
-
-        <View style={styles.bottomSpace} />
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 };
@@ -120,17 +92,12 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.light,
   },
 
-  container: {
+  page: {
     flex: 1,
     backgroundColor: COLORS.light,
-  },
-
-  contentContainer: {
-    flexGrow: 1,
-    width: "100%",
     paddingHorizontal: 18,
     paddingTop: Platform.OS === "android" ? 35 : 20,
-    paddingBottom: 45,
+    paddingBottom: 20,
   },
 
   headerTitle: {
@@ -144,29 +111,46 @@ const styles = StyleSheet.create({
   date: {
     fontSize: 13,
     color: COLORS.muted,
-    marginBottom: 20,
+    marginBottom: 16,
     textAlign: "center",
     fontWeight: "700",
   },
 
-  card: {
-    width: "100%",
+  scrollBox: {
+    flex: 1,
     backgroundColor: COLORS.white,
-    padding: 18,
-    borderRadius: 16,
-    marginBottom: 15,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    overflow: "hidden",
+    elevation: 3,
+  },
+
+  innerScroll: {
+    flex: 1,
+  },
+
+  innerContent: {
+    padding: 16,
+    paddingBottom: 35,
+  },
+
+  card: {
+    backgroundColor: COLORS.light,
+    padding: 16,
+    borderRadius: 14,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderLeftWidth: 4,
     borderLeftColor: COLORS.primary,
-    elevation: 2,
   },
 
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "800",
     color: COLORS.primary,
-    marginBottom: 10,
+    marginBottom: 8,
   },
 
   bodyText: {
@@ -177,13 +161,11 @@ const styles = StyleSheet.create({
   },
 
   noticeBox: {
-    width: "100%",
     backgroundColor: COLORS.softGreen,
-    borderRadius: 16,
-    padding: 20,
+    padding: 18,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: "#BBF7D0",
-    marginTop: 5,
   },
 
   noticeTitle: {
@@ -199,10 +181,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 22,
     fontWeight: "500",
-  },
-
-  bottomSpace: {
-    height: 35,
   },
 });
 
