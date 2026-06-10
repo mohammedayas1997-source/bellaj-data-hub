@@ -47,7 +47,7 @@ const SignupScreen = ({ navigation }) => {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-
+  
   const [role, setRole] = useState("user");
   const [state, setState] = useState("");
   const [lga, setLga] = useState("");
@@ -58,7 +58,7 @@ const SignupScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
+  const REGISTER_URL = `${BASE_URL}/auth/register`;
   const showAlert = (title, message, buttons = []) => {
     if (Platform.OS === "web") {
       alert(`${title}\n\n${message}`);
