@@ -42,7 +42,7 @@ const API_ENDPOINTS = {
 };
 
 const LoginScreen = ({ navigation }) => {
-  const { width, height } = useWindowDimensions();
+  const { width } = useWindowDimensions();
   const isWeb = width >= 768;
 
   const [email, setEmail] = useState("");
@@ -66,6 +66,7 @@ const LoginScreen = ({ navigation }) => {
       if (!token || !storedUserData) return;
 
       const user = JSON.parse(storedUserData);
+
       const detectedRole = (
         user?.role ||
         user?.user?.role ||
@@ -253,17 +254,17 @@ const LoginScreen = ({ navigation }) => {
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
         style={styles.keyboardView}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={[
             styles.scrollContent,
             isWeb && styles.webScrollContent,
-            { minHeight: height },
           ]}
           keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator
+          showsVerticalScrollIndicator={true}
+          alwaysBounceVertical={true}
         >
           <View style={[styles.card, isWeb && styles.webCard]}>
             <View style={styles.headerSection}>
@@ -464,52 +465,59 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.light,
   },
+
   keyboardView: {
     flex: 1,
+    backgroundColor: COLORS.light,
   },
+
   scrollView: {
     flex: 1,
     backgroundColor: COLORS.light,
   },
+
   scrollContent: {
     flexGrow: 1,
     width: "100%",
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
     paddingTop: Platform.OS === "android" ? 35 : 20,
-    paddingBottom: 28,
+    paddingBottom: 80,
     backgroundColor: COLORS.light,
   },
+
   webScrollContent: {
     alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 35,
+    paddingTop: 35,
+    paddingBottom: 90,
   },
+
   card: {
     width: "100%",
-    flexGrow: 1,
-    backgroundColor: COLORS.white,
-    borderRadius: 0,
-    paddingHorizontal: 20,
-    paddingTop: 22,
-    paddingBottom: 24,
-    justifyContent: "flex-start",
-  },
-  webCard: {
-    flexGrow: 0,
-    width: "100%",
     maxWidth: 520,
-    borderRadius: 24,
-    padding: 28,
+    alignSelf: "center",
+    backgroundColor: COLORS.white,
+    borderRadius: 22,
+    paddingHorizontal: 20,
+    paddingVertical: 24,
+    marginBottom: 30,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+
+  webCard: {
+    padding: 30,
     elevation: 8,
     shadowColor: COLORS.dark,
     shadowOffset: { width: 0, height: 5 },
     shadowOpacity: 0.12,
     shadowRadius: 16,
   },
+
   headerSection: {
     alignItems: "center",
     marginBottom: 24,
   },
+
   logoCircle: {
     width: 96,
     height: 96,
@@ -521,16 +529,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
+
   logoImg: {
     width: 72,
     height: 72,
   },
+
   appName: {
     fontSize: 28,
     fontWeight: "900",
     color: COLORS.primary,
     textAlign: "center",
   },
+
   tagline: {
     fontSize: 14,
     color: COLORS.secondary,
@@ -538,12 +549,14 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontWeight: "600",
   },
+
   label: {
     color: "#475569",
     fontSize: 14,
     marginBottom: 8,
     fontWeight: "700",
   },
+
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -555,9 +568,11 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     minHeight: 52,
   },
+
   inputIcon: {
     marginRight: 10,
   },
+
   input: {
     flex: 1,
     minHeight: 52,
@@ -565,6 +580,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     outlineStyle: "none",
   },
+
   errorBanner: {
     flexDirection: "row",
     backgroundColor: "#FEF2F2",
@@ -576,44 +592,53 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
+
   errorBannerText: {
     color: "#991B1B",
     fontSize: 14,
     fontWeight: "600",
     flex: 1,
   },
+
   supervisorRow: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 18,
   },
+
   supervisorText: {
     marginLeft: 8,
     fontWeight: "700",
   },
+
   actionRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 22,
   },
+
   biometricBtn: {
     alignItems: "center",
   },
+
   biometricText: {
     fontSize: 10,
     color: COLORS.secondary,
     fontWeight: "bold",
     marginTop: 2,
   },
+
   forgotBtn: {
     alignSelf: "center",
   },
+
   forgotText: {
     color: COLORS.primary,
     fontSize: 14,
     fontWeight: "700",
   },
+
   loginBtn: {
     backgroundColor: COLORS.primary,
     minHeight: 56,
@@ -621,11 +646,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+
   loginBtnText: {
     color: COLORS.white,
     fontSize: 17,
     fontWeight: "900",
   },
+
   footerLinks: {
     flexDirection: "row",
     justifyContent: "center",
@@ -634,6 +661,7 @@ const styles = StyleSheet.create({
     width: "100%",
     flexWrap: "wrap",
   },
+
   linkText: {
     color: COLORS.muted,
     fontSize: 12,
@@ -641,27 +669,32 @@ const styles = StyleSheet.create({
     textDecorationLine: "underline",
     paddingHorizontal: 4,
   },
+
   divider: {
     width: 1,
     height: 14,
     backgroundColor: "#CBD5E1",
     marginHorizontal: 8,
   },
+
   signupContainer: {
     flexDirection: "row",
     justifyContent: "center",
     marginTop: 22,
     flexWrap: "wrap",
   },
+
   noAccountText: {
     color: COLORS.muted,
     fontSize: 14,
   },
+
   signupText: {
     color: COLORS.secondary,
     fontSize: 14,
     fontWeight: "900",
   },
+
   contactContainer: {
     marginTop: 28,
     alignItems: "center",
@@ -669,6 +702,7 @@ const styles = StyleSheet.create({
     borderTopColor: "#F1F5F9",
     paddingTop: 18,
   },
+
   contactTitle: {
     fontSize: 12,
     fontWeight: "800",
@@ -676,10 +710,12 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     letterSpacing: 1,
   },
+
   iconRow: {
     flexDirection: "row",
     alignItems: "center",
   },
+
   contactIconCircle: {
     width: 45,
     height: 45,
@@ -690,6 +726,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
+
   phoneNumber: {
     marginTop: 15,
     fontSize: 16,
