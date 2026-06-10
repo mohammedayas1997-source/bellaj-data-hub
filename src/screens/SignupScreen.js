@@ -168,13 +168,17 @@ const SignupScreen = ({ navigation }) => {
         }
       }
 
-      const response = await axios.post(API_ENDPOINTS.register, registrationData, {
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        timeout: 200000,
-      });
+     const response = await axios.post(
+  `${BASE_URL}/auth/register`,
+  registrationData,
+  {
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    timeout: 200000,
+  }
+);
 
       const isSuccess =
         response.status === 201 ||
