@@ -42,7 +42,8 @@ const API_ENDPOINTS = {
 };
 
 const LoginScreen = ({ navigation }) => {
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
+  const isWeb = width >= 768;
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -65,7 +66,6 @@ const LoginScreen = ({ navigation }) => {
       if (!token || !storedUserData) return;
 
       const user = JSON.parse(storedUserData);
-
       const detectedRole = (
         user?.role ||
         user?.user?.role ||
@@ -82,9 +82,7 @@ const LoginScreen = ({ navigation }) => {
           routes: [
             {
               name: "Main",
-              state: {
-                routes: [{ name: "AgentDashboard" }],
-              },
+              state: { routes: [{ name: "AgentDashboard" }] },
             },
           ],
         });
@@ -120,16 +118,16 @@ const LoginScreen = ({ navigation }) => {
 
   const openWhatsApp = () => {
     Linking.openURL(
-      "https://wa.me/2349061244444?text=Hello%20Bellaj%20Data%20Hub%20Support",
+      "https://wa.me/2349075207281?text=Hello%20Bellaj%20Data%20Hub%20Support"
     );
   };
 
   const openEmail = () => {
-    Linking.openURL("mailto:support@bellajdatahub.com");
+    Linking.openURL("mailto:support@bellajdatahub.online");
   };
 
   const makeCall = () => {
-    Linking.openURL("tel:+2349061244444");
+    Linking.openURL("tel:+2349075207281");
   };
 
   const redirectUser = (role) => {
@@ -140,7 +138,7 @@ const LoginScreen = ({ navigation }) => {
         CommonActions.reset({
           index: 0,
           routes: [{ name: "SupervisorDashboard" }],
-        }),
+        })
       );
     } else if (normalizedRole === "agent") {
       navigation.dispatch(
@@ -155,14 +153,14 @@ const LoginScreen = ({ navigation }) => {
               },
             },
           ],
-        }),
+        })
       );
     } else {
       navigation.dispatch(
         CommonActions.reset({
           index: 0,
           routes: [{ name: "Main" }],
-        }),
+        })
       );
     }
   };
@@ -217,7 +215,7 @@ const LoginScreen = ({ navigation }) => {
     } catch (error) {
       setErrorMessage(
         error.response?.data?.message ||
-          "Login failed. Please check your credentials.",
+          "Login failed. Please check your credentials."
       );
     } finally {
       setLoading(false);
@@ -254,29 +252,26 @@ const LoginScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.keyboardView}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={[
-            styles.scrollContainer,
-            width >= 700 && styles.webScrollContainer,
+            styles.scrollContent,
+            isWeb && styles.webScrollContent,
+            { minHeight: height },
           ]}
-          showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator
         >
-          <View
-            style={[
-              styles.contentWrapper,
-              width >= 700 && styles.webContentWrapper,
-            ]}
-          >
+          <View style={[styles.card, isWeb && styles.webCard]}>
             <View style={styles.headerSection}>
               <View style={styles.logoCircle}>
                 <Image
                   source={require("../assets/Logo.png")}
                   style={styles.logoImg}
+                  resizeMode="contain"
                 />
               </View>
 
@@ -286,154 +281,147 @@ const LoginScreen = ({ navigation }) => {
               </Text>
             </View>
 
-            <View style={styles.formSection}>
-              {errorMessage ? (
-                <View style={styles.errorBanner}>
-                  <Ionicons
-                    name="alert-circle"
-                    size={20}
-                    color={COLORS.danger}
-                  />
-                  <Text style={styles.errorBannerText}>{errorMessage}</Text>
-                </View>
-              ) : null}
+            {errorMessage ? (
+              <View style={styles.errorBanner}>
+                <Ionicons name="alert-circle" size={20} color={COLORS.danger} />
+                <Text style={styles.errorBannerText}>{errorMessage}</Text>
+              </View>
+            ) : null}
 
-              <Text style={styles.label}>Email Address</Text>
-              <View style={styles.inputContainer}>
+            <Text style={styles.label}>Email Address</Text>
+            <View style={styles.inputContainer}>
+              <Ionicons
+                name="mail-outline"
+                size={20}
+                color={COLORS.muted}
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="example@mail.com"
+                placeholderTextColor="#94A3B8"
+                value={email}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  if (errorMessage) setErrorMessage("");
+                }}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+
+            <Text style={styles.label}>Password</Text>
+            <View style={styles.inputContainer}>
+              <Ionicons
+                name="lock-closed-outline"
+                size={20}
+                color={COLORS.muted}
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="••••••••"
+                placeholderTextColor="#94A3B8"
+                value={password}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  if (errorMessage) setErrorMessage("");
+                }}
+                secureTextEntry={!showPassword}
+              />
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                 <Ionicons
-                  name="mail-outline"
+                  name={showPassword ? "eye-off-outline" : "eye-outline"}
                   size={20}
                   color={COLORS.muted}
-                  style={styles.inputIcon}
                 />
-                <TextInput
-                  style={styles.input}
-                  placeholder="example@mail.com"
-                  placeholderTextColor="#94A3B8"
-                  value={email}
-                  onChangeText={(text) => {
-                    setEmail(text);
-                    if (errorMessage) setErrorMessage("");
-                  }}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                />
-              </View>
+              </TouchableOpacity>
+            </View>
 
-              <Text style={styles.label}>Password</Text>
-              <View style={styles.inputContainer}>
-                <Ionicons
-                  name="lock-closed-outline"
-                  size={20}
-                  color={COLORS.muted}
-                  style={styles.inputIcon}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="••••••••"
-                  placeholderTextColor="#94A3B8"
-                  value={password}
-                  onChangeText={(text) => {
-                    setPassword(text);
-                    if (errorMessage) setErrorMessage("");
-                  }}
-                  secureTextEntry={!showPassword}
-                />
+            <TouchableOpacity
+              style={styles.supervisorRow}
+              onPress={() => setIsSupervisor(!isSupervisor)}
+            >
+              <Ionicons
+                name={isSupervisor ? "checkbox" : "square-outline"}
+                size={24}
+                color={isSupervisor ? COLORS.primary : COLORS.muted}
+              />
+              <Text
+                style={[
+                  styles.supervisorText,
+                  { color: isSupervisor ? COLORS.primary : COLORS.muted },
+                ]}
+              >
+                Login as Supervisor
+              </Text>
+            </TouchableOpacity>
+
+            <View style={styles.actionRow}>
+              {isBiometricEnabled ? (
                 <TouchableOpacity
-                  onPress={() => setShowPassword(!showPassword)}
+                  style={styles.biometricBtn}
+                  onPress={handleBiometricLogin}
                 >
-                  <Ionicons
-                    name={showPassword ? "eye-off-outline" : "eye-outline"}
-                    size={20}
-                    color={COLORS.muted}
+                  <MaterialCommunityIcons
+                    name="fingerprint"
+                    size={35}
+                    color={COLORS.secondary}
                   />
+                  <Text style={styles.biometricText}>Touch ID</Text>
                 </TouchableOpacity>
-              </View>
+              ) : (
+                <View />
+              )}
 
               <TouchableOpacity
-                style={styles.supervisorRow}
-                onPress={() => setIsSupervisor(!isSupervisor)}
+                style={styles.forgotBtn}
+                onPress={() => navigation.navigate("ForgotPassword")}
               >
-                <Ionicons
-                  name={isSupervisor ? "checkbox" : "square-outline"}
-                  size={24}
-                  color={isSupervisor ? COLORS.primary : COLORS.muted}
-                />
-                <Text
-                  style={[
-                    styles.supervisorText,
-                    { color: isSupervisor ? COLORS.primary : COLORS.muted },
-                  ]}
-                >
-                  Login as Supervisor
-                </Text>
+                <Text style={styles.forgotText}>Forgot Password?</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={styles.loginBtn}
+              onPress={handleLogin}
+              disabled={loading}
+              activeOpacity={0.9}
+            >
+              {loading ? (
+                <ActivityIndicator color={COLORS.white} />
+              ) : (
+                <Text style={styles.loginBtnText}>Login to Dashboard</Text>
+              )}
+            </TouchableOpacity>
+
+            <View style={styles.footerLinks}>
+              <TouchableOpacity onPress={() => navigation.navigate("About")}>
+                <Text style={styles.linkText}>About Us</Text>
               </TouchableOpacity>
 
-              <View style={styles.actionRow}>
-                {isBiometricEnabled ? (
-                  <TouchableOpacity
-                    style={styles.biometricBtn}
-                    onPress={handleBiometricLogin}
-                  >
-                    <MaterialCommunityIcons
-                      name="fingerprint"
-                      size={35}
-                      color={COLORS.secondary}
-                    />
-                    <Text style={styles.biometricText}>Touch ID</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <View />
-                )}
-
-                <TouchableOpacity
-                  style={styles.forgotBtn}
-                  onPress={() => navigation.navigate("ForgotPassword")}
-                >
-                  <Text style={styles.forgotText}>Forgot Password?</Text>
-                </TouchableOpacity>
-              </View>
+              <View style={styles.divider} />
 
               <TouchableOpacity
-                style={styles.loginBtn}
-                onPress={handleLogin}
-                disabled={loading}
+                onPress={() => navigation.navigate("PrivacyPolicy")}
               >
-                {loading ? (
-                  <ActivityIndicator color={COLORS.white} />
-                ) : (
-                  <Text style={styles.loginBtnText}>Login to Dashboard</Text>
-                )}
+                <Text style={styles.linkText}>Privacy Policy</Text>
               </TouchableOpacity>
 
-              <View style={styles.footerLinks}>
-                <TouchableOpacity onPress={() => navigation.navigate("About")}>
-                  <Text style={styles.linkText}>About Us</Text>
-                </TouchableOpacity>
+              <View style={styles.divider} />
 
-                <View style={styles.divider} />
+              <TouchableOpacity onPress={() => navigation.navigate("Terms")}>
+                <Text style={styles.linkText}>Terms</Text>
+              </TouchableOpacity>
+            </View>
 
-                <TouchableOpacity
-                  onPress={() => navigation.navigate("PrivacyPolicy")}
-                >
-                  <Text style={styles.linkText}>Privacy Policy</Text>
-                </TouchableOpacity>
-
-                <View style={styles.divider} />
-
-                <TouchableOpacity onPress={() => navigation.navigate("Terms")}>
-                  <Text style={styles.linkText}>Terms</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.signupContainer}>
-                <Text style={styles.noAccountText}>
-                  Don&apos;t have an account?{" "}
-                </Text>
-                <TouchableOpacity onPress={() => navigation.navigate("Signup")}>
-                  <Text style={styles.signupText}>Create Account</Text>
-                </TouchableOpacity>
-              </View>
+            <View style={styles.signupContainer}>
+              <Text style={styles.noAccountText}>
+                Don&apos;t have an account?{" "}
+              </Text>
+              <TouchableOpacity onPress={() => navigation.navigate("Signup")}>
+                <Text style={styles.signupText}>Create Account</Text>
+              </TouchableOpacity>
             </View>
 
             <View style={styles.contactContainer}>
@@ -476,122 +464,107 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.light,
   },
-
   keyboardView: {
     flex: 1,
   },
-
   scrollView: {
     flex: 1,
     backgroundColor: COLORS.light,
   },
-
-  scrollContainer: {
+  scrollContent: {
     flexGrow: 1,
     width: "100%",
+    paddingHorizontal: 18,
+    paddingTop: Platform.OS === "android" ? 35 : 20,
+    paddingBottom: 28,
     backgroundColor: COLORS.light,
   },
-
-  webScrollContainer: {
+  webScrollContent: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 30,
+    paddingVertical: 35,
   },
-
-  contentWrapper: {
-    flexGrow: 1,
+  card: {
     width: "100%",
-    minHeight: "100%",
+    flexGrow: 1,
     backgroundColor: COLORS.white,
-    paddingHorizontal: 22,
-    paddingTop: Platform.OS === "android" ? 45 : 25,
-    paddingBottom: 25,
-    justifyContent: "space-between",
+    borderRadius: 0,
+    paddingHorizontal: 20,
+    paddingTop: 22,
+    paddingBottom: 24,
+    justifyContent: "flex-start",
   },
-
-  webContentWrapper: {
+  webCard: {
     flexGrow: 0,
-    minHeight: undefined,
-    width: 500,
-    borderRadius: 25,
-    padding: 25,
+    width: "100%",
+    maxWidth: 520,
+    borderRadius: 24,
+    padding: 28,
     elevation: 8,
     shadowColor: COLORS.dark,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
   },
-
   headerSection: {
     alignItems: "center",
-    marginBottom: 25,
+    marginBottom: 24,
   },
-
   logoCircle: {
-    width: 95,
-    height: 95,
+    width: 96,
+    height: 96,
     borderRadius: 48,
     backgroundColor: COLORS.white,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 15,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-
   logoImg: {
     width: 72,
     height: 72,
-    resizeMode: "contain",
   },
-
   appName: {
     fontSize: 28,
-    fontWeight: "bold",
+    fontWeight: "900",
     color: COLORS.primary,
     textAlign: "center",
   },
-
   tagline: {
     fontSize: 14,
     color: COLORS.secondary,
-    marginTop: 5,
+    marginTop: 6,
     textAlign: "center",
+    fontWeight: "600",
   },
-
-  formSection: {
-    width: "100%",
-  },
-
   label: {
     color: "#475569",
     fontSize: 14,
     marginBottom: 8,
-    fontWeight: "600",
+    fontWeight: "700",
   },
-
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#F8FAFC",
-    borderRadius: 12,
+    borderRadius: 13,
     paddingHorizontal: 15,
     marginBottom: 18,
     borderWidth: 1,
     borderColor: COLORS.border,
+    minHeight: 52,
   },
-
   inputIcon: {
     marginRight: 10,
   },
-
   input: {
     flex: 1,
-    height: 50,
+    minHeight: 52,
     color: COLORS.dark,
     fontSize: 16,
+    outlineStyle: "none",
   },
-
   errorBanner: {
     flexDirection: "row",
     backgroundColor: "#FEF2F2",
@@ -599,71 +572,60 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 12,
     borderRadius: 12,
-    marginBottom: 20,
+    marginBottom: 18,
     alignItems: "center",
     gap: 8,
   },
-
   errorBannerText: {
     color: "#991B1B",
     fontSize: 14,
     fontWeight: "600",
     flex: 1,
   },
-
   supervisorRow: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 18,
   },
-
   supervisorText: {
     marginLeft: 8,
-    fontWeight: "600",
+    fontWeight: "700",
   },
-
   actionRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 22,
   },
-
   biometricBtn: {
     alignItems: "center",
   },
-
   biometricText: {
     fontSize: 10,
     color: COLORS.secondary,
     fontWeight: "bold",
     marginTop: 2,
   },
-
   forgotBtn: {
     alignSelf: "center",
   },
-
   forgotText: {
     color: COLORS.primary,
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: "700",
   },
-
   loginBtn: {
     backgroundColor: COLORS.primary,
-    height: 55,
-    borderRadius: 12,
+    minHeight: 56,
+    borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
   },
-
   loginBtnText: {
     color: COLORS.white,
-    fontSize: 18,
-    fontWeight: "bold",
+    fontSize: 17,
+    fontWeight: "900",
   },
-
   footerLinks: {
     flexDirection: "row",
     justifyContent: "center",
@@ -672,40 +634,34 @@ const styles = StyleSheet.create({
     width: "100%",
     flexWrap: "wrap",
   },
-
   linkText: {
     color: COLORS.muted,
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: "700",
     textDecorationLine: "underline",
     paddingHorizontal: 4,
   },
-
   divider: {
     width: 1,
     height: 14,
     backgroundColor: "#CBD5E1",
     marginHorizontal: 8,
   },
-
   signupContainer: {
     flexDirection: "row",
     justifyContent: "center",
     marginTop: 22,
     flexWrap: "wrap",
   },
-
   noAccountText: {
     color: COLORS.muted,
     fontSize: 14,
   },
-
   signupText: {
     color: COLORS.secondary,
     fontSize: 14,
-    fontWeight: "bold",
+    fontWeight: "900",
   },
-
   contactContainer: {
     marginTop: 28,
     alignItems: "center",
@@ -713,20 +669,17 @@ const styles = StyleSheet.create({
     borderTopColor: "#F1F5F9",
     paddingTop: 18,
   },
-
   contactTitle: {
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: "800",
     color: "#94A3B8",
     marginBottom: 15,
     letterSpacing: 1,
   },
-
   iconRow: {
     flexDirection: "row",
     alignItems: "center",
   },
-
   contactIconCircle: {
     width: 45,
     height: 45,
@@ -737,11 +690,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-
   phoneNumber: {
     marginTop: 15,
     fontSize: 16,
-    fontWeight: "bold",
+    fontWeight: "900",
     color: COLORS.secondary,
     textAlign: "center",
   },
