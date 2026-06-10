@@ -12,29 +12,34 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  SafeAreaView,
+  useWindowDimensions,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import BASE_URL from "../config/api";
+
 const COLORS = {
-  primary: "#E60000",
-  secondary: "#0B5E3C",
-  dark: "#121212",
+  primary: "#0B5E3C",
+  secondary: "#16A34A",
+  dark: "#0F172A",
   white: "#FFFFFF",
   light: "#F8FAFC",
   muted: "#64748B",
   border: "#E2E8F0",
-  softRed: "#FFF1F1",
   softGreen: "#EAF7F1",
 };
 
 const API_ENDPOINTS = {
-  register: "",
+  register: `${BASE_URL}/auth/register`,
 };
 
 const SignupScreen = ({ navigation }) => {
+  const { width } = useWindowDimensions();
+  const isWeb = width >= 768;
+
   const [firstName, setFirstName] = useState("");
   const [surname, setSurname] = useState("");
   const [otherName, setOtherName] = useState("");
@@ -73,7 +78,7 @@ const SignupScreen = ({ navigation }) => {
       if (status !== "granted") {
         showAlert(
           "Permission Denied",
-          "Sorry, we need camera roll permissions to make this work!",
+          "Sorry, we need camera roll permissions to upload an image."
         );
         return;
       }
@@ -89,12 +94,7 @@ const SignupScreen = ({ navigation }) => {
 
     if (!result.canceled) {
       const asset = result.assets[0];
-
-      if (asset.base64) {
-        setImage(`data:image/jpeg;base64,${asset.base64}`);
-      } else {
-        setImage(asset.uri);
-      }
+      setImage(asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri);
     }
   };
 
@@ -102,13 +102,7 @@ const SignupScreen = ({ navigation }) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const phoneRegex = /^[0-9]{10,15}$/;
 
-    if (
-      !firstName.trim() ||
-      !surname.trim() ||
-      !email.trim() ||
-      !phone.trim() ||
-      !password
-    ) {
+    if (!firstName.trim() || !surname.trim() || !email.trim() || !phone.trim() || !password) {
       showAlert("Missing Fields", "Please fill all compulsory fields.");
       return false;
     }
@@ -124,10 +118,7 @@ const SignupScreen = ({ navigation }) => {
     }
 
     if (password.length < 6) {
-      showAlert(
-        "Password Too Short",
-        "Password must be at least 6 characters.",
-      );
+      showAlert("Password Too Short", "Password must be at least 6 characters.");
       return false;
     }
 
@@ -139,7 +130,7 @@ const SignupScreen = ({ navigation }) => {
     if (role === "agent" && (!state.trim() || !lga.trim() || !address.trim())) {
       showAlert(
         "Agent Verification Missing",
-        "As an Agent, your State, LGA, and Business Address are compulsory.",
+        "As an Agent, your State, LGA, and Business Address are compulsory."
       );
       return false;
     }
@@ -149,14 +140,6 @@ const SignupScreen = ({ navigation }) => {
 
   const handleSignup = async () => {
     if (!validateInputs()) return;
-
-    if (!API_ENDPOINTS.register) {
-      showAlert(
-        "Not Configured",
-        "Registration API endpoint is not configured.",
-      );
-      return;
-    }
 
     setLoading(true);
 
@@ -185,10 +168,7 @@ const SignupScreen = ({ navigation }) => {
         }
       }
 
-      const response = await axios({
-        method: "POST",
-        url: API_ENDPOINTS.register,
-        data: registrationData,
+      const response = await axios.post(API_ENDPOINTS.register, registrationData, {
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
@@ -203,9 +183,11 @@ const SignupScreen = ({ navigation }) => {
         response.data?.status === "success";
 
       if (isSuccess) {
-        const userPayload = response.data.user ||
+        const userPayload =
+          response.data.user ||
           response.data.data?.user ||
-          response.data.data || { role: role.trim().toLowerCase() };
+          response.data.data ||
+          { role: role.trim().toLowerCase() };
 
         await AsyncStorage.setItem("userData", JSON.stringify(userPayload));
 
@@ -216,304 +198,331 @@ const SignupScreen = ({ navigation }) => {
         showAlert(
           "Account Created 🎉",
           "Your Bellaj Data Hub registration has been completed successfully!",
-          [{ text: "OK", onPress: () => navigation.replace("Success") }],
+          [{ text: "OK", onPress: () => navigation.replace("Login") }]
         );
       } else {
         showAlert(
           "Registration Alert",
-          response.data?.message || "Unexpected response from server.",
+          response.data?.message || "Unexpected response from server."
         );
       }
     } catch (error) {
-      const serverMsg =
+      showAlert(
+        "Registration Failed ❌",
         error.response?.data?.message ||
-        "Network connection issue. Please try again.";
-
-      showAlert("Registration Failed ❌", serverMsg);
+          "Network connection issue. Please try again."
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.mainWrapper}
-    >
-      <ScrollView
-        contentContainerStyle={styles.container}
-        showsVerticalScrollIndicator
-        keyboardShouldPersistTaps="handled"
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={styles.mainWrapper}
       >
-        <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={[
+            styles.scrollContent,
+            isWeb && styles.webScrollContent,
+          ]}
+          showsVerticalScrollIndicator={true}
+          keyboardShouldPersistTaps="handled"
+        >
+          <StatusBar barStyle="dark-content" backgroundColor={COLORS.light} />
 
-        <View style={styles.headerArea}>
-          <Text style={styles.title}>Create Account</Text>
-          <Text style={styles.subtitle}>
-            Join Bellaj Data Hub to enjoy affordable data, airtime, bills and
-            digital services.
-          </Text>
-        </View>
-
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Select Account Type</Text>
-
-          <View style={styles.roleContainer}>
-            <TouchableOpacity
-              style={[styles.roleBtn, role === "user" && styles.activeRole]}
-              onPress={() => setRole("user")}
-            >
-              <Text
-                style={[
-                  styles.roleBtnText,
-                  role === "user" && styles.activeRoleText,
-                ]}
-              >
-                Customer / User
+          <View style={[styles.card, isWeb && styles.webCard]}>
+            <View style={styles.headerArea}>
+              <Text style={styles.title}>Create Account</Text>
+              <Text style={styles.subtitle}>
+                Join Bellaj Data Hub to enjoy affordable data, airtime, bills
+                and digital services.
               </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.roleBtn, role === "agent" && styles.activeRole]}
-              onPress={() => setRole("agent")}
-            >
-              <Text
-                style={[
-                  styles.roleBtnText,
-                  role === "agent" && styles.activeRoleText,
-                ]}
-              >
-                Sub-Agent / Reseller
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.row}>
-            <View style={{ flex: 1, marginRight: 5 }}>
-              <Text style={styles.label}>Surname</Text>
-              <View style={styles.inputView}>
-                <TextInput
-                  style={styles.inputText}
-                  placeholder="Compulsory"
-                  value={surname}
-                  onChangeText={setSurname}
-                  placeholderTextColor="#94A3B8"
-                />
-              </View>
             </View>
 
-            <View style={{ flex: 1, marginLeft: 5 }}>
-              <Text style={styles.label}>First Name</Text>
-              <View style={styles.inputView}>
-                <TextInput
-                  style={styles.inputText}
-                  placeholder="Compulsory"
-                  value={firstName}
-                  onChangeText={setFirstName}
-                  placeholderTextColor="#94A3B8"
-                />
-              </View>
-            </View>
-          </View>
+            <Text style={styles.label}>Select Account Type</Text>
 
-          <Text style={styles.label}>Middle Name Optional</Text>
-          <View style={styles.inputView}>
-            <TextInput
-              style={styles.inputText}
-              placeholder="Enter Middle Name"
-              value={otherName}
-              onChangeText={setOtherName}
-              placeholderTextColor="#94A3B8"
-            />
-          </View>
+            <View style={styles.roleContainer}>
+              <TouchableOpacity
+                style={[styles.roleBtn, role === "user" && styles.activeRole]}
+                onPress={() => setRole("user")}
+              >
+                <Text
+                  style={[
+                    styles.roleBtnText,
+                    role === "user" && styles.activeRoleText,
+                  ]}
+                >
+                  Customer / User
+                </Text>
+              </TouchableOpacity>
 
-          <Text style={styles.label}>Email Address</Text>
-          <View style={styles.inputView}>
-            <TextInput
-              style={styles.inputText}
-              placeholder="example@gmail.com"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={setEmail}
-              placeholderTextColor="#94A3B8"
-            />
-          </View>
-
-          <Text style={styles.label}>Active Phone Number</Text>
-          <View style={styles.inputView}>
-            <TextInput
-              style={styles.inputText}
-              placeholder="080XXXXXXXX"
-              keyboardType="phone-pad"
-              value={phone}
-              onChangeText={setPhone}
-              placeholderTextColor="#94A3B8"
-            />
-          </View>
-
-          {role === "agent" && (
-            <View style={styles.agentSection}>
-              <Text style={styles.agentInfoTitle}>
-                Business Verification Details
-              </Text>
-
-              <Text style={styles.label}>
-                Supervisor Referral Code Optional
-              </Text>
-              <View style={styles.inputView}>
-                <TextInput
-                  style={styles.inputText}
-                  placeholder="e.g. BD770"
-                  autoCapitalize="characters"
-                  value={supervisorId}
-                  onChangeText={setSupervisorId}
-                  placeholderTextColor="#94A3B8"
-                />
-              </View>
-
-              <Text style={styles.label}>Shop / Office Address</Text>
-              <View style={styles.inputView}>
-                <TextInput
-                  style={styles.inputText}
-                  placeholder="Enter full business address"
-                  value={address}
-                  onChangeText={setAddress}
-                  placeholderTextColor="#94A3B8"
-                />
-              </View>
-
-              <View style={styles.row}>
-                <View style={{ flex: 1, marginRight: 5 }}>
-                  <Text style={styles.label}>State</Text>
-                  <View style={styles.inputView}>
-                    <TextInput
-                      style={styles.inputText}
-                      placeholder="e.g. Kano"
-                      value={state}
-                      onChangeText={setState}
-                      placeholderTextColor="#94A3B8"
-                    />
-                  </View>
-                </View>
-
-                <View style={{ flex: 1, marginLeft: 5 }}>
-                  <Text style={styles.label}>LGA</Text>
-                  <View style={styles.inputView}>
-                    <TextInput
-                      style={styles.inputText}
-                      placeholder="Local Govt"
-                      value={lga}
-                      onChangeText={setLga}
-                      placeholderTextColor="#94A3B8"
-                    />
-                  </View>
-                </View>
-              </View>
-
-              <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
-                {image ? (
-                  <Image source={{ uri: image }} style={styles.previewImage} />
-                ) : (
-                  <Text style={styles.imagePickerText}>
-                    Upload Utility Bill or Shop Image
-                  </Text>
-                )}
+              <TouchableOpacity
+                style={[styles.roleBtn, role === "agent" && styles.activeRole]}
+                onPress={() => setRole("agent")}
+              >
+                <Text
+                  style={[
+                    styles.roleBtnText,
+                    role === "agent" && styles.activeRoleText,
+                  ]}
+                >
+                  Sub-Agent / Reseller
+                </Text>
               </TouchableOpacity>
             </View>
-          )}
 
-          <Text style={styles.label}>Create Password</Text>
-          <View style={styles.passwordWrapper}>
-            <TextInput
-              secureTextEntry={!showPassword}
-              style={styles.passwordInput}
-              placeholder="Minimum of 6 characters"
-              value={password}
-              onChangeText={setPassword}
-              placeholderTextColor="#94A3B8"
-            />
+            <View style={styles.row}>
+              <View style={styles.halfInputLeft}>
+                <Text style={styles.label}>Surname</Text>
+                <View style={styles.inputView}>
+                  <TextInput
+                    style={styles.inputText}
+                    placeholder="Compulsory"
+                    value={surname}
+                    onChangeText={setSurname}
+                    placeholderTextColor="#94A3B8"
+                  />
+                </View>
+              </View>
+
+              <View style={styles.halfInputRight}>
+                <Text style={styles.label}>First Name</Text>
+                <View style={styles.inputView}>
+                  <TextInput
+                    style={styles.inputText}
+                    placeholder="Compulsory"
+                    value={firstName}
+                    onChangeText={setFirstName}
+                    placeholderTextColor="#94A3B8"
+                  />
+                </View>
+              </View>
+            </View>
+
+            <Text style={styles.label}>Middle Name Optional</Text>
+            <View style={styles.inputView}>
+              <TextInput
+                style={styles.inputText}
+                placeholder="Enter Middle Name"
+                value={otherName}
+                onChangeText={setOtherName}
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            <Text style={styles.label}>Email Address</Text>
+            <View style={styles.inputView}>
+              <TextInput
+                style={styles.inputText}
+                placeholder="example@gmail.com"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                value={email}
+                onChangeText={setEmail}
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            <Text style={styles.label}>Active Phone Number</Text>
+            <View style={styles.inputView}>
+              <TextInput
+                style={styles.inputText}
+                placeholder="080XXXXXXXX"
+                keyboardType="phone-pad"
+                value={phone}
+                onChangeText={setPhone}
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            {role === "agent" && (
+              <View style={styles.agentSection}>
+                <Text style={styles.agentInfoTitle}>
+                  Business Verification Details
+                </Text>
+
+                <Text style={styles.label}>Supervisor Referral Code Optional</Text>
+                <View style={styles.inputView}>
+                  <TextInput
+                    style={styles.inputText}
+                    placeholder="e.g. BD770"
+                    autoCapitalize="characters"
+                    value={supervisorId}
+                    onChangeText={setSupervisorId}
+                    placeholderTextColor="#94A3B8"
+                  />
+                </View>
+
+                <Text style={styles.label}>Shop / Office Address</Text>
+                <View style={styles.inputView}>
+                  <TextInput
+                    style={styles.inputText}
+                    placeholder="Enter full business address"
+                    value={address}
+                    onChangeText={setAddress}
+                    placeholderTextColor="#94A3B8"
+                  />
+                </View>
+
+                <View style={styles.row}>
+                  <View style={styles.halfInputLeft}>
+                    <Text style={styles.label}>State</Text>
+                    <View style={styles.inputView}>
+                      <TextInput
+                        style={styles.inputText}
+                        placeholder="e.g. Kano"
+                        value={state}
+                        onChangeText={setState}
+                        placeholderTextColor="#94A3B8"
+                      />
+                    </View>
+                  </View>
+
+                  <View style={styles.halfInputRight}>
+                    <Text style={styles.label}>LGA</Text>
+                    <View style={styles.inputView}>
+                      <TextInput
+                        style={styles.inputText}
+                        placeholder="Local Govt"
+                        value={lga}
+                        onChangeText={setLga}
+                        placeholderTextColor="#94A3B8"
+                      />
+                    </View>
+                  </View>
+                </View>
+
+                <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
+                  {image ? (
+                    <Image source={{ uri: image }} style={styles.previewImage} />
+                  ) : (
+                    <Text style={styles.imagePickerText}>
+                      Upload Utility Bill or Shop Image
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            )}
+
+            <Text style={styles.label}>Create Password</Text>
+            <View style={styles.passwordWrapper}>
+              <TextInput
+                secureTextEntry={!showPassword}
+                style={styles.passwordInput}
+                placeholder="Minimum of 6 characters"
+                value={password}
+                onChangeText={setPassword}
+                placeholderTextColor="#94A3B8"
+              />
+
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                style={styles.eyeIcon}
+              >
+                <Ionicons
+                  name={showPassword ? "eye-off-outline" : "eye-outline"}
+                  size={20}
+                  color={COLORS.muted}
+                />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.label}>Confirm Password</Text>
+            <View style={styles.passwordWrapper}>
+              <TextInput
+                secureTextEntry={!showConfirmPassword}
+                style={styles.passwordInput}
+                placeholder="Repeat your password"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                placeholderTextColor="#94A3B8"
+              />
+
+              <TouchableOpacity
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                style={styles.eyeIcon}
+              >
+                <Ionicons
+                  name={showConfirmPassword ? "eye-off-outline" : "eye-outline"}
+                  size={20}
+                  color={COLORS.muted}
+                />
+              </TouchableOpacity>
+            </View>
 
             <TouchableOpacity
-              onPress={() => setShowPassword(!showPassword)}
-              style={styles.eyeIcon}
+              style={[styles.signupBtn, loading && { opacity: 0.75 }]}
+              onPress={handleSignup}
+              disabled={loading}
             >
-              <Ionicons
-                name={showPassword ? "eye-off-outline" : "eye-outline"}
-                size={20}
-                color={COLORS.muted}
-              />
+              {loading ? (
+                <ActivityIndicator color={COLORS.white} />
+              ) : (
+                <Text style={styles.signupText}>REGISTER ACCOUNT</Text>
+              )}
             </TouchableOpacity>
+
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>Already have an account? </Text>
+              <TouchableOpacity onPress={() => navigation.navigate("Login")}>
+                <Text style={styles.loginLink}>Login Here</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-
-          <Text style={styles.label}>Confirm Password</Text>
-          <View style={styles.passwordWrapper}>
-            <TextInput
-              secureTextEntry={!showConfirmPassword}
-              style={styles.passwordInput}
-              placeholder="Repeat your password"
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              placeholderTextColor="#94A3B8"
-            />
-
-            <TouchableOpacity
-              onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-              style={styles.eyeIcon}
-            >
-              <Ionicons
-                name={showConfirmPassword ? "eye-off-outline" : "eye-outline"}
-                size={20}
-                color={COLORS.muted}
-              />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <TouchableOpacity
-          style={[styles.signupBtn, loading && { opacity: 0.75 }]}
-          onPress={handleSignup}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color={COLORS.white} />
-          ) : (
-            <Text style={styles.signupText}>REGISTER ACCOUNT</Text>
-          )}
-        </TouchableOpacity>
-
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Already have an account? </Text>
-          <TouchableOpacity onPress={() => navigation.navigate("Login")}>
-            <Text style={styles.loginLink}>Login Here</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLORS.light,
+  },
   mainWrapper: {
     flex: 1,
     backgroundColor: COLORS.light,
   },
-  container: {
+  scrollView: {
+    flex: 1,
+    backgroundColor: COLORS.light,
+  },
+  scrollContent: {
     flexGrow: 1,
-    backgroundColor: COLORS.white,
-    paddingVertical: 30,
-    paddingHorizontal: 20,
+    width: "100%",
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === "android" ? 35 : 20,
+    paddingBottom: 80,
+    backgroundColor: COLORS.light,
+  },
+  webScrollContent: {
     alignItems: "center",
-    width: Platform.OS === "web" ? 450 : "100%",
+    paddingTop: 35,
+    paddingBottom: 90,
+  },
+  card: {
+    width: "100%",
+    maxWidth: 520,
     alignSelf: "center",
-    ...Platform.select({
-      web: {
-        borderRadius: 24,
-        marginVertical: 20,
-        maxHeight: "90vh",
-        elevation: 4,
-      },
-    }),
+    backgroundColor: COLORS.white,
+    borderRadius: 22,
+    paddingHorizontal: 20,
+    paddingVertical: 24,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  webCard: {
+    padding: 30,
+    elevation: 8,
+    shadowColor: COLORS.dark,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
   },
   headerArea: {
     alignItems: "center",
@@ -521,30 +530,35 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   title: {
-    fontSize: 24,
-    fontWeight: "800",
+    fontSize: 26,
+    fontWeight: "900",
     color: COLORS.primary,
   },
   subtitle: {
     color: COLORS.secondary,
-    fontSize: 12,
-    marginTop: 5,
+    fontSize: 13,
+    marginTop: 6,
     textAlign: "center",
     width: "100%",
-    lineHeight: 16,
-  },
-  inputContainer: {
-    width: "100%",
+    lineHeight: 18,
+    fontWeight: "600",
   },
   row: {
     flexDirection: "row",
-    justifyContent: "space-between",
     width: "100%",
+  },
+  halfInputLeft: {
+    flex: 1,
+    marginRight: 5,
+  },
+  halfInputRight: {
+    flex: 1,
+    marginLeft: 5,
   },
   label: {
     color: "#334155",
     fontSize: 11,
-    fontWeight: "700",
+    fontWeight: "800",
     marginBottom: 6,
     marginLeft: 2,
     textTransform: "uppercase",
@@ -557,13 +571,14 @@ const styles = StyleSheet.create({
   },
   roleBtn: {
     flex: 1,
-    height: 45,
+    minHeight: 45,
     backgroundColor: COLORS.light,
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
     borderColor: COLORS.border,
+    paddingHorizontal: 8,
   },
   activeRole: {
     backgroundColor: COLORS.primary,
@@ -571,8 +586,9 @@ const styles = StyleSheet.create({
   },
   roleBtnText: {
     color: COLORS.muted,
-    fontWeight: "700",
+    fontWeight: "800",
     fontSize: 12,
+    textAlign: "center",
   },
   activeRoleText: {
     color: COLORS.white,
@@ -581,7 +597,7 @@ const styles = StyleSheet.create({
     width: "100%",
     backgroundColor: COLORS.light,
     borderRadius: 12,
-    height: 48,
+    minHeight: 50,
     marginBottom: 14,
     justifyContent: "center",
     paddingHorizontal: 14,
@@ -592,7 +608,8 @@ const styles = StyleSheet.create({
     color: COLORS.dark,
     fontSize: 14,
     width: "100%",
-    height: "100%",
+    minHeight: 50,
+    outlineStyle: "none",
   },
   passwordWrapper: {
     flexDirection: "row",
@@ -600,7 +617,7 @@ const styles = StyleSheet.create({
     width: "100%",
     backgroundColor: COLORS.light,
     borderRadius: 12,
-    height: 48,
+    minHeight: 50,
     marginBottom: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -610,7 +627,8 @@ const styles = StyleSheet.create({
     flex: 1,
     color: COLORS.dark,
     fontSize: 14,
-    height: "100%",
+    minHeight: 50,
+    outlineStyle: "none",
   },
   eyeIcon: {
     padding: 5,
@@ -627,14 +645,14 @@ const styles = StyleSheet.create({
   },
   agentInfoTitle: {
     color: COLORS.secondary,
-    fontWeight: "800",
+    fontWeight: "900",
     marginBottom: 10,
     fontSize: 12,
     textTransform: "uppercase",
   },
   imagePicker: {
     width: "100%",
-    height: 120,
+    minHeight: 120,
     backgroundColor: COLORS.white,
     borderRadius: 12,
     justifyContent: "center",
@@ -644,22 +662,24 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: COLORS.primary,
     marginTop: 8,
+    overflow: "hidden",
   },
   imagePickerText: {
     color: COLORS.muted,
     fontSize: 11,
-    fontWeight: "600",
+    fontWeight: "700",
+    textAlign: "center",
   },
   previewImage: {
     width: "100%",
-    height: "100%",
+    height: 120,
     borderRadius: 10,
   },
   signupBtn: {
     width: "100%",
     backgroundColor: COLORS.primary,
     borderRadius: 12,
-    height: 52,
+    minHeight: 54,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 15,
@@ -667,7 +687,7 @@ const styles = StyleSheet.create({
   },
   signupText: {
     color: COLORS.white,
-    fontWeight: "800",
+    fontWeight: "900",
     fontSize: 14,
     letterSpacing: 1.2,
   },
@@ -675,6 +695,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     marginTop: 20,
     marginBottom: 10,
+    justifyContent: "center",
+    flexWrap: "wrap",
   },
   footerText: {
     color: COLORS.muted,
@@ -682,7 +704,7 @@ const styles = StyleSheet.create({
   },
   loginLink: {
     color: COLORS.secondary,
-    fontWeight: "800",
+    fontWeight: "900",
     fontSize: 13,
   },
 });
