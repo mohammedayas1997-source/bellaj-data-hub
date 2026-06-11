@@ -109,25 +109,22 @@ const SuperAdminDashboard = ({ navigation }) => {
       setLoading(true);
       const headers = await getAuthHeaders();
 
-      try {
-        const statsRes = await axios.get(API_ENDPOINTS.dashboardStats, { headers });
-        setStats(normalizeStats(statsRes.data));
-      } catch (error) {
-        console.log("Stats endpoint not ready:", error?.response?.status);
+      const requests = await Promise.allSettled([
+        axios.get(API_ENDPOINTS.dashboardStats, { headers }),
+        axios.get(API_ENDPOINTS.users, { headers }),
+        axios.get(API_ENDPOINTS.transactions, { headers }),
+      ]);
+
+      if (requests[0].status === "fulfilled") {
+        setStats(normalizeStats(requests[0].value.data));
       }
 
-      try {
-        const usersRes = await axios.get(API_ENDPOINTS.users, { headers });
-        setUsers(normalizeArray(usersRes.data, "users"));
-      } catch (error) {
-        console.log("Users endpoint not ready:", error?.response?.status);
+      if (requests[1].status === "fulfilled") {
+        setUsers(normalizeArray(requests[1].value.data, "users"));
       }
 
-      try {
-        const txRes = await axios.get(API_ENDPOINTS.transactions, { headers });
-        setTransactions(normalizeArray(txRes.data, "transactions"));
-      } catch (error) {
-        console.log("Transactions endpoint not ready:", error?.response?.status);
+      if (requests[2].status === "fulfilled") {
+        setTransactions(normalizeArray(requests[2].value.data, "transactions"));
       }
     } catch (error) {
       console.log("Dashboard error:", error?.message);
@@ -147,8 +144,8 @@ const SuperAdminDashboard = ({ navigation }) => {
       navigation.navigate(screenName);
     } catch (error) {
       Alert.alert(
-        "Screen not found",
-        `${screenName} screen bai samu a navigation ba. Ka tabbatar an saka shi a Stack.Navigator.`
+        "Screen Not Found",
+        `${screenName} is not registered in Stack.Navigator.`
       );
     }
   };
@@ -156,7 +153,7 @@ const SuperAdminDashboard = ({ navigation }) => {
   const enterAsRole = async (role, screenName) => {
     await AsyncStorage.setItem("overrideRole", role);
     await AsyncStorage.setItem("isSuperAdminOverride", "true");
-    goTo(screenName);
+    navigation.navigate(screenName);
   };
 
   const logout = async () => {
@@ -213,6 +210,7 @@ const SuperAdminDashboard = ({ navigation }) => {
       icon: "people",
       type: "ion",
       bg: COLORS.primary,
+      screen: "UserManagement",
     },
     {
       title: "Agents",
@@ -220,13 +218,15 @@ const SuperAdminDashboard = ({ navigation }) => {
       icon: "account-tie",
       type: "mci",
       bg: COLORS.danger,
+      screen: "AgentDashboard",
     },
     {
       title: "Supervisors",
       value: roleCounts.totalSupervisors,
-      icon: "account-check",
+      icon: "account-supervisor",
       type: "mci",
       bg: COLORS.secondary,
+      screen: "SupervisorDashboard",
     },
     {
       title: "Admins",
@@ -234,6 +234,7 @@ const SuperAdminDashboard = ({ navigation }) => {
       icon: "shield-checkmark",
       type: "ion",
       bg: "#B91C1C",
+      screen: "AdminUserControl",
     },
     {
       title: "Revenue",
@@ -241,6 +242,7 @@ const SuperAdminDashboard = ({ navigation }) => {
       icon: "cash",
       type: "ion",
       bg: "#065F46",
+      screen: "SalesHistory",
     },
     {
       title: "Transactions",
@@ -248,6 +250,7 @@ const SuperAdminDashboard = ({ navigation }) => {
       icon: "swap-horizontal",
       type: "ion",
       bg: "#991B1B",
+      screen: "SalesHistory",
     },
     {
       title: "Wallet",
@@ -255,87 +258,110 @@ const SuperAdminDashboard = ({ navigation }) => {
       icon: "wallet",
       type: "ion",
       bg: "#15803D",
+      screen: "Wallet",
     },
     {
-      title: "Status",
+      title: "System Status",
       value: "Active",
       icon: "trending-up",
       type: "ion",
       bg: COLORS.dark,
+      screen: "SuperAdminDashboard",
     },
   ];
 
-  const dashboardMenus = [
+  const drawerMenus = [
     {
-      title: "User Dashboard",
-      subtitle: "Shiga kamar normal user",
-      icon: "person-circle",
+      label: "Main Dashboard",
+      icon: "grid-outline",
+      type: "ion",
+      color: COLORS.primary,
+      action: () => goTo("SuperAdminDashboard"),
+    },
+    {
+      label: "User Dashboard",
+      icon: "person-circle-outline",
       type: "ion",
       color: COLORS.primary,
       action: () => enterAsRole("user", "Main"),
     },
     {
-      title: "Agent Dashboard",
-      subtitle: "Duba aikin agents",
+      label: "Agent Dashboard",
       icon: "account-tie",
       type: "mci",
       color: COLORS.danger,
       action: () => enterAsRole("agent", "AgentDashboard"),
     },
     {
-      title: "Supervisor Dashboard",
-      subtitle: "Duba supervisors",
-      icon: "account-supervisor",
+      label: "Supervisor Dashboard",
+      icon: "account-supervisor-outline",
       type: "mci",
       color: COLORS.secondary,
       action: () => enterAsRole("supervisor", "SupervisorDashboard"),
     },
     {
-      title: "Admin Control",
-      subtitle: "Manage users and roles",
-      icon: "shield-account",
+      label: "Admin Control",
+      icon: "shield-account-outline",
       type: "mci",
       color: "#B91C1C",
       action: () => goTo("AdminUserControl"),
     },
     {
-      title: "User Management",
-      subtitle: "Ganin kowa da roles",
+      label: "User Management",
       icon: "people-outline",
       type: "ion",
-      color: "#0F172A",
+      color: COLORS.dark,
       action: () => goTo("UserManagement"),
     },
     {
-      title: "Transactions",
-      subtitle: "Ganin aikin kowa",
-      icon: "receipt",
+      label: "Transactions",
+      icon: "receipt-outline",
       type: "ion",
       color: "#15803D",
       action: () => goTo("SalesHistory"),
     },
     {
-      title: "NIMC History",
-      subtitle: "Duba NIMC records",
-      icon: "fingerprint",
+      label: "NIMC History",
+      icon: "finger-print-outline",
       type: "ion",
       color: "#7C2D12",
       action: () => goTo("NIMCHistory"),
     },
     {
-      title: "BVN History",
-      subtitle: "Duba BVN records",
-      icon: "card-account-details",
+      label: "BVN History",
+      icon: "card-account-details-outline",
       type: "mci",
       color: "#6D28D9",
       action: () => goTo("BVNHistory"),
     },
+    {
+      label: "Reports",
+      icon: "chart-box-outline",
+      type: "mci",
+      color: "#0F766E",
+      action: () => goTo("Reports"),
+    },
+    {
+      label: "Notifications",
+      icon: "notifications-outline",
+      type: "ion",
+      color: "#EA580C",
+      action: () => goTo("Notifications"),
+    },
+    {
+      label: "Settings",
+      icon: "settings-outline",
+      type: "ion",
+      color: COLORS.muted,
+      action: () => goTo("Settings"),
+    },
   ];
 
-  const renderIcon = (item, size = 28, color = COLORS.white) => {
+  const renderIcon = (item, size = 24, color = COLORS.white) => {
     if (item.type === "mci") {
       return <MaterialCommunityIcons name={item.icon} size={size} color={color} />;
     }
+
     return <Ionicons name={item.icon} size={size} color={color} />;
   };
 
@@ -343,7 +369,7 @@ const SuperAdminDashboard = ({ navigation }) => {
     return (
       <View style={styles.loaderContainer}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loaderText}>Loading Bellaj Admin Dashboard...</Text>
+        <Text style={styles.loaderText}>Loading Super Admin Dashboard...</Text>
       </View>
     );
   }
@@ -351,14 +377,20 @@ const SuperAdminDashboard = ({ navigation }) => {
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
-        <View style={{ flex: 1 }}>
+        <TouchableOpacity
+          style={styles.menuButton}
+          onPress={() => navigation.openDrawer?.()}
+        >
+          <Ionicons name="menu" size={26} color={COLORS.white} />
+        </TouchableOpacity>
+
+        <View style={styles.headerTextBox}>
           <Text style={styles.headerTitle}>Bellaj Data Hub</Text>
           <Text style={styles.headerSubtitle}>Super Admin Command Center</Text>
         </View>
 
         <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
           <Ionicons name="log-out-outline" size={20} color={COLORS.white} />
-          <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
       </View>
 
@@ -371,52 +403,52 @@ const SuperAdminDashboard = ({ navigation }) => {
         showsVerticalScrollIndicator
       >
         <View style={styles.welcomeCard}>
-          <Text style={styles.welcomeTitle}>Welcome Super Admin</Text>
+          <Text style={styles.welcomeTitle}>Super Admin Access</Text>
           <Text style={styles.welcomeText}>
-            Kana da override access domin shiga dashboard na User, Agent,
-            Supervisor da Admin, sannan zaka iya ganin aikin kowa.
+            Manage platform users, transactions, agents, supervisors, admin
+            controls, reports and activity records in real time.
           </Text>
         </View>
 
         <View style={[styles.grid, isWeb && styles.webGrid]}>
           {statCards.map((card, index) => (
-            <View
+            <TouchableOpacity
               key={index}
               style={[
                 styles.statCard,
                 { backgroundColor: card.bg },
                 isWeb && styles.webStatCard,
               ]}
+              activeOpacity={0.86}
+              onPress={() => goTo(card.screen)}
             >
               <View style={styles.statInfo}>
                 <Text style={styles.statTitle}>{card.title}</Text>
                 <Text style={styles.statValue}>{card.value}</Text>
               </View>
-              <View style={styles.iconCircle}>{renderIcon(card)}</View>
-            </View>
+
+              <View style={styles.iconCircle}>{renderIcon(card, 28)}</View>
+            </TouchableOpacity>
           ))}
         </View>
 
-        <Text style={styles.bigSectionTitle}>Dashboard Override Access</Text>
+        <View style={styles.drawerLikePanel}>
+          <Text style={styles.panelTitle}>Admin Navigation</Text>
 
-        <View style={[styles.menuGrid, isWeb && styles.webMenuGrid]}>
-          {dashboardMenus.map((item, index) => (
+          {drawerMenus.map((item, index) => (
             <TouchableOpacity
               key={index}
-              style={[styles.menuCard, isWeb && styles.webMenuCard]}
+              style={styles.drawerItem}
               onPress={item.action}
               activeOpacity={0.86}
             >
-              <View style={[styles.menuIcon, { backgroundColor: item.color }]}>
-                {renderIcon(item, 28, COLORS.white)}
+              <View style={[styles.drawerIcon, { backgroundColor: item.color }]}>
+                {renderIcon(item, 22, COLORS.white)}
               </View>
 
-              <View style={styles.menuTextBox}>
-                <Text style={styles.menuTitle}>{item.title}</Text>
-                <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
-              </View>
+              <Text style={styles.drawerLabel}>{item.label}</Text>
 
-              <Ionicons name="chevron-forward" size={22} color={COLORS.muted} />
+              <Ionicons name="chevron-forward" size={20} color={COLORS.muted} />
             </TouchableOpacity>
           ))}
         </View>
@@ -425,17 +457,22 @@ const SuperAdminDashboard = ({ navigation }) => {
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
               <Ionicons name="people" size={24} color={COLORS.primary} />
-              <Text style={styles.sectionTitle}>Users / Agents / Supervisors</Text>
+              <Text style={styles.sectionTitle}>Users and Roles</Text>
             </View>
 
             {users.length === 0 ? (
               <Text style={styles.emptyText}>
-                Babu users da aka dawo dasu tukuna. Backend endpoint /admin/users
-                sai an saita shi.
+                No users returned yet. Configure the /admin/users endpoint to
+                show live users here.
               </Text>
             ) : (
               users.slice(0, 10).map((user, index) => (
-                <View key={user?._id || index} style={styles.userRow}>
+                <TouchableOpacity
+                  key={user?._id || index}
+                  style={styles.userRow}
+                  onPress={() => goTo("UserManagement")}
+                  activeOpacity={0.86}
+                >
                   <View style={styles.avatar}>
                     <Text style={styles.avatarText}>
                       {(user?.name || user?.email || "U").charAt(0).toUpperCase()}
@@ -450,7 +487,7 @@ const SuperAdminDashboard = ({ navigation }) => {
                   <View style={styles.roleBadge}>
                     <Text style={styles.roleText}>{user?.role || "user"}</Text>
                   </View>
-                </View>
+                </TouchableOpacity>
               ))
             )}
           </View>
@@ -462,17 +499,22 @@ const SuperAdminDashboard = ({ navigation }) => {
                 size={24}
                 color={COLORS.danger}
               />
-              <Text style={styles.sectionTitle}>Recent Activities / Aikin Kowa</Text>
+              <Text style={styles.sectionTitle}>Recent Activities</Text>
             </View>
 
             {transactions.length === 0 ? (
               <Text style={styles.emptyText}>
-                Babu transactions da aka dawo dasu tukuna. Backend endpoint
-                /admin/transactions sai an saita shi.
+                No transactions returned yet. Configure the /admin/transactions
+                endpoint to show live activity here.
               </Text>
             ) : (
               transactions.slice(0, 10).map((tx, index) => (
-                <View key={tx?._id || index} style={styles.txRow}>
+                <TouchableOpacity
+                  key={tx?._id || index}
+                  style={styles.txRow}
+                  onPress={() => goTo("SalesHistory")}
+                  activeOpacity={0.86}
+                >
                   <View style={{ flex: 1 }}>
                     <Text style={styles.txTitle}>
                       {tx?.type || tx?.service || "Transaction"}
@@ -489,7 +531,7 @@ const SuperAdminDashboard = ({ navigation }) => {
                     <Text style={styles.txAmount}>{formatMoney(tx?.amount)}</Text>
                     <Text style={styles.txStatus}>{tx?.status || "pending"}</Text>
                   </View>
-                </View>
+                </TouchableOpacity>
               ))
             )}
           </View>
@@ -504,29 +546,38 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: COLORS.primary,
     paddingTop: Platform.OS === "android" ? 42 : 22,
-    paddingBottom: 18,
-    paddingHorizontal: 18,
+    paddingBottom: 16,
+    paddingHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
   },
-  headerTitle: { color: COLORS.white, fontSize: 22, fontWeight: "900" },
+  menuButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.14)",
+  },
+  headerTextBox: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  headerTitle: { color: COLORS.white, fontSize: 21, fontWeight: "900" },
   headerSubtitle: {
     color: "#DCFCE7",
-    fontSize: 13,
+    fontSize: 12,
     marginTop: 3,
     fontWeight: "600",
   },
   logoutBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
     backgroundColor: COLORS.danger,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    borderRadius: 12,
-    flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    justifyContent: "center",
   },
-  logoutText: { color: COLORS.white, fontWeight: "800", fontSize: 12 },
   container: { flex: 1 },
   content: { padding: 16, paddingBottom: 40 },
   welcomeCard: {
@@ -578,39 +629,40 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  bigSectionTitle: {
-    color: COLORS.dark,
-    fontSize: 20,
-    fontWeight: "900",
-    marginBottom: 12,
-  },
-  menuGrid: { gap: 12, marginBottom: 18 },
-  webMenuGrid: { flexDirection: "row", flexWrap: "wrap" },
-  menuCard: {
+  drawerLikePanel: {
     backgroundColor: COLORS.white,
-    borderRadius: 18,
+    borderRadius: 20,
     padding: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
+    marginBottom: 18,
+  },
+  panelTitle: {
+    color: COLORS.dark,
+    fontSize: 18,
+    fontWeight: "900",
+    marginBottom: 12,
+  },
+  drawerItem: {
     flexDirection: "row",
     alignItems: "center",
+    paddingVertical: 13,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
   },
-  webMenuCard: { width: "48.5%", minWidth: 320 },
-  menuIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
+  drawerIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
   },
-  menuTextBox: { flex: 1 },
-  menuTitle: { color: COLORS.dark, fontSize: 15, fontWeight: "900" },
-  menuSubtitle: {
-    color: COLORS.muted,
-    fontSize: 12,
-    fontWeight: "600",
-    marginTop: 3,
+  drawerLabel: {
+    flex: 1,
+    color: COLORS.dark,
+    fontSize: 15,
+    fontWeight: "800",
   },
   sectionGrid: { gap: 16 },
   webSectionGrid: { flexDirection: "row" },
