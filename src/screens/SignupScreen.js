@@ -137,9 +137,14 @@ const SignupScreen = ({ navigation }) => {
 
     return true;
   };
-
-  const handleSignup = async () => {
+const handleSignup = async () => {
     if (!validateInputs()) return;
+
+    // Duba idan BASE_URL yana aiki
+    if (!BASE_URL) {
+      showAlert("Error", "API URL is not configured. Check your config file.");
+      return;
+    }
 
     setLoading(true);
 
@@ -158,63 +163,30 @@ const SignupScreen = ({ navigation }) => {
         registrationData.state = state.trim();
         registrationData.lga = lga.trim();
         registrationData.address = address.trim();
-
         if (supervisorId.trim()) {
           registrationData.supervisorId = supervisorId.toUpperCase().trim();
         }
-
         if (image) {
           registrationData.businessImage = image;
         }
       }
 
-     const response = await axios.post(
-  `${BASE_URL}/auth/register`,
-  registrationData,
-  {
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    timeout: 200000,
-  }
-);
+      // Amfani da URL ɗin da muka ayyana a sama
+      const response = await axios.post(REGISTER_URL, registrationData, {
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        timeout: 20000, // Na rage lokacin zuwa 20s
+      });
 
-      const isSuccess =
-        response.status === 201 ||
-        response.status === 200 ||
-        response.data?.success === true ||
-        response.data?.status === "success";
-
-      if (isSuccess) {
-        const userPayload =
-          response.data.user ||
-          response.data.data?.user ||
-          response.data.data ||
-          { role: role.trim().toLowerCase() };
-
-        await AsyncStorage.setItem("userData", JSON.stringify(userPayload));
-
-        if (response.data.token) {
-          await AsyncStorage.setItem("userToken", response.data.token);
-        }
-
-        showAlert(
-          "Account Created 🎉",
-          "Your Bellaj Data Hub registration has been completed successfully!",
-          [{ text: "OK", onPress: () => navigation.replace("Login") }]
-        );
-      } else {
-        showAlert(
-          "Registration Alert",
-          response.data?.message || "Unexpected response from server."
-        );
-      }
+      // ... ragowar code ɗinka na success
+      
     } catch (error) {
+      console.log("Full Error:", error); // Wannan zai nuna maka ainihin abin da ke faruwa a Console
       showAlert(
         "Registration Failed ❌",
-        error.response?.data?.message ||
-          "Network connection issue. Please try again."
+        error.response?.data?.message || "Check your internet or API connection."
       );
     } finally {
       setLoading(false);
