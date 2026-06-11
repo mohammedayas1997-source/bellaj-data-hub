@@ -158,7 +158,7 @@ const handleSignup = async () => {
         if (image) registrationData.businessImage = image;
       }
 
-      const response = await axios.post("https://bellaj-data-server.onrender.com/api/v1/auth/register", registrationData, {
+      const response = await axios.post("https://bellaj-data-server.onrender.com/api/auth/register", registrationData, {
         headers: { "Content-Type": "application/json" }
       });
 
