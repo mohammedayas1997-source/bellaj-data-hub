@@ -136,52 +136,60 @@ const SignupScreen = ({ navigation }) => {
   };
 // ... (sauran lambarka)
 const handleSignup = async () => {
-    if (!validateInputs()) return;
-    setLoading(true);
+  if (!validateInputs()) return;
+  setLoading(true);
 
-    try {
-      const registrationData = {
-        firstName: firstName.trim(),
-        surname: surname.trim(),
-        otherName: otherName.trim(),
-        email: email.trim().toLowerCase(),
-        phone: phone.trim(),
-        password: password,
-        role: role.trim().toLowerCase(),
-      };
+  try {
+    const registrationData = {
+      firstName: firstName.trim(),
+      surname: surname.trim(),
+      otherName: otherName.trim(),
+      email: email.trim().toLowerCase(),
+      phone: phone.trim(),
+      password: password,
+      role: role.trim().toLowerCase(),
+    };
 
-      if (role === "agent") {
-        registrationData.state = state.trim();
-        registrationData.lga = lga.trim();
-        registrationData.address = address.trim();
-        if (supervisorId) registrationData.supervisorId = supervisorId.toUpperCase().trim();
-        if (image) registrationData.businessImage = image;
-      }
-
-      const response = await axios.post("https://bellaj-data-server.onrender.com/api/auth/register", registrationData, {
-        headers: { "Content-Type": "application/json" }
-      });
-
-      setLoading(false);
-      
-      // Store user data
-      const userPayload = response.data.user || response.data.data || { role: role };
-      await AsyncStorage.setItem("userData", JSON.stringify(userPayload));
-      if (response.data.token) {
-        await AsyncStorage.setItem("userToken", response.data.token);
-      }
-
-      showAlert("Success", "Account created successfully!", [
-        { text: "OK", onPress: () => navigation.replace("Success") }
-      ]);
-
-    } catch (error) {
-      setLoading(false);
-      const msg = error.response?.data?.message || "Registration failed. Please try again.";
-      showAlert("Registration Failed", msg);
+    if (role === "agent") {
+      registrationData.state = state.trim();
+      registrationData.lga = lga.trim();
+      registrationData.address = address.trim();
+      if (supervisorId) registrationData.supervisorId = supervisorId.toUpperCase().trim();
+      if (image) registrationData.businessImage = image;
     }
-  };
 
+    // Na gyara URL ɗin ya zama daidai da yadda aka saita a backend (index.js)
+    const response = await axios.post(
+      "https://bellaj-data-server.onrender.com/api/v1/auth/register", 
+      registrationData, 
+      {
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+
+    setLoading(false);
+    
+    // Store user data
+    const userPayload = response.data.user || response.data.data || { role: role };
+    await AsyncStorage.setItem("userData", JSON.stringify(userPayload));
+    
+    if (response.data.token) {
+      await AsyncStorage.setItem("userToken", response.data.token);
+    }
+
+    showAlert("Success", "Account created successfully!", [
+      { text: "OK", onPress: () => navigation.replace("Success") }
+    ]);
+
+  } catch (error) {
+    setLoading(false);
+    // Wannan zai nuna ainihin dalilin kuskure (404 ko wani abu) a cikin Console
+    console.error("Signup Error:", error.response?.data || error.message);
+    
+    const msg = error.response?.data?.message || "Registration failed. Please check your connection.";
+    showAlert("Registration Failed", msg);
+  }
+};
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
