@@ -69,11 +69,7 @@ const SuperAdminDashboard = ({ navigation }) => {
       (await AsyncStorage.getItem("token")) ||
       (await AsyncStorage.getItem("adminToken"));
 
-    return token
-      ? {
-          Authorization: `Bearer ${token}`,
-        }
-      : {};
+    return token ? { Authorization: `Bearer ${token}` } : {};
   };
 
   const normalizeArray = (payload, key) => {
@@ -90,30 +86,20 @@ const SuperAdminDashboard = ({ navigation }) => {
     return {
       finance: {
         totalRevenue:
-          data?.finance?.totalRevenue ||
-          data?.totalRevenue ||
-          data?.revenue ||
-          0,
+          data?.finance?.totalRevenue || data?.totalRevenue || data?.revenue || 0,
         successfulTransactions:
           data?.finance?.successfulTransactions ||
           data?.successfulTransactions ||
           data?.totalTransactions ||
           0,
-        walletBalance:
-          data?.finance?.walletBalance || data?.walletBalance || 0,
+        walletBalance: data?.finance?.walletBalance || data?.walletBalance || 0,
       },
       users: {
-        totalUsers:
-          data?.users?.totalUsers ||
-          data?.totalUsers ||
-          users.length ||
-          0,
-        totalAgents:
-          data?.users?.totalAgents || data?.totalAgents || 0,
+        totalUsers: data?.users?.totalUsers || data?.totalUsers || 0,
+        totalAgents: data?.users?.totalAgents || data?.totalAgents || 0,
         totalSupervisors:
           data?.users?.totalSupervisors || data?.totalSupervisors || 0,
-        totalAdmins:
-          data?.users?.totalAdmins || data?.totalAdmins || 0,
+        totalAdmins: data?.users?.totalAdmins || data?.totalAdmins || 0,
       },
     };
   };
@@ -121,13 +107,10 @@ const SuperAdminDashboard = ({ navigation }) => {
   const fetchDashboard = async () => {
     try {
       setLoading(true);
-
       const headers = await getAuthHeaders();
 
       try {
-        const statsRes = await axios.get(API_ENDPOINTS.dashboardStats, {
-          headers,
-        });
+        const statsRes = await axios.get(API_ENDPOINTS.dashboardStats, { headers });
         setStats(normalizeStats(statsRes.data));
       } catch (error) {
         console.log("Stats endpoint not ready:", error?.response?.status);
@@ -141,9 +124,7 @@ const SuperAdminDashboard = ({ navigation }) => {
       }
 
       try {
-        const txRes = await axios.get(API_ENDPOINTS.transactions, {
-          headers,
-        });
+        const txRes = await axios.get(API_ENDPOINTS.transactions, { headers });
         setTransactions(normalizeArray(txRes.data, "transactions"));
       } catch (error) {
         console.log("Transactions endpoint not ready:", error?.response?.status);
@@ -161,6 +142,23 @@ const SuperAdminDashboard = ({ navigation }) => {
     fetchDashboard();
   };
 
+  const goTo = (screenName) => {
+    try {
+      navigation.navigate(screenName);
+    } catch (error) {
+      Alert.alert(
+        "Screen not found",
+        `${screenName} screen bai samu a navigation ba. Ka tabbatar an saka shi a Stack.Navigator.`
+      );
+    }
+  };
+
+  const enterAsRole = async (role, screenName) => {
+    await AsyncStorage.setItem("overrideRole", role);
+    await AsyncStorage.setItem("isSuperAdminOverride", "true");
+    goTo(screenName);
+  };
+
   const logout = async () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
       { text: "Cancel", style: "cancel" },
@@ -174,6 +172,8 @@ const SuperAdminDashboard = ({ navigation }) => {
             "adminToken",
             "userData",
             "userRole",
+            "overrideRole",
+            "isSuperAdminOverride",
           ]);
 
           navigation.dispatch(
@@ -187,97 +187,155 @@ const SuperAdminDashboard = ({ navigation }) => {
     ]);
   };
 
-  const formatMoney = (value) => {
-    return `₦${Number(value || 0).toLocaleString()}`;
-  };
+  const formatMoney = (value) => `₦${Number(value || 0).toLocaleString()}`;
 
   const roleCounts = useMemo(() => {
-    const totalAgents =
-      stats?.users?.totalAgents ||
-      users.filter((u) => u?.role?.toLowerCase() === "agent").length;
-
-    const totalSupervisors =
-      stats?.users?.totalSupervisors ||
-      users.filter((u) => u?.role?.toLowerCase() === "supervisor").length;
-
-    const totalAdmins =
-      stats?.users?.totalAdmins ||
-      users.filter((u) =>
-        ["admin", "superadmin"].includes(u?.role?.toLowerCase())
-      ).length;
-
     return {
-      totalUsers: stats?.users?.totalUsers || users.length,
-      totalAgents,
-      totalSupervisors,
-      totalAdmins,
+      totalUsers: stats?.users?.totalUsers || users.length || 0,
+      totalAgents:
+        stats?.users?.totalAgents ||
+        users.filter((u) => u?.role?.toLowerCase() === "agent").length,
+      totalSupervisors:
+        stats?.users?.totalSupervisors ||
+        users.filter((u) => u?.role?.toLowerCase() === "supervisor").length,
+      totalAdmins:
+        stats?.users?.totalAdmins ||
+        users.filter((u) =>
+          ["admin", "superadmin"].includes(u?.role?.toLowerCase())
+        ).length,
     };
   }, [stats, users]);
 
-  const cards = [
+  const statCards = [
     {
       title: "Total Users",
       value: roleCounts.totalUsers,
       icon: "people",
-      iconType: "ion",
+      type: "ion",
       bg: COLORS.primary,
     },
     {
       title: "Agents",
       value: roleCounts.totalAgents,
       icon: "account-tie",
-      iconType: "mci",
+      type: "mci",
       bg: COLORS.danger,
     },
     {
       title: "Supervisors",
       value: roleCounts.totalSupervisors,
       icon: "account-check",
-      iconType: "mci",
+      type: "mci",
       bg: COLORS.secondary,
     },
     {
       title: "Admins",
       value: roleCounts.totalAdmins,
       icon: "shield-checkmark",
-      iconType: "ion",
+      type: "ion",
       bg: "#B91C1C",
     },
     {
       title: "Revenue",
       value: formatMoney(stats?.finance?.totalRevenue),
       icon: "cash",
-      iconType: "ion",
+      type: "ion",
       bg: "#065F46",
     },
     {
       title: "Transactions",
       value: stats?.finance?.successfulTransactions || transactions.length || 0,
       icon: "swap-horizontal",
-      iconType: "ion",
+      type: "ion",
       bg: "#991B1B",
     },
     {
-      title: "Wallet Balance",
+      title: "Wallet",
       value: formatMoney(stats?.finance?.walletBalance),
       icon: "wallet",
-      iconType: "ion",
+      type: "ion",
       bg: "#15803D",
     },
     {
       title: "Status",
       value: "Active",
       icon: "trending-up",
-      iconType: "ion",
+      type: "ion",
       bg: COLORS.dark,
     },
   ];
 
-  const renderIcon = (item, size = 30, color = COLORS.white) => {
-    if (item.iconType === "mci") {
+  const dashboardMenus = [
+    {
+      title: "User Dashboard",
+      subtitle: "Shiga kamar normal user",
+      icon: "person-circle",
+      type: "ion",
+      color: COLORS.primary,
+      action: () => enterAsRole("user", "Main"),
+    },
+    {
+      title: "Agent Dashboard",
+      subtitle: "Duba aikin agents",
+      icon: "account-tie",
+      type: "mci",
+      color: COLORS.danger,
+      action: () => enterAsRole("agent", "AgentDashboard"),
+    },
+    {
+      title: "Supervisor Dashboard",
+      subtitle: "Duba supervisors",
+      icon: "account-supervisor",
+      type: "mci",
+      color: COLORS.secondary,
+      action: () => enterAsRole("supervisor", "SupervisorDashboard"),
+    },
+    {
+      title: "Admin Control",
+      subtitle: "Manage users and roles",
+      icon: "shield-account",
+      type: "mci",
+      color: "#B91C1C",
+      action: () => goTo("AdminUserControl"),
+    },
+    {
+      title: "User Management",
+      subtitle: "Ganin kowa da roles",
+      icon: "people-outline",
+      type: "ion",
+      color: "#0F172A",
+      action: () => goTo("UserManagement"),
+    },
+    {
+      title: "Transactions",
+      subtitle: "Ganin aikin kowa",
+      icon: "receipt",
+      type: "ion",
+      color: "#15803D",
+      action: () => goTo("SalesHistory"),
+    },
+    {
+      title: "NIMC History",
+      subtitle: "Duba NIMC records",
+      icon: "fingerprint",
+      type: "ion",
+      color: "#7C2D12",
+      action: () => goTo("NIMCHistory"),
+    },
+    {
+      title: "BVN History",
+      subtitle: "Duba BVN records",
+      icon: "card-account-details",
+      type: "mci",
+      color: "#6D28D9",
+      action: () => goTo("BVNHistory"),
+    },
+  ];
+
+  const renderIcon = (item, size = 28, color = COLORS.white) => {
+    if (item.type === "mci") {
       return <MaterialCommunityIcons name={item.icon} size={size} color={color} />;
     }
-
     return <Ionicons name={item.icon} size={size} color={color} />;
   };
 
@@ -293,7 +351,7 @@ const SuperAdminDashboard = ({ navigation }) => {
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Bellaj Data Hub</Text>
           <Text style={styles.headerSubtitle}>Super Admin Command Center</Text>
         </View>
@@ -315,13 +373,13 @@ const SuperAdminDashboard = ({ navigation }) => {
         <View style={styles.welcomeCard}>
           <Text style={styles.welcomeTitle}>Welcome Super Admin</Text>
           <Text style={styles.welcomeText}>
-            Anan zaka iya ganin users, agents, supervisors, admins,
-            transactions da aikin kowa.
+            Kana da override access domin shiga dashboard na User, Agent,
+            Supervisor da Admin, sannan zaka iya ganin aikin kowa.
           </Text>
         </View>
 
         <View style={[styles.grid, isWeb && styles.webGrid]}>
-          {cards.map((card, index) => (
+          {statCards.map((card, index) => (
             <View
               key={index}
               style={[
@@ -339,6 +397,30 @@ const SuperAdminDashboard = ({ navigation }) => {
           ))}
         </View>
 
+        <Text style={styles.bigSectionTitle}>Dashboard Override Access</Text>
+
+        <View style={[styles.menuGrid, isWeb && styles.webMenuGrid]}>
+          {dashboardMenus.map((item, index) => (
+            <TouchableOpacity
+              key={index}
+              style={[styles.menuCard, isWeb && styles.webMenuCard]}
+              onPress={item.action}
+              activeOpacity={0.86}
+            >
+              <View style={[styles.menuIcon, { backgroundColor: item.color }]}>
+                {renderIcon(item, 28, COLORS.white)}
+              </View>
+
+              <View style={styles.menuTextBox}>
+                <Text style={styles.menuTitle}>{item.title}</Text>
+                <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
+              </View>
+
+              <Ionicons name="chevron-forward" size={22} color={COLORS.muted} />
+            </TouchableOpacity>
+          ))}
+        </View>
+
         <View style={[styles.sectionGrid, isWeb && styles.webSectionGrid]}>
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
@@ -348,8 +430,8 @@ const SuperAdminDashboard = ({ navigation }) => {
 
             {users.length === 0 ? (
               <Text style={styles.emptyText}>
-                Babu users da aka dawo dasu tukuna. Idan kana son su fito kai
-                tsaye, backend endpoint /admin/users ya kasance.
+                Babu users da aka dawo dasu tukuna. Backend endpoint /admin/users
+                sai an saita shi.
               </Text>
             ) : (
               users.slice(0, 10).map((user, index) => (
@@ -385,18 +467,21 @@ const SuperAdminDashboard = ({ navigation }) => {
 
             {transactions.length === 0 ? (
               <Text style={styles.emptyText}>
-                Babu transactions da aka dawo dasu tukuna. Idan kana son ganin
-                aikin kowa, backend endpoint /admin/transactions ya kasance.
+                Babu transactions da aka dawo dasu tukuna. Backend endpoint
+                /admin/transactions sai an saita shi.
               </Text>
             ) : (
               transactions.slice(0, 10).map((tx, index) => (
                 <View key={tx?._id || index} style={styles.txRow}>
-                  <View>
+                  <View style={{ flex: 1 }}>
                     <Text style={styles.txTitle}>
                       {tx?.type || tx?.service || "Transaction"}
                     </Text>
                     <Text style={styles.txEmail}>
-                      {tx?.userEmail || tx?.email || tx?.user?.email || "Unknown User"}
+                      {tx?.userEmail ||
+                        tx?.email ||
+                        tx?.user?.email ||
+                        "Unknown User"}
                     </Text>
                   </View>
 
@@ -415,10 +500,7 @@ const SuperAdminDashboard = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: COLORS.light,
-  },
+  screen: { flex: 1, backgroundColor: COLORS.light },
   header: {
     backgroundColor: COLORS.primary,
     paddingTop: Platform.OS === "android" ? 42 : 22,
@@ -428,11 +510,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  headerTitle: {
-    color: COLORS.white,
-    fontSize: 22,
-    fontWeight: "900",
-  },
+  headerTitle: { color: COLORS.white, fontSize: 22, fontWeight: "900" },
   headerSubtitle: {
     color: "#DCFCE7",
     fontSize: 13,
@@ -448,18 +526,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
   },
-  logoutText: {
-    color: COLORS.white,
-    fontWeight: "800",
-    fontSize: 12,
-  },
-  container: {
-    flex: 1,
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 40,
-  },
+  logoutText: { color: COLORS.white, fontWeight: "800", fontSize: 12 },
+  container: { flex: 1 },
+  content: { padding: 16, paddingBottom: 40 },
   welcomeCard: {
     backgroundColor: COLORS.card,
     borderRadius: 18,
@@ -470,25 +539,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  welcomeTitle: {
-    color: COLORS.dark,
-    fontSize: 22,
-    fontWeight: "900",
-  },
+  welcomeTitle: { color: COLORS.dark, fontSize: 22, fontWeight: "900" },
   welcomeText: {
     color: COLORS.muted,
     marginTop: 6,
     lineHeight: 20,
     fontWeight: "600",
   },
-  grid: {
-    gap: 12,
-    marginBottom: 16,
-  },
-  webGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-  },
+  grid: { gap: 12, marginBottom: 18 },
+  webGrid: { flexDirection: "row", flexWrap: "wrap" },
   statCard: {
     borderRadius: 18,
     padding: 18,
@@ -497,13 +556,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  webStatCard: {
-    width: "23.5%",
-    minWidth: 220,
-  },
-  statInfo: {
-    flex: 1,
-  },
+  webStatCard: { width: "23.5%", minWidth: 220 },
+  statInfo: { flex: 1 },
   statTitle: {
     color: "rgba(255,255,255,0.82)",
     fontSize: 12,
@@ -524,12 +578,42 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  sectionGrid: {
-    gap: 16,
+  bigSectionTitle: {
+    color: COLORS.dark,
+    fontSize: 20,
+    fontWeight: "900",
+    marginBottom: 12,
   },
-  webSectionGrid: {
+  menuGrid: { gap: 12, marginBottom: 18 },
+  webMenuGrid: { flexDirection: "row", flexWrap: "wrap" },
+  menuCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     flexDirection: "row",
+    alignItems: "center",
   },
+  webMenuCard: { width: "48.5%", minWidth: 320 },
+  menuIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  menuTextBox: { flex: 1 },
+  menuTitle: { color: COLORS.dark, fontSize: 15, fontWeight: "900" },
+  menuSubtitle: {
+    color: COLORS.muted,
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 3,
+  },
+  sectionGrid: { gap: 16 },
+  webSectionGrid: { flexDirection: "row" },
   sectionCard: {
     backgroundColor: COLORS.white,
     borderRadius: 18,
@@ -544,12 +628,7 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 14,
   },
-  sectionTitle: {
-    color: COLORS.dark,
-    fontSize: 17,
-    fontWeight: "900",
-    flex: 1,
-  },
+  sectionTitle: { color: COLORS.dark, fontSize: 17, fontWeight: "900", flex: 1 },
   emptyText: {
     backgroundColor: COLORS.light,
     borderWidth: 1,
@@ -579,23 +658,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginRight: 10,
   },
-  avatarText: {
-    color: COLORS.white,
-    fontWeight: "900",
-  },
-  userInfo: {
-    flex: 1,
-  },
-  userName: {
-    color: COLORS.dark,
-    fontWeight: "900",
-    fontSize: 14,
-  },
-  userEmail: {
-    color: COLORS.muted,
-    fontSize: 12,
-    marginTop: 2,
-  },
+  avatarText: { color: COLORS.white, fontWeight: "900" },
+  userInfo: { flex: 1 },
+  userName: { color: COLORS.dark, fontWeight: "900", fontSize: 14 },
+  userEmail: { color: COLORS.muted, fontSize: 12, marginTop: 2 },
   roleBadge: {
     backgroundColor: "#DCFCE7",
     paddingHorizontal: 10,
@@ -619,22 +685,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 8,
   },
-  txTitle: {
-    color: COLORS.dark,
-    fontWeight: "900",
-  },
-  txEmail: {
-    color: COLORS.muted,
-    fontSize: 12,
-    marginTop: 3,
-  },
-  txRight: {
-    alignItems: "flex-end",
-  },
-  txAmount: {
-    color: COLORS.primary,
-    fontWeight: "900",
-  },
+  txTitle: { color: COLORS.dark, fontWeight: "900" },
+  txEmail: { color: COLORS.muted, fontSize: 12, marginTop: 3 },
+  txRight: { alignItems: "flex-end" },
+  txAmount: { color: COLORS.primary, fontWeight: "900" },
   txStatus: {
     color: COLORS.muted,
     fontSize: 11,
@@ -648,11 +702,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 20,
   },
-  loaderText: {
-    marginTop: 12,
-    color: COLORS.primary,
-    fontWeight: "800",
-  },
+  loaderText: { marginTop: 12, color: COLORS.primary, fontWeight: "800" },
 });
 
 export default SuperAdminDashboard;
