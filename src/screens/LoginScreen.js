@@ -172,61 +172,60 @@ const LoginScreen = ({ navigation }) => {
   };
 
   const handleLogin = async () => {
-    setErrorMessage("");
+  setErrorMessage("");
 
-    const cleanEmail = normalizeEmail(email);
+  const cleanEmail = normalizeEmail(email);
 
-    if (!cleanEmail || !password) {
-      setErrorMessage("Please enter both your email address and password.");
+  if (!cleanEmail || !password) {
+    setErrorMessage("Please enter both your email address and password.");
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const loginUrl = `${BASE_URL}/auth/login`;
+
+    const response = await axios.post(loginUrl, {
+      email: cleanEmail,
+      password,
+    });
+
+    const token = getToken(response.data);
+    const userPayload = getUserPayload(response.data);
+    const finalRole = detectRole(response.data, cleanEmail);
+
+    if (!token) {
+      setErrorMessage("Authentication token missing from server.");
       return;
     }
 
-    setLoading(true);
+    const finalUserData = {
+      ...userPayload,
+      email: userPayload?.email || cleanEmail,
+      role: finalRole,
+    };
 
-    try {
-      const loginUrl = `${BASE_URL}/api/v1/auth/login`;
+    await AsyncStorage.setItem("userToken", token);
+    await AsyncStorage.setItem("userData", JSON.stringify(finalUserData));
+    await AsyncStorage.setItem("userRole", finalRole);
 
-      const response = await axios.post(loginUrl, {
-        email: cleanEmail,
-        password,
-      });
+    redirectUser(finalRole);
+  } catch (error) {
+    const status = error?.response?.status;
+    const serverMessage = error?.response?.data?.message;
 
-      const token = getToken(response.data);
-      const userPayload = getUserPayload(response.data);
-      const finalRole = detectRole(response.data, cleanEmail);
-
-      if (!token) {
-        setErrorMessage("Authentication token missing from server.");
-        return;
-      }
-
-      const finalUserData = {
-        ...userPayload,
-        email: userPayload?.email || cleanEmail,
-        role: finalRole,
-      };
-
-      await AsyncStorage.setItem("userToken", token);
-      await AsyncStorage.setItem("userData", JSON.stringify(finalUserData));
-      await AsyncStorage.setItem("userRole", finalRole);
-
-      redirectUser(finalRole);
-    } catch (error) {
-      const status = error?.response?.status;
-      const serverMessage = error?.response?.data?.message;
-
-      if (status === 401) {
-        setErrorMessage(
-          "Unauthorized: email or password is wrong, or admin account is not created in backend."
-        );
-      } else {
-        setErrorMessage(serverMessage || "Login failed. Please try again.");
-      }
-    } finally {
-      setLoading(false);
+    if (status === 401) {
+      setErrorMessage("Unauthorized: email or password is wrong.");
+    } else if (status === 404) {
+      setErrorMessage("Login API not found. Check backend URL.");
+    } else {
+      setErrorMessage(serverMessage || "Login failed. Please try again.");
     }
-  };
-
+  } finally {
+    setLoading(false);
+  }
+};
   const handleBiometricLogin = async () => {
     try {
       const result = await LocalAuthentication.authenticateAsync({
