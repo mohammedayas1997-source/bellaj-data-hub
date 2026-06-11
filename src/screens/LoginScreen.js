@@ -38,7 +38,7 @@ const COLORS = {
 
 const API_ENDPOINTS = {
   userLogin: `${BASE_URL}/auth/login`,
-  supervisorLogin: `${BASE_URL}/api/v1/auth/login`,
+  roleLogin: `${BASE_URL}/api/v1/auth/login`,
 };
 
 const LoginScreen = ({ navigation }) => {
@@ -47,16 +47,29 @@ const LoginScreen = ({ navigation }) => {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [selectedRole, setSelectedRole] = useState("user");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
-  const [isSupervisor, setIsSupervisor] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     checkLoginStatus();
     checkBiometricStatus();
   }, []);
+
+  const detectRole = (data) => {
+    return (
+      data?.role ||
+      data?.user?.role ||
+      data?.data?.role ||
+      data?.data?.user?.role ||
+      ""
+    )
+      .toString()
+      .trim()
+      .toLowerCase();
+  };
 
   const checkLoginStatus = async () => {
     try {
@@ -66,38 +79,9 @@ const LoginScreen = ({ navigation }) => {
       if (!token || !storedUserData) return;
 
       const user = JSON.parse(storedUserData);
+      const role = detectRole(user);
 
-      const detectedRole = (
-        user?.role ||
-        user?.user?.role ||
-        user?.data?.user?.role ||
-        user?.data?.role ||
-        ""
-      )
-        .trim()
-        .toLowerCase();
-
-      if (detectedRole === "agent") {
-        navigation.reset({
-          index: 0,
-          routes: [
-            {
-              name: "Main",
-              state: { routes: [{ name: "AgentDashboard" }] },
-            },
-          ],
-        });
-      } else if (detectedRole === "supervisor") {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: "SupervisorDashboard" }],
-        });
-      } else {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: "Main" }],
-        });
-      }
+      redirectUser(role);
     } catch (e) {
       console.log("Startup auth error:", e.message);
     }
@@ -132,9 +116,16 @@ const LoginScreen = ({ navigation }) => {
   };
 
   const redirectUser = (role) => {
-    const normalizedRole = role?.trim()?.toLowerCase();
+    const normalizedRole = role?.toString()?.trim()?.toLowerCase();
 
-    if (isSupervisor || normalizedRole === "supervisor") {
+    if (normalizedRole === "admin" || normalizedRole === "superadmin") {
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: "SuperAdminDashboard" }],
+        })
+      );
+    } else if (normalizedRole === "supervisor") {
       navigation.dispatch(
         CommonActions.reset({
           index: 0,
@@ -177,14 +168,13 @@ const LoginScreen = ({ navigation }) => {
     setLoading(true);
 
     try {
-      const loginUrl = isSupervisor
-        ? API_ENDPOINTS.supervisorLogin
-        : API_ENDPOINTS.userLogin;
+      const loginUrl =
+        selectedRole === "user" ? API_ENDPOINTS.userLogin : API_ENDPOINTS.roleLogin;
 
       const response = await axios.post(loginUrl, {
         email: email.trim().toLowerCase(),
         password,
-        role: selectedRole
+        role: selectedRole,
       });
 
       const token =
@@ -199,21 +189,26 @@ const LoginScreen = ({ navigation }) => {
         response?.data?.data ||
         {};
 
-      const finalRole =
+      const serverRole =
         userPayload?.role ||
         response?.data?.role ||
         response?.data?.data?.role ||
-        "";
+        selectedRole;
 
       if (!token) {
         setErrorMessage("Authentication token missing from server.");
         return;
       }
 
-      await AsyncStorage.setItem("userToken", token);
-      await AsyncStorage.setItem("userData", JSON.stringify(userPayload));
+      const finalUserData = {
+        ...userPayload,
+        role: serverRole,
+      };
 
-      setTimeout(() => redirectUser(finalRole), 300);
+      await AsyncStorage.setItem("userToken", token);
+      await AsyncStorage.setItem("userData", JSON.stringify(finalUserData));
+
+      setTimeout(() => redirectUser(serverRole), 300);
     } catch (error) {
       setErrorMessage(
         error.response?.data?.message ||
@@ -243,7 +238,7 @@ const LoginScreen = ({ navigation }) => {
       }
 
       const user = JSON.parse(storedUserData);
-      const role = user?.role || user?.data?.role || "";
+      const role = detectRole(user);
 
       redirectUser(role);
     } catch (error) {
@@ -265,7 +260,6 @@ const LoginScreen = ({ navigation }) => {
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={true}
-          alwaysBounceVertical={true}
         >
           <View style={[styles.card, isWeb && styles.webCard]}>
             <View style={styles.headerSection}>
@@ -290,6 +284,33 @@ const LoginScreen = ({ navigation }) => {
               </View>
             ) : null}
 
+            <Text style={styles.label}>Login Type</Text>
+
+            <View style={styles.roleBox}>
+              {["user", "agent", "supervisor", "admin"].map((role) => (
+                <TouchableOpacity
+                  key={role}
+                  style={[
+                    styles.roleBtn,
+                    selectedRole === role && styles.roleBtnActive,
+                  ]}
+                  onPress={() => {
+                    setSelectedRole(role);
+                    if (errorMessage) setErrorMessage("");
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.roleText,
+                      selectedRole === role && styles.roleTextActive,
+                    ]}
+                  >
+                    {role.toUpperCase()}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
             <Text style={styles.label}>Email Address</Text>
             <View style={styles.inputContainer}>
               <Ionicons
@@ -309,6 +330,7 @@ const LoginScreen = ({ navigation }) => {
                 }}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                autoCorrect={false}
               />
             </View>
 
@@ -340,25 +362,6 @@ const LoginScreen = ({ navigation }) => {
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity
-              style={styles.supervisorRow}
-              onPress={() => setIsSupervisor(!isSupervisor)}
-            >
-              <Ionicons
-                name={isSupervisor ? "checkbox" : "square-outline"}
-                size={24}
-                color={isSupervisor ? COLORS.primary : COLORS.muted}
-              />
-              <Text
-                style={[
-                  styles.supervisorText,
-                  { color: isSupervisor ? COLORS.primary : COLORS.muted },
-                ]}
-              >
-                Login as Supervisor
-              </Text>
-            </TouchableOpacity>
-
             <View style={styles.actionRow}>
               {isBiometricEnabled ? (
                 <TouchableOpacity
@@ -385,7 +388,7 @@ const LoginScreen = ({ navigation }) => {
             </View>
 
             <TouchableOpacity
-              style={styles.loginBtn}
+              style={[styles.loginBtn, loading && styles.loginBtnDisabled]}
               onPress={handleLogin}
               disabled={loading}
               activeOpacity={0.9}
@@ -418,9 +421,7 @@ const LoginScreen = ({ navigation }) => {
             </View>
 
             <View style={styles.signupContainer}>
-              <Text style={styles.noAccountText}>
-                Don&apos;t have an account?{" "}
-              </Text>
+              <Text style={styles.noAccountText}>Don&apos;t have an account? </Text>
               <TouchableOpacity onPress={() => navigation.navigate("Signup")}>
                 <Text style={styles.signupText}>Create Account</Text>
               </TouchableOpacity>
@@ -558,6 +559,37 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
+  roleBox: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 18,
+  },
+
+  roleBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: "#F8FAFC",
+  },
+
+  roleBtnActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+
+  roleText: {
+    color: COLORS.muted,
+    fontSize: 12,
+    fontWeight: "900",
+  },
+
+  roleTextActive: {
+    color: COLORS.white,
+  },
+
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -579,7 +611,7 @@ const styles = StyleSheet.create({
     minHeight: 52,
     color: COLORS.dark,
     fontSize: 16,
-    outlineStyle: "none",
+    ...(Platform.OS === "web" ? { outlineStyle: "none" } : {}),
   },
 
   errorBanner: {
@@ -599,17 +631,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     flex: 1,
-  },
-
-  supervisorRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 18,
-  },
-
-  supervisorText: {
-    marginLeft: 8,
-    fontWeight: "700",
   },
 
   actionRow: {
@@ -646,6 +667,10 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
+  },
+
+  loginBtnDisabled: {
+    opacity: 0.7,
   },
 
   loginBtnText: {
