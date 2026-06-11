@@ -135,100 +135,50 @@ const SignupScreen = ({ navigation }) => {
     return true;
   };
 // ... (sauran lambarka)
-
 const handleSignup = async () => {
-  if (!validateInputs()) return;
-  setLoading(true);
+    if (!validateInputs()) return;
+    setLoading(true);
 
-  try {
-    const registrationData = {
-      firstName: firstName.trim(),
-      surname: surname.trim(),
-      otherName: otherName.trim(),
-      email: email.trim().toLowerCase(),
-      phone: phone.trim(),
-      password: password,
-      role: role.trim().toLowerCase(),
-    };
+    try {
+      const registrationData = {
+        firstName: firstName.trim(),
+        surname: surname.trim(),
+        otherName: otherName.trim(),
+        email: email.trim().toLowerCase(),
+        phone: phone.trim(),
+        password: password,
+        role: role.trim().toLowerCase(),
+      };
 
-    if (role === "agent") {
-      registrationData.state = state.trim();
-      registrationData.lga = lga.trim();
-      registrationData.address = address.trim();
-      if (supervisorId)
-        registrationData.supervisorId = supervisorId.toUpperCase().trim();
-      if (image) registrationData.businessImage = image;
-    }
+      if (role === "agent") {
+        registrationData.state = state.trim();
+        registrationData.lga = lga.trim();
+        registrationData.address = address.trim();
+        if (supervisorId) registrationData.supervisorId = supervisorId.toUpperCase().trim();
+        if (image) registrationData.businessImage = image;
+      }
 
-    // AN GYARA NAN: Mun sanya URL kai tsaye kamar yadda yake a Ayax
-    const response = await axios({
-        method: "POST",
-        url: "https://bellaj-data-server.onrender.com/api/v1/auth/register",
-        data: registrationData,
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        timeout: 200000,
+      const response = await axios.post("https://bellaj-data-server.onrender.com/api/v1/auth/register", registrationData, {
+        headers: { "Content-Type": "application/json" }
       });
 
-    // ... (sauran lambarka ta rage kamar yadda take)
-
-      const isSuccess =
-        response.status === 201 ||
-        response.status === 200 ||
-        response.data?.success === true ||
-        response.data?.status === "success";
-
-      if (isSuccess) {
-        const userPayload = response.data.user ||
-          response.data.data?.user ||
-          response.data.data || { role: role.trim().toLowerCase() };
-
-        await AsyncStorage.setItem("userData", JSON.stringify(userPayload));
-        if (response.data.token) {
-          await AsyncStorage.setItem("userToken", response.data.token);
-        }
-
-        setLoading(false);
-
-        showAlert(
-          "Account Created 🎉",
-          "Your registration has been completed successfully! Click OK to proceed.",
-          [
-            {
-              text: "OK",
-              onPress: () => navigation.replace("Success"),
-            },
-          ],
-        );
-      } else {
-        setLoading(false);
-        showAlert(
-          "Registration Alert",
-          response.data?.message ||
-            "Unexpected response from server. Please check.",
-        );
+      setLoading(false);
+      
+      // Store user data
+      const userPayload = response.data.user || response.data.data || { role: role };
+      await AsyncStorage.setItem("userData", JSON.stringify(userPayload));
+      if (response.data.token) {
+        await AsyncStorage.setItem("userToken", response.data.token);
       }
+
+      showAlert("Success", "Account created successfully!", [
+        { text: "OK", onPress: () => navigation.replace("Success") }
+      ]);
+
     } catch (error) {
       setLoading(false);
-      const serverMsg =
-        error.response?.data?.message ||
-        "Network connection issue. Please try again.";
-
-      if (error.code === "ECONNABORTED") {
-        showAlert(
-          "Network Timeout",
-          "Connection took too long to respond. Check your internet connection.",
-        );
-      } else {
-        showAlert("Registration Failed ❌", serverMsg);
-      }
-
-      console.error(
-        "Registration Log Error:",
-        error.response?.data || error.message,
-      );
+      const msg = error.response?.data?.message || "Registration failed. Please try again.";
+      showAlert("Registration Failed", msg);
     }
   };
 
