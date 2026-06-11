@@ -162,15 +162,15 @@ const handleSignup = async () => {
 
     // AN GYARA NAN: Mun sanya URL kai tsaye kamar yadda yake a Ayax
     const response = await axios({
-      method: "POST",
-      url: "https://bellaj-data-server1.vercel.app/api/v1/auth/register",
-      data: registrationData,
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      timeout: 200000,
-    });
+        method: "POST",
+        url: "https://bellaj-data-server.onrender.com/api/v1/auth/register",
+        data: registrationData,
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        timeout: 200000,
+      });
 
     // ... (sauran lambarka ta rage kamar yadda take)
 
