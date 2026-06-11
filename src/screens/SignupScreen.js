@@ -19,7 +19,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
-
+import BASE_URL from "../config/api";
 
 const COLORS = {
   primary: "#0B5E3C",
@@ -32,9 +32,6 @@ const COLORS = {
   softGreen: "#EAF7F1",
 };
 
-const API_ENDPOINTS = {
-  register: `${BASE_URL}/auth/register`,
-};
 
 const SignupScreen = ({ navigation }) => {
   const { width } = useWindowDimensions();
