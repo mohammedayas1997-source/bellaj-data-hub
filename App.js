@@ -12,7 +12,8 @@ import { ThemeProvider, ThemeContext } from "./src/context/ThemeContext";
 
 // --- COMPONENTS ---
 import CustomDrawerContent from "./src/components/CustomDrawerContent.js";
-import NotificationsScreen from "./src/screens/NotificationsScreen"; // Ka tabbatar wannan path ɗin daidai yake
+import NotificationsScreen from "./src/screens/NotificationsScreen";
+
 // --- SCREENS ---
 import LoginScreen from "./src/screens/LoginScreen";
 import HomeScreen from "./src/screens/HomeScreen";
@@ -24,6 +25,7 @@ import NIMCScreen from "./src/screens/NIMCScreen";
 import CableScreen from "./src/screens/CableScreen";
 import SignupScreen from "./src/screens/SignupScreen";
 import ForgotPasswordScreen from "./src/screens/ForgotPasswordScreen";
+import SuccessScreen from "./src/screens/SuccessScreen";
 import AirtimeScreen from "./src/screens/AirtimeScreen";
 import FundWalletScreen from "./src/screens/FundWalletScreen";
 import ContactScreen from "./src/screens/ContactScreen";
@@ -32,7 +34,6 @@ import AdminControlScreen from "./src/screens/AdminControlScreen";
 import AssignTargetScreen from "./src/screens/AssignTargetScreen";
 import AgentDashboard from "./src/screens/AgentDashboard";
 import SettingsScreen from "./src/screens/SettingsScreen";
-import SuccessScreen from "./src/screens/SuccessScreen";
 import LeaderDashboard from "./src/screens/LeaderDashboard";
 import CreateSupervisorScreen from "./src/screens/CreateSupervisorScreen";
 import ManageAgentsScreen from "./src/screens/ManageAgentsScreen";
@@ -84,26 +85,12 @@ function AppContent() {
           headerTintColor: "#38bdf8",
         }}
       >
-        <Stack.Screen
-          name="Onboarding"
-          component={OnboardingScreen}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="Login"
-          component={LoginScreen}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="Signup"
-          component={SignupScreen}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="Main"
-          component={DrawerNavigator}
-          options={{ headerShown: false }}
-        />
+        <Stack.Screen name="Onboarding" component={OnboardingScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="Signup" component={SignupScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+        <Stack.Screen name="Success" component={SuccessScreen} />
+        <Stack.Screen name="Main" component={DrawerNavigator} options={{ headerShown: false }} />
         <Stack.Screen name="BuyAirtime" component={AirtimeScreen} />
         <Stack.Screen name="FundWallet" component={FundWalletScreen} />
         <Stack.Screen name="BuyData" component={BuyDataScreen} />
@@ -114,31 +101,18 @@ function AppContent() {
         <Stack.Screen name="Profile" component={ProfileScreen} />
         <Stack.Screen name="Contact" component={ContactScreen} />
         <Stack.Screen name="AdminControl" component={AdminControlScreen} />
-        <Stack.Screen
-          name="SupervisorDashboard"
-          component={SupervisorDashboard}
-        />
-
+        <Stack.Screen name="SupervisorDashboard" component={SupervisorDashboard} />
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
         <Stack.Screen name="AssignTarget" component={AssignTargetScreen} />
         <Stack.Screen name="LeaderDashboard" component={LeaderDashboard} />
-        <Stack.Screen
-          name="CreateSupervisor"
-          component={CreateSupervisorScreen}
-        />
+        <Stack.Screen name="CreateSupervisor" component={CreateSupervisorScreen} />
         <Stack.Screen name="ManageAgents" component={ManageAgentsScreen} />
         <Stack.Screen name="SuperAdminUsers" component={UserManagement} />
-        <Stack.Screen
-          name="SuperAdminDashboard"
-          component={SuperAdminDashboard}
-        />
+        <Stack.Screen name="SuperAdminDashboard" component={SuperAdminDashboard} />
         <Stack.Screen name="SupportDashboard" component={SupportDashboard} />
         <Stack.Screen name="NIMCRequests" component={NIMCRequests} />
-        <Stack.Screen
-          name="NIMCModification"
-          component={NIMCModificationScreen}
-        />
+        <Stack.Screen name="NIMCModification" component={NIMCModificationScreen} />
         <Stack.Screen name="UpdatePin" component={UpdatePin} />
         <Stack.Screen name="About" component={AboutScreen} />
         <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
