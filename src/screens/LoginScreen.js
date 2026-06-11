@@ -25,6 +25,8 @@ import axios from "axios";
 import { CommonActions } from "@react-navigation/native";
 import BASE_URL from "../config/api";
 
+const ADMIN_EMAIL = "admin@bellajdatahub.online";
+
 const COLORS = {
   primary: "#0B5E3C",
   secondary: "#16A34A",
@@ -34,11 +36,6 @@ const COLORS = {
   muted: "#64748B",
   border: "#E2E8F0",
   danger: "#DC2626",
-};
-
-const API_ENDPOINTS = {
-  userLogin: `${BASE_URL}/auth/login`,
-  roleLogin: `${BASE_URL}/api/v1/auth/login`,
 };
 
 const LoginScreen = ({ navigation }) => {
@@ -58,17 +55,41 @@ const LoginScreen = ({ navigation }) => {
     checkBiometricStatus();
   }, []);
 
-  const detectRole = (data) => {
+  const normalizeEmail = (value) => value.trim().toLowerCase();
+
+  const detectRole = (payload, fallbackEmail = "") => {
+    const foundRole =
+      payload?.role ||
+      payload?.user?.role ||
+      payload?.data?.role ||
+      payload?.data?.user?.role ||
+      "";
+
+    const normalizedRole = foundRole.toString().trim().toLowerCase();
+
+    if (
+      fallbackEmail &&
+      normalizeEmail(fallbackEmail) === ADMIN_EMAIL &&
+      (!normalizedRole || normalizedRole === "user")
+    ) {
+      return "admin";
+    }
+
+    return normalizedRole || "user";
+  };
+
+  const getToken = (data) => {
     return (
-      data?.role ||
-      data?.user?.role ||
-      data?.data?.role ||
-      data?.data?.user?.role ||
+      data?.token ||
+      data?.accessToken ||
+      data?.data?.token ||
+      data?.data?.accessToken ||
       ""
-    )
-      .toString()
-      .trim()
-      .toLowerCase();
+    );
+  };
+
+  const getUserPayload = (data) => {
+    return data?.user || data?.data?.user || data?.data || {};
   };
 
   const checkLoginStatus = async () => {
@@ -79,7 +100,7 @@ const LoginScreen = ({ navigation }) => {
       if (!token || !storedUserData) return;
 
       const user = JSON.parse(storedUserData);
-      const role = detectRole(user);
+      const role = detectRole(user, user?.email);
 
       redirectUser(role);
     } catch (e) {
@@ -101,20 +122,6 @@ const LoginScreen = ({ navigation }) => {
     }
   };
 
-  const openWhatsApp = () => {
-    Linking.openURL(
-      "https://wa.me/2349075207281?text=Hello%20Bellaj%20Data%20Hub%20Support"
-    );
-  };
-
-  const openEmail = () => {
-    Linking.openURL("mailto:support@bellajdatahub.online");
-  };
-
-  const makeCall = () => {
-    Linking.openURL("tel:+2349075207281");
-  };
-
   const redirectUser = (role) => {
     const normalizedRole = role?.toString()?.trim()?.toLowerCase();
 
@@ -125,14 +132,20 @@ const LoginScreen = ({ navigation }) => {
           routes: [{ name: "SuperAdminDashboard" }],
         })
       );
-    } else if (normalizedRole === "supervisor") {
+      return;
+    }
+
+    if (normalizedRole === "supervisor") {
       navigation.dispatch(
         CommonActions.reset({
           index: 0,
           routes: [{ name: "SupervisorDashboard" }],
         })
       );
-    } else if (normalizedRole === "agent") {
+      return;
+    }
+
+    if (normalizedRole === "agent") {
       navigation.dispatch(
         CommonActions.reset({
           index: 0,
@@ -147,20 +160,23 @@ const LoginScreen = ({ navigation }) => {
           ],
         })
       );
-    } else {
-      navigation.dispatch(
-        CommonActions.reset({
-          index: 0,
-          routes: [{ name: "Main" }],
-        })
-      );
+      return;
     }
+
+    navigation.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [{ name: "Main" }],
+      })
+    );
   };
 
   const handleLogin = async () => {
     setErrorMessage("");
 
-    if (!email.trim() || !password) {
+    const cleanEmail = normalizeEmail(email);
+
+    if (!cleanEmail || !password) {
       setErrorMessage("Please enter both your email address and password.");
       return;
     }
@@ -168,32 +184,16 @@ const LoginScreen = ({ navigation }) => {
     setLoading(true);
 
     try {
-      const loginUrl =
-        selectedRole === "user" ? API_ENDPOINTS.userLogin : API_ENDPOINTS.roleLogin;
+      const loginUrl = `${BASE_URL}/api/v1/auth/login`;
 
       const response = await axios.post(loginUrl, {
-        email: email.trim().toLowerCase(),
+        email: cleanEmail,
         password,
-        role: selectedRole,
       });
 
-      const token =
-        response?.data?.token ||
-        response?.data?.accessToken ||
-        response?.data?.data?.token ||
-        "";
-
-      const userPayload =
-        response?.data?.user ||
-        response?.data?.data?.user ||
-        response?.data?.data ||
-        {};
-
-      const serverRole =
-        userPayload?.role ||
-        response?.data?.role ||
-        response?.data?.data?.role ||
-        selectedRole;
+      const token = getToken(response.data);
+      const userPayload = getUserPayload(response.data);
+      const finalRole = detectRole(response.data, cleanEmail);
 
       if (!token) {
         setErrorMessage("Authentication token missing from server.");
@@ -202,18 +202,26 @@ const LoginScreen = ({ navigation }) => {
 
       const finalUserData = {
         ...userPayload,
-        role: serverRole,
+        email: userPayload?.email || cleanEmail,
+        role: finalRole,
       };
 
       await AsyncStorage.setItem("userToken", token);
       await AsyncStorage.setItem("userData", JSON.stringify(finalUserData));
+      await AsyncStorage.setItem("userRole", finalRole);
 
-      setTimeout(() => redirectUser(serverRole), 300);
+      redirectUser(finalRole);
     } catch (error) {
-      setErrorMessage(
-        error.response?.data?.message ||
-          "Login failed. Please check your credentials."
-      );
+      const status = error?.response?.status;
+      const serverMessage = error?.response?.data?.message;
+
+      if (status === 401) {
+        setErrorMessage(
+          "Unauthorized: email or password is wrong, or admin account is not created in backend."
+        );
+      } else {
+        setErrorMessage(serverMessage || "Login failed. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -238,12 +246,26 @@ const LoginScreen = ({ navigation }) => {
       }
 
       const user = JSON.parse(storedUserData);
-      const role = detectRole(user);
+      const role = detectRole(user, user?.email);
 
       redirectUser(role);
     } catch (error) {
       setErrorMessage("Biometric login failed. Please try again.");
     }
+  };
+
+  const openWhatsApp = () => {
+    Linking.openURL(
+      "https://wa.me/2349075207281?text=Hello%20Bellaj%20Data%20Hub%20Support"
+    );
+  };
+
+  const openEmail = () => {
+    Linking.openURL("mailto:support@bellajdatahub.online");
+  };
+
+  const makeCall = () => {
+    Linking.openURL("tel:+2349075207281");
   };
 
   return (
@@ -259,7 +281,7 @@ const LoginScreen = ({ navigation }) => {
             isWeb && styles.webScrollContent,
           ]}
           keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={true}
+          showsVerticalScrollIndicator
         >
           <View style={[styles.card, isWeb && styles.webCard]}>
             <View style={styles.headerSection}>
@@ -296,6 +318,9 @@ const LoginScreen = ({ navigation }) => {
                   ]}
                   onPress={() => {
                     setSelectedRole(role);
+                    if (role === "admin") {
+                      setEmail(ADMIN_EMAIL);
+                    }
                     if (errorMessage) setErrorMessage("");
                   }}
                 >
@@ -326,6 +351,9 @@ const LoginScreen = ({ navigation }) => {
                 value={email}
                 onChangeText={(text) => {
                   setEmail(text);
+                  if (normalizeEmail(text) === ADMIN_EMAIL) {
+                    setSelectedRole("admin");
+                  }
                   if (errorMessage) setErrorMessage("");
                 }}
                 keyboardType="email-address"
