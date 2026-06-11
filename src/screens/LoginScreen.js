@@ -38,7 +38,7 @@ const COLORS = {
 
 const API_ENDPOINTS = {
   userLogin: `${BASE_URL}/auth/login`,
-  supervisorLogin: `${BASE_URL}/auth/login`,
+  supervisorLogin: `${BASE_URL}/api/v1/auth/login`,
 };
 
 const LoginScreen = ({ navigation }) => {
@@ -184,6 +184,7 @@ const LoginScreen = ({ navigation }) => {
       const response = await axios.post(loginUrl, {
         email: email.trim().toLowerCase(),
         password,
+        role: selectedRole
       });
 
       const token =
