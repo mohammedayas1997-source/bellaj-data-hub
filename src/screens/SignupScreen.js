@@ -19,7 +19,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
-import BASE_URL from "../config/api";
+
 
 const COLORS = {
   primary: "#0B5E3C",
@@ -137,41 +137,45 @@ const SignupScreen = ({ navigation }) => {
 
     return true;
   };
+// ... (sauran lambarka)
+
 const handleSignup = async () => {
-    if (!validateInputs()) return;
-    setLoading(true);
+  if (!validateInputs()) return;
+  setLoading(true);
 
-    try {
-      const registrationData = {
-        firstName: firstName.trim(),
-        surname: surname.trim(),
-        otherName: otherName.trim(),
-        email: email.trim().toLowerCase(),
-        phone: phone.trim(),
-        password: password,
-        role: role.trim().toLowerCase(),
-      };
+  try {
+    const registrationData = {
+      firstName: firstName.trim(),
+      surname: surname.trim(),
+      otherName: otherName.trim(),
+      email: email.trim().toLowerCase(),
+      phone: phone.trim(),
+      password: password,
+      role: role.trim().toLowerCase(),
+    };
 
-      if (role === "agent") {
-        registrationData.state = state.trim();
-        registrationData.lga = lga.trim();
-        registrationData.address = address.trim();
-        if (supervisorId)
-          registrationData.supervisorId = supervisorId.toUpperCase().trim();
-        if (image) registrationData.businessImage = image;
-      }
+    if (role === "agent") {
+      registrationData.state = state.trim();
+      registrationData.lga = lga.trim();
+      registrationData.address = address.trim();
+      if (supervisorId)
+        registrationData.supervisorId = supervisorId.toUpperCase().trim();
+      if (image) registrationData.businessImage = image;
+    }
 
-      const response = await axios({
-        method: "POST",
-        // An sabunta URL ɗin zuwa na Bellaj
-        url: "https://bellaj-data-server1.vercel.app/api/v1/auth/register",
-        data: registrationData,
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        timeout: 200000,
-      });
+    // AN GYARA NAN: Mun sanya URL kai tsaye kamar yadda yake a Ayax
+    const response = await axios({
+      method: "POST",
+      url: "https://bellaj-data-server1.vercel.app/api/v1/auth/register",
+      data: registrationData,
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      timeout: 200000,
+    });
+
+    // ... (sauran lambarka ta rage kamar yadda take)
 
       const isSuccess =
         response.status === 201 ||
