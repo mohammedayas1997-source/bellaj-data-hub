@@ -139,13 +139,6 @@ const SignupScreen = ({ navigation }) => {
   };
 const handleSignup = async () => {
     if (!validateInputs()) return;
-
-    // Duba idan BASE_URL yana aiki
-    if (!BASE_URL) {
-      showAlert("Error", "API URL is not configured. Check your config file.");
-      return;
-    }
-
     setLoading(true);
 
     try {
@@ -155,7 +148,7 @@ const handleSignup = async () => {
         otherName: otherName.trim(),
         email: email.trim().toLowerCase(),
         phone: phone.trim(),
-        password,
+        password: password,
         role: role.trim().toLowerCase(),
       };
 
@@ -163,33 +156,78 @@ const handleSignup = async () => {
         registrationData.state = state.trim();
         registrationData.lga = lga.trim();
         registrationData.address = address.trim();
-        if (supervisorId.trim()) {
+        if (supervisorId)
           registrationData.supervisorId = supervisorId.toUpperCase().trim();
-        }
-        if (image) {
-          registrationData.businessImage = image;
-        }
+        if (image) registrationData.businessImage = image;
       }
 
-      // Amfani da URL ɗin da muka ayyana a sama
-      const response = await axios.post(REGISTER_URL, registrationData, {
+      const response = await axios({
+        method: "POST",
+        // An sabunta URL ɗin zuwa na Bellaj
+        url: "https://bellaj-data-server1.vercel.app/api/v1/auth/register",
+        data: registrationData,
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
         },
-        timeout: 20000, // Na rage lokacin zuwa 20s
+        timeout: 200000,
       });
 
-      // ... ragowar code ɗinka na success
-      
+      const isSuccess =
+        response.status === 201 ||
+        response.status === 200 ||
+        response.data?.success === true ||
+        response.data?.status === "success";
+
+      if (isSuccess) {
+        const userPayload = response.data.user ||
+          response.data.data?.user ||
+          response.data.data || { role: role.trim().toLowerCase() };
+
+        await AsyncStorage.setItem("userData", JSON.stringify(userPayload));
+        if (response.data.token) {
+          await AsyncStorage.setItem("userToken", response.data.token);
+        }
+
+        setLoading(false);
+
+        showAlert(
+          "Account Created 🎉",
+          "Your registration has been completed successfully! Click OK to proceed.",
+          [
+            {
+              text: "OK",
+              onPress: () => navigation.replace("Success"),
+            },
+          ],
+        );
+      } else {
+        setLoading(false);
+        showAlert(
+          "Registration Alert",
+          response.data?.message ||
+            "Unexpected response from server. Please check.",
+        );
+      }
     } catch (error) {
-      console.log("Full Error:", error); // Wannan zai nuna maka ainihin abin da ke faruwa a Console
-      showAlert(
-        "Registration Failed ❌",
-        error.response?.data?.message || "Check your internet or API connection."
-      );
-    } finally {
       setLoading(false);
+      const serverMsg =
+        error.response?.data?.message ||
+        "Network connection issue. Please try again.";
+
+      if (error.code === "ECONNABORTED") {
+        showAlert(
+          "Network Timeout",
+          "Connection took too long to respond. Check your internet connection.",
+        );
+      } else {
+        showAlert("Registration Failed ❌", serverMsg);
+      }
+
+      console.error(
+        "Registration Log Error:",
+        error.response?.data || error.message,
+      );
     }
   };
 
