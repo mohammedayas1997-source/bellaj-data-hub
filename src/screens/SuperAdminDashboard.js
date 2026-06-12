@@ -81,7 +81,6 @@ const SuperAdminDashboard = ({ navigation }) => {
 
   const normalizeStats = (payload) => {
     const data = payload?.data || payload || {};
-
     return {
       finance: {
         totalRevenue:
@@ -306,93 +305,93 @@ const SuperAdminDashboard = ({ navigation }) => {
     },
   ];
 
-  const drawerMenus = [
+  const navigationCards = [
     {
-      label: "Super Admin Dashboard",
-      subtitle: "Main command center",
+      title: "Super Admin",
+      subtitle: "Command Center",
       icon: "view-dashboard-outline",
       type: "mci",
-      color: COLORS.primary,
+      bg: COLORS.primary,
       action: () => resetToDashboard("SuperAdminDashboard", "superadmin"),
     },
     {
-      label: "User Dashboard",
-      subtitle: "Open user dashboard",
+      title: "User Dashboard",
+      subtitle: "Open user area",
       icon: "account-circle-outline",
       type: "mci",
-      color: "#0F766E",
+      bg: "#0F766E",
       action: () => resetToDashboard("Main", "user"),
     },
     {
-      label: "Agent Dashboard",
-      subtitle: "Open agent dashboard",
+      title: "Agent Dashboard",
+      subtitle: "Open agent area",
       icon: "account-tie-outline",
       type: "mci",
-      color: COLORS.danger,
+      bg: COLORS.danger,
       action: () => resetToDashboard("AgentDashboard", "agent"),
     },
     {
-      label: "Supervisor Dashboard",
-      subtitle: "Open supervisor dashboard",
+      title: "Supervisor",
+      subtitle: "Open supervisor area",
       icon: "account-supervisor-outline",
       type: "mci",
-      color: COLORS.secondary,
+      bg: COLORS.secondary,
       action: () => resetToDashboard("SupervisorDashboard", "supervisor"),
     },
     {
-      label: "Support Dashboard",
-      subtitle: "Open support dashboard",
+      title: "Support",
+      subtitle: "Open support center",
       icon: "headset",
       type: "mci",
-      color: "#EA580C",
+      bg: "#EA580C",
       action: () => resetToDashboard("SupportDashboard", "support"),
     },
     {
-      label: "Admin Control",
-      subtitle: "Manage admin roles",
+      title: "Admin Control",
+      subtitle: "Manage roles",
       icon: "shield-account-outline",
       type: "mci",
-      color: "#B91C1C",
+      bg: "#B91C1C",
       action: () => navigateToDashboard("AdminUserControl"),
     },
     {
-      label: "User Management",
-      subtitle: "Manage users and roles",
+      title: "Users",
+      subtitle: "Manage users",
       icon: "account-group-outline",
       type: "mci",
-      color: COLORS.dark,
+      bg: COLORS.dark,
       action: () => navigateToDashboard("UserManagement"),
     },
     {
-      label: "Transactions",
-      subtitle: "View sales and activity logs",
+      title: "Transactions",
+      subtitle: "Sales logs",
       icon: "receipt-text-outline",
       type: "mci",
-      color: "#15803D",
+      bg: "#15803D",
       action: () => navigateToDashboard("SalesHistory"),
     },
     {
-      label: "NIMC History",
-      subtitle: "View NIMC records",
+      title: "NIMC",
+      subtitle: "History records",
       icon: "fingerprint",
       type: "mci",
-      color: "#7C2D12",
+      bg: "#7C2D12",
       action: () => navigateToDashboard("NIMCHistory"),
     },
     {
-      label: "BVN History",
-      subtitle: "View BVN records",
+      title: "BVN",
+      subtitle: "History records",
       icon: "card-account-details-outline",
       type: "mci",
-      color: "#6D28D9",
+      bg: "#6D28D9",
       action: () => navigateToDashboard("BVNHistory"),
     },
     {
-      label: "Notifications",
-      subtitle: "Manage notifications",
+      title: "Notifications",
+      subtitle: "Message center",
       icon: "bell-outline",
       type: "mci",
-      color: "#2563EB",
+      bg: "#2563EB",
       action: () => navigateToDashboard("Notifications"),
     },
   ];
@@ -442,6 +441,7 @@ const SuperAdminDashboard = ({ navigation }) => {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         showsVerticalScrollIndicator
+        keyboardShouldPersistTaps="handled"
       >
         <View style={styles.welcomeCard}>
           <Text style={styles.welcomeTitle}>Super Admin Access</Text>
@@ -479,27 +479,26 @@ const SuperAdminDashboard = ({ navigation }) => {
           <Text style={styles.panelTitle}>Admin Navigation</Text>
 
           <View style={[styles.navGrid, isWeb && styles.webNavGrid]}>
-            {drawerMenus.map((item, index) => (
+            {navigationCards.map((item, index) => (
               <TouchableOpacity
                 key={index}
-                style={[styles.navCard, isWeb && styles.webNavCard]}
+                style={[styles.navCardBox, isWeb && styles.webNavCardBox]}
                 onPress={item.action}
                 activeOpacity={0.86}
               >
-                <View style={[styles.navIconBox, { backgroundColor: item.color }]}>
-                  {renderIcon(item, 25, COLORS.white)}
+                <View style={[styles.navIconLarge, { backgroundColor: item.bg }]}>
+                  {renderIcon(item, 30, COLORS.white)}
                 </View>
 
-                <View style={styles.navTextBox}>
-                  <Text style={styles.navTitle}>{item.label}</Text>
-                  <Text style={styles.navSubtitle}>{item.subtitle}</Text>
-                </View>
+                <Text style={styles.navCardTitle}>{item.title}</Text>
+                <Text style={styles.navCardSubtitle}>{item.subtitle}</Text>
 
-                <View style={styles.navArrowBox}>
+                <View style={styles.openBadge}>
+                  <Text style={styles.openBadgeText}>OPEN</Text>
                   <Ionicons
                     name="chevron-forward"
-                    size={19}
-                    color={COLORS.muted}
+                    size={14}
+                    color={COLORS.primary}
                   />
                 </View>
               </TouchableOpacity>
@@ -637,7 +636,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: {
     padding: 16,
-    paddingBottom: 60,
+    paddingBottom: 70,
     flexGrow: 1,
   },
   welcomeCard: {
@@ -712,54 +711,62 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   navGrid: {
-    gap: 12,
-  },
-  webNavGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
+    justifyContent: "space-between",
+    rowGap: 12,
   },
-  navCard: {
+  webNavGrid: {
+    justifyContent: "flex-start",
+    columnGap: 12,
+  },
+  navCardBox: {
+    width: "48%",
     backgroundColor: COLORS.light,
-    borderRadius: 18,
+    borderRadius: 20,
     padding: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
-    flexDirection: "row",
-    alignItems: "center",
+    minHeight: 150,
   },
-  webNavCard: {
-    width: "48.5%",
-    minWidth: 320,
+  webNavCardBox: {
+    width: "23.5%",
+    minWidth: 220,
   },
-  navIconBox: {
-    width: 54,
-    height: 54,
-    borderRadius: 18,
+  navIconLarge: {
+    width: 58,
+    height: 58,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
+    marginBottom: 12,
   },
-  navTextBox: { flex: 1 },
-  navTitle: {
+  navCardTitle: {
     color: COLORS.dark,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "900",
   },
-  navSubtitle: {
+  navCardSubtitle: {
     color: COLORS.muted,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "600",
-    marginTop: 3,
+    marginTop: 4,
   },
-  navArrowBox: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
-    backgroundColor: COLORS.white,
+  openBadge: {
+    marginTop: "auto",
+    alignSelf: "flex-start",
+    backgroundColor: "#DCFCE7",
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 999,
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    gap: 3,
+  },
+  openBadgeText: {
+    color: COLORS.primary,
+    fontSize: 10,
+    fontWeight: "900",
   },
   sectionGrid: { gap: 16 },
   webSectionGrid: { flexDirection: "row" },
