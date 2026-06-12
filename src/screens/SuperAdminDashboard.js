@@ -26,7 +26,6 @@ const COLORS = {
   white: "#FFFFFF",
   light: "#F8FAFC",
   border: "#E2E8F0",
-  card: "#FFFFFF",
 };
 
 const API_ENDPOINTS = {
@@ -126,8 +125,6 @@ const SuperAdminDashboard = ({ navigation }) => {
       if (requests[2].status === "fulfilled") {
         setTransactions(normalizeArray(requests[2].value.data, "transactions"));
       }
-    } catch (error) {
-      console.log("Dashboard error:", error?.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -139,21 +136,55 @@ const SuperAdminDashboard = ({ navigation }) => {
     fetchDashboard();
   };
 
-  const goTo = (screenName) => {
+  const goBack = () => {
+    if (navigation.canGoBack && navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+
+    navigation.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [{ name: "SuperAdminDashboard" }],
+      })
+    );
+  };
+
+  const safeNavigate = async (screenName, role = null) => {
     try {
+      if (role) {
+        await AsyncStorage.setItem("overrideRole", role);
+        await AsyncStorage.setItem("isSuperAdminOverride", "true");
+      }
+
       navigation.navigate(screenName);
     } catch (error) {
       Alert.alert(
-        "Screen Not Found",
-        `${screenName} is not registered in Stack.Navigator.`
+        "Navigation Error",
+        `${screenName} is not registered in your navigator.`
       );
     }
   };
 
-  const enterAsRole = async (role, screenName) => {
-    await AsyncStorage.setItem("overrideRole", role);
-    await AsyncStorage.setItem("isSuperAdminOverride", "true");
-    navigation.navigate(screenName);
+  const resetToScreen = async (screenName, role = null) => {
+    try {
+      if (role) {
+        await AsyncStorage.setItem("overrideRole", role);
+        await AsyncStorage.setItem("isSuperAdminOverride", "true");
+      }
+
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: screenName }],
+        })
+      );
+    } catch (error) {
+      Alert.alert(
+        "Navigation Error",
+        `${screenName} is not registered in your navigator.`
+      );
+    }
   };
 
   const logout = async () => {
@@ -210,7 +241,7 @@ const SuperAdminDashboard = ({ navigation }) => {
       icon: "people",
       type: "ion",
       bg: COLORS.primary,
-      screen: "UserManagement",
+      action: () => safeNavigate("UserManagement"),
     },
     {
       title: "Agents",
@@ -218,7 +249,7 @@ const SuperAdminDashboard = ({ navigation }) => {
       icon: "account-tie",
       type: "mci",
       bg: COLORS.danger,
-      screen: "AgentDashboard",
+      action: () => resetToScreen("AgentDashboard", "agent"),
     },
     {
       title: "Supervisors",
@@ -226,7 +257,7 @@ const SuperAdminDashboard = ({ navigation }) => {
       icon: "account-supervisor",
       type: "mci",
       bg: COLORS.secondary,
-      screen: "SupervisorDashboard",
+      action: () => resetToScreen("SupervisorDashboard", "supervisor"),
     },
     {
       title: "Admins",
@@ -234,7 +265,7 @@ const SuperAdminDashboard = ({ navigation }) => {
       icon: "shield-checkmark",
       type: "ion",
       bg: "#B91C1C",
-      screen: "AdminUserControl",
+      action: () => safeNavigate("AdminUserControl"),
     },
     {
       title: "Revenue",
@@ -242,7 +273,7 @@ const SuperAdminDashboard = ({ navigation }) => {
       icon: "cash",
       type: "ion",
       bg: "#065F46",
-      screen: "SalesHistory",
+      action: () => safeNavigate("SalesHistory"),
     },
     {
       title: "Transactions",
@@ -250,7 +281,7 @@ const SuperAdminDashboard = ({ navigation }) => {
       icon: "swap-horizontal",
       type: "ion",
       bg: "#991B1B",
-      screen: "SalesHistory",
+      action: () => safeNavigate("SalesHistory"),
     },
     {
       title: "Wallet",
@@ -258,7 +289,7 @@ const SuperAdminDashboard = ({ navigation }) => {
       icon: "wallet",
       type: "ion",
       bg: "#15803D",
-      screen: "Wallet",
+      action: () => safeNavigate("Wallet"),
     },
     {
       title: "System Status",
@@ -266,94 +297,80 @@ const SuperAdminDashboard = ({ navigation }) => {
       icon: "trending-up",
       type: "ion",
       bg: COLORS.dark,
-      screen: "SuperAdminDashboard",
+      action: fetchDashboard,
     },
   ];
 
   const drawerMenus = [
     {
-      label: "Main Dashboard",
+      label: "Super Admin Dashboard",
       icon: "grid-outline",
       type: "ion",
       color: COLORS.primary,
-      action: () => goTo("SuperAdminDashboard"),
+      action: () => safeNavigate("SuperAdminDashboard"),
     },
     {
       label: "User Dashboard",
       icon: "person-circle-outline",
       type: "ion",
       color: COLORS.primary,
-      action: () => enterAsRole("user", "Main"),
+      action: () => resetToScreen("Main", "user"),
     },
     {
       label: "Agent Dashboard",
       icon: "account-tie",
       type: "mci",
       color: COLORS.danger,
-      action: () => enterAsRole("agent", "AgentDashboard"),
+      action: () => resetToScreen("AgentDashboard", "agent"),
     },
     {
       label: "Supervisor Dashboard",
       icon: "account-supervisor-outline",
       type: "mci",
       color: COLORS.secondary,
-      action: () => enterAsRole("supervisor", "SupervisorDashboard"),
+      action: () => resetToScreen("SupervisorDashboard", "supervisor"),
     },
     {
       label: "Admin Control",
       icon: "shield-account-outline",
       type: "mci",
       color: "#B91C1C",
-      action: () => goTo("AdminUserControl"),
+      action: () => safeNavigate("AdminUserControl"),
     },
     {
       label: "User Management",
       icon: "people-outline",
       type: "ion",
       color: COLORS.dark,
-      action: () => goTo("UserManagement"),
+      action: () => safeNavigate("UserManagement"),
     },
     {
       label: "Transactions",
       icon: "receipt-outline",
       type: "ion",
       color: "#15803D",
-      action: () => goTo("SalesHistory"),
+      action: () => safeNavigate("SalesHistory"),
     },
     {
       label: "NIMC History",
       icon: "finger-print-outline",
       type: "ion",
       color: "#7C2D12",
-      action: () => goTo("NIMCHistory"),
+      action: () => safeNavigate("NIMCHistory"),
     },
     {
       label: "BVN History",
       icon: "card-account-details-outline",
       type: "mci",
       color: "#6D28D9",
-      action: () => goTo("BVNHistory"),
-    },
-    {
-      label: "Reports",
-      icon: "chart-box-outline",
-      type: "mci",
-      color: "#0F766E",
-      action: () => goTo("Reports"),
+      action: () => safeNavigate("BVNHistory"),
     },
     {
       label: "Notifications",
       icon: "notifications-outline",
       type: "ion",
       color: "#EA580C",
-      action: () => goTo("Notifications"),
-    },
-    {
-      label: "Settings",
-      icon: "settings-outline",
-      type: "ion",
-      color: COLORS.muted,
-      action: () => goTo("Settings"),
+      action: () => safeNavigate("Notifications"),
     },
   ];
 
@@ -377,8 +394,12 @@ const SuperAdminDashboard = ({ navigation }) => {
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
+        <TouchableOpacity style={styles.headerIconBtn} onPress={goBack}>
+          <Ionicons name="arrow-back" size={24} color={COLORS.white} />
+        </TouchableOpacity>
+
         <TouchableOpacity
-          style={styles.menuButton}
+          style={styles.headerIconBtn}
           onPress={() => navigation.openDrawer?.()}
         >
           <Ionicons name="menu" size={26} color={COLORS.white} />
@@ -390,7 +411,7 @@ const SuperAdminDashboard = ({ navigation }) => {
         </View>
 
         <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
-          <Ionicons name="log-out-outline" size={20} color={COLORS.white} />
+          <Ionicons name="log-out-outline" size={21} color={COLORS.white} />
         </TouchableOpacity>
       </View>
 
@@ -405,8 +426,8 @@ const SuperAdminDashboard = ({ navigation }) => {
         <View style={styles.welcomeCard}>
           <Text style={styles.welcomeTitle}>Super Admin Access</Text>
           <Text style={styles.welcomeText}>
-            Manage platform users, transactions, agents, supervisors, admin
-            controls, reports and activity records in real time.
+            Manage users, transactions, agents, supervisors, admin controls,
+            reports and activity records in real time.
           </Text>
         </View>
 
@@ -420,7 +441,7 @@ const SuperAdminDashboard = ({ navigation }) => {
                 isWeb && styles.webStatCard,
               ]}
               activeOpacity={0.86}
-              onPress={() => goTo(card.screen)}
+              onPress={card.action}
             >
               <View style={styles.statInfo}>
                 <Text style={styles.statTitle}>{card.title}</Text>
@@ -462,15 +483,15 @@ const SuperAdminDashboard = ({ navigation }) => {
 
             {users.length === 0 ? (
               <Text style={styles.emptyText}>
-                No users returned yet. Configure the /admin/users endpoint to
-                show live users here.
+                No users returned yet. Configure /admin/users endpoint to show
+                live users here.
               </Text>
             ) : (
               users.slice(0, 10).map((user, index) => (
                 <TouchableOpacity
                   key={user?._id || index}
                   style={styles.userRow}
-                  onPress={() => goTo("UserManagement")}
+                  onPress={() => safeNavigate("UserManagement")}
                   activeOpacity={0.86}
                 >
                   <View style={styles.avatar}>
@@ -504,15 +525,15 @@ const SuperAdminDashboard = ({ navigation }) => {
 
             {transactions.length === 0 ? (
               <Text style={styles.emptyText}>
-                No transactions returned yet. Configure the /admin/transactions
-                endpoint to show live activity here.
+                No transactions returned yet. Configure /admin/transactions
+                endpoint to show live activities here.
               </Text>
             ) : (
               transactions.slice(0, 10).map((tx, index) => (
                 <TouchableOpacity
                   key={tx?._id || index}
                   style={styles.txRow}
-                  onPress={() => goTo("SalesHistory")}
+                  onPress={() => safeNavigate("SalesHistory")}
                   activeOpacity={0.86}
                 >
                   <View style={{ flex: 1 }}>
@@ -547,23 +568,21 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     paddingTop: Platform.OS === "android" ? 42 : 22,
     paddingBottom: 16,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     flexDirection: "row",
     alignItems: "center",
   },
-  menuButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
+  headerIconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 13,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(255,255,255,0.14)",
+    marginRight: 8,
   },
-  headerTextBox: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  headerTitle: { color: COLORS.white, fontSize: 21, fontWeight: "900" },
+  headerTextBox: { flex: 1 },
+  headerTitle: { color: COLORS.white, fontSize: 20, fontWeight: "900" },
   headerSubtitle: {
     color: "#DCFCE7",
     fontSize: 12,
@@ -571,8 +590,8 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   logoutBtn: {
-    width: 42,
-    height: 42,
+    width: 40,
+    height: 40,
     borderRadius: 14,
     backgroundColor: COLORS.danger,
     alignItems: "center",
@@ -581,7 +600,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 16, paddingBottom: 40 },
   welcomeCard: {
-    backgroundColor: COLORS.card,
+    backgroundColor: COLORS.white,
     borderRadius: 18,
     padding: 18,
     marginBottom: 16,
