@@ -55,6 +55,10 @@ import NINValidation from "./src/screens/NINValidation";
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
 
+function PlaceholderScreen() {
+  return null;
+}
+
 function DrawerNavigator() {
   return (
     <Drawer.Navigator
@@ -68,6 +72,7 @@ function DrawerNavigator() {
       }}
     >
       <Drawer.Screen name="Dashboard" component={HomeScreen} />
+      <Drawer.Screen name="AdminDashboard" component={AdminDashboard} />
       <Drawer.Screen name="AgentDashboard" component={AgentDashboard} />
       <Drawer.Screen name="SupportDashboard" component={SupportDashboard} />
       <Drawer.Screen name="SupervisorDashboard" component={SupervisorDashboard} />
@@ -100,6 +105,7 @@ function AppContent() {
         <Stack.Screen name="Success" component={SuccessScreen} />
         <Stack.Screen name="Main" component={DrawerNavigator} options={{ headerShown: false }} />
 
+        <Stack.Screen name="Dashboard" component={HomeScreen} />
         <Stack.Screen name="BuyAirtime" component={AirtimeScreen} />
         <Stack.Screen name="FundWallet" component={FundWalletScreen} />
         <Stack.Screen name="BuyData" component={BuyDataScreen} />
@@ -110,6 +116,7 @@ function AppContent() {
         <Stack.Screen name="Profile" component={ProfileScreen} />
         <Stack.Screen name="Contact" component={ContactScreen} />
 
+        <Stack.Screen name="AdminDashboard" component={AdminDashboard} />
         <Stack.Screen name="AgentDashboard" component={AgentDashboard} />
         <Stack.Screen name="SupportDashboard" component={SupportDashboard} />
         <Stack.Screen name="SupervisorDashboard" component={SupervisorDashboard} />
@@ -117,23 +124,35 @@ function AppContent() {
 
         <Stack.Screen name="AdminUserControl" component={AdminControlScreen} />
         <Stack.Screen name="AdminControl" component={AdminControlScreen} />
-        <Stack.Screen name="AdminDashboard" component={AdminDashboard} />
-        
+
         <Stack.Screen name="UserManagement" component={UserManagement} />
         <Stack.Screen name="SuperAdminUsers" component={UserManagement} />
+        <Stack.Screen name="AllUsers" component={UserManagement} />
 
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
         <Stack.Screen name="AssignTarget" component={AssignTargetScreen} />
+        <Stack.Screen name="AssignTargets" component={AssignTargetScreen} />
         <Stack.Screen name="LeaderDashboard" component={LeaderDashboard} />
         <Stack.Screen name="CreateSupervisor" component={CreateSupervisorScreen} />
         <Stack.Screen name="ManageAgents" component={ManageAgentsScreen} />
 
         <Stack.Screen name="NIMCRequests" component={NIMCRequests} />
+        <Stack.Screen name="NimcRequests" component={NIMCRequests} />
         <Stack.Screen name="NIMCModification" component={NIMCModificationScreen} />
         <Stack.Screen name="NIMCHistory" component={NIMCHistory} />
         <Stack.Screen name="BVNHistory" component={BVNHistory} />
         <Stack.Screen name="UpdatePin" component={UpdatePin} />
+
+        <Stack.Screen name="SalesHistory" component={HistoryScreen} />
+        <Stack.Screen name="SalesLogs" component={HistoryScreen} />
+
+        <Stack.Screen name="IssueResolution" component={PlaceholderScreen} />
+        <Stack.Screen name="PricingSettings" component={PlaceholderScreen} />
+        <Stack.Screen name="BvnRequests" component={PlaceholderScreen} />
+        <Stack.Screen name="DataPlans" component={PlaceholderScreen} />
+        <Stack.Screen name="CableTvPlans" component={PlaceholderScreen} />
+        <Stack.Screen name="SupportActivities" component={PlaceholderScreen} />
 
         <Stack.Screen name="About" component={AboutScreen} />
         <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
