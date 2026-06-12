@@ -138,6 +138,15 @@ const SuperAdminDashboard = ({ navigation }) => {
     fetchDashboard();
   };
 
+  const openMenu = () => {
+    if (navigation.openDrawer) {
+      navigation.openDrawer();
+      return;
+    }
+
+    Alert.alert("Menu", "Drawer menu is not available on this navigator.");
+  };
+
   const goBack = () => {
     if (navigation.canGoBack?.()) {
       navigation.goBack();
@@ -152,7 +161,7 @@ const SuperAdminDashboard = ({ navigation }) => {
     );
   };
 
-  const safeNavigate = async (screenName, role = null) => {
+  const navigateToDashboard = async (screenName, role = null) => {
     try {
       if (role) {
         await AsyncStorage.setItem("overrideRole", role);
@@ -165,7 +174,7 @@ const SuperAdminDashboard = ({ navigation }) => {
     }
   };
 
-  const resetToScreen = async (screenName, role = null) => {
+  const resetToDashboard = async (screenName, role = null) => {
     try {
       if (role) {
         await AsyncStorage.setItem("overrideRole", role);
@@ -237,7 +246,7 @@ const SuperAdminDashboard = ({ navigation }) => {
       icon: "account-group-outline",
       type: "mci",
       bg: COLORS.primary,
-      action: () => safeNavigate("UserManagement"),
+      action: () => navigateToDashboard("UserManagement"),
     },
     {
       title: "Agent Dashboard",
@@ -245,7 +254,7 @@ const SuperAdminDashboard = ({ navigation }) => {
       icon: "account-tie-outline",
       type: "mci",
       bg: COLORS.danger,
-      action: () => resetToScreen("AgentDashboard", "agent"),
+      action: () => resetToDashboard("AgentDashboard", "agent"),
     },
     {
       title: "Support Dashboard",
@@ -253,7 +262,7 @@ const SuperAdminDashboard = ({ navigation }) => {
       icon: "headset",
       type: "mci",
       bg: "#EA580C",
-      action: () => safeNavigate("SupportDashboard"),
+      action: () => resetToDashboard("SupportDashboard", "support"),
     },
     {
       title: "Supervisor Dashboard",
@@ -261,7 +270,7 @@ const SuperAdminDashboard = ({ navigation }) => {
       icon: "account-supervisor-outline",
       type: "mci",
       bg: COLORS.secondary,
-      action: () => resetToScreen("SupervisorDashboard", "supervisor"),
+      action: () => resetToDashboard("SupervisorDashboard", "supervisor"),
     },
     {
       title: "Admins",
@@ -269,7 +278,7 @@ const SuperAdminDashboard = ({ navigation }) => {
       icon: "shield-account-outline",
       type: "mci",
       bg: "#B91C1C",
-      action: () => safeNavigate("AdminUserControl"),
+      action: () => navigateToDashboard("AdminUserControl"),
     },
     {
       title: "Revenue",
@@ -277,7 +286,7 @@ const SuperAdminDashboard = ({ navigation }) => {
       icon: "cash-multiple",
       type: "mci",
       bg: "#065F46",
-      action: () => safeNavigate("SalesHistory"),
+      action: () => navigateToDashboard("SalesHistory"),
     },
     {
       title: "Transactions",
@@ -285,12 +294,12 @@ const SuperAdminDashboard = ({ navigation }) => {
       icon: "receipt-text-outline",
       type: "mci",
       bg: "#991B1B",
-      action: () => safeNavigate("SalesHistory"),
+      action: () => navigateToDashboard("SalesHistory"),
     },
     {
-      title: "System Status",
-      value: "Active",
-      icon: "chart-line",
+      title: "Refresh",
+      value: "Reload",
+      icon: "refresh",
       type: "mci",
       bg: COLORS.dark,
       action: fetchDashboard,
@@ -304,39 +313,39 @@ const SuperAdminDashboard = ({ navigation }) => {
       icon: "view-dashboard-outline",
       type: "mci",
       color: COLORS.primary,
-      action: () => safeNavigate("SuperAdminDashboard"),
+      action: () => resetToDashboard("SuperAdminDashboard", "superadmin"),
     },
     {
       label: "User Dashboard",
-      subtitle: "Open user interface",
+      subtitle: "Open user dashboard",
       icon: "account-circle-outline",
       type: "mci",
       color: "#0F766E",
-      action: () => resetToScreen("Main", "user"),
+      action: () => resetToDashboard("Main", "user"),
     },
     {
       label: "Agent Dashboard",
-      subtitle: "Open agent workspace",
+      subtitle: "Open agent dashboard",
       icon: "account-tie-outline",
       type: "mci",
       color: COLORS.danger,
-      action: () => resetToScreen("AgentDashboard", "agent"),
+      action: () => resetToDashboard("AgentDashboard", "agent"),
     },
     {
       label: "Supervisor Dashboard",
-      subtitle: "Open supervisor workspace",
+      subtitle: "Open supervisor dashboard",
       icon: "account-supervisor-outline",
       type: "mci",
       color: COLORS.secondary,
-      action: () => resetToScreen("SupervisorDashboard", "supervisor"),
+      action: () => resetToDashboard("SupervisorDashboard", "supervisor"),
     },
     {
       label: "Support Dashboard",
-      subtitle: "Open support center",
+      subtitle: "Open support dashboard",
       icon: "headset",
       type: "mci",
       color: "#EA580C",
-      action: () => safeNavigate("SupportDashboard"),
+      action: () => resetToDashboard("SupportDashboard", "support"),
     },
     {
       label: "Admin Control",
@@ -344,7 +353,7 @@ const SuperAdminDashboard = ({ navigation }) => {
       icon: "shield-account-outline",
       type: "mci",
       color: "#B91C1C",
-      action: () => safeNavigate("AdminUserControl"),
+      action: () => navigateToDashboard("AdminUserControl"),
     },
     {
       label: "User Management",
@@ -352,7 +361,7 @@ const SuperAdminDashboard = ({ navigation }) => {
       icon: "account-group-outline",
       type: "mci",
       color: COLORS.dark,
-      action: () => safeNavigate("UserManagement"),
+      action: () => navigateToDashboard("UserManagement"),
     },
     {
       label: "Transactions",
@@ -360,7 +369,7 @@ const SuperAdminDashboard = ({ navigation }) => {
       icon: "receipt-text-outline",
       type: "mci",
       color: "#15803D",
-      action: () => safeNavigate("SalesHistory"),
+      action: () => navigateToDashboard("SalesHistory"),
     },
     {
       label: "NIMC History",
@@ -368,7 +377,7 @@ const SuperAdminDashboard = ({ navigation }) => {
       icon: "fingerprint",
       type: "mci",
       color: "#7C2D12",
-      action: () => safeNavigate("NIMCHistory"),
+      action: () => navigateToDashboard("NIMCHistory"),
     },
     {
       label: "BVN History",
@@ -376,7 +385,7 @@ const SuperAdminDashboard = ({ navigation }) => {
       icon: "card-account-details-outline",
       type: "mci",
       color: "#6D28D9",
-      action: () => safeNavigate("BVNHistory"),
+      action: () => navigateToDashboard("BVNHistory"),
     },
     {
       label: "Notifications",
@@ -384,7 +393,7 @@ const SuperAdminDashboard = ({ navigation }) => {
       icon: "bell-outline",
       type: "mci",
       color: "#2563EB",
-      action: () => safeNavigate("Notifications"),
+      action: () => navigateToDashboard("Notifications"),
     },
   ];
 
@@ -412,10 +421,7 @@ const SuperAdminDashboard = ({ navigation }) => {
           <Ionicons name="arrow-back" size={24} color={COLORS.white} />
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.headerIconBtn}
-          onPress={() => navigation.openDrawer?.()}
-        >
+        <TouchableOpacity style={styles.headerIconBtn} onPress={openMenu}>
           <Ionicons name="menu" size={26} color={COLORS.white} />
         </TouchableOpacity>
 
@@ -472,29 +478,33 @@ const SuperAdminDashboard = ({ navigation }) => {
         <View style={styles.navigationSection}>
           <Text style={styles.panelTitle}>Admin Navigation</Text>
 
-          {drawerMenus.map((item, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.navBox}
-              onPress={item.action}
-              activeOpacity={0.86}
-            >
-              <View style={styles.navIconOuter}>
-                <View style={[styles.navIconInner, { backgroundColor: item.color }]}>
-                  {renderIcon(item, 23, COLORS.white)}
+          <View style={[styles.navGrid, isWeb && styles.webNavGrid]}>
+            {drawerMenus.map((item, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[styles.navCard, isWeb && styles.webNavCard]}
+                onPress={item.action}
+                activeOpacity={0.86}
+              >
+                <View style={[styles.navIconBox, { backgroundColor: item.color }]}>
+                  {renderIcon(item, 25, COLORS.white)}
                 </View>
-              </View>
 
-              <View style={styles.navTextBox}>
-                <Text style={styles.navTitle}>{item.label}</Text>
-                <Text style={styles.navSubtitle}>{item.subtitle}</Text>
-              </View>
+                <View style={styles.navTextBox}>
+                  <Text style={styles.navTitle}>{item.label}</Text>
+                  <Text style={styles.navSubtitle}>{item.subtitle}</Text>
+                </View>
 
-              <View style={styles.navArrowBox}>
-                <Ionicons name="chevron-forward" size={20} color={COLORS.muted} />
-              </View>
-            </TouchableOpacity>
-          ))}
+                <View style={styles.navArrowBox}>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={19}
+                    color={COLORS.muted}
+                  />
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
         <View style={[styles.sectionGrid, isWeb && styles.webSectionGrid]}>
@@ -518,7 +528,7 @@ const SuperAdminDashboard = ({ navigation }) => {
                 <TouchableOpacity
                   key={user?._id || index}
                   style={styles.userRow}
-                  onPress={() => safeNavigate("UserManagement")}
+                  onPress={() => navigateToDashboard("UserManagement")}
                   activeOpacity={0.86}
                 >
                   <View style={styles.avatar}>
@@ -560,7 +570,7 @@ const SuperAdminDashboard = ({ navigation }) => {
                 <TouchableOpacity
                   key={tx?._id || index}
                   style={styles.txRow}
-                  onPress={() => safeNavigate("SalesHistory")}
+                  onPress={() => navigateToDashboard("SalesHistory")}
                   activeOpacity={0.86}
                 >
                   <View style={{ flex: 1 }}>
@@ -625,7 +635,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   container: { flex: 1 },
-  content: { padding: 16, paddingBottom: 40 },
+  content: {
+    padding: 16,
+    paddingBottom: 60,
+    flexGrow: 1,
+  },
   welcomeCard: {
     backgroundColor: COLORS.white,
     borderRadius: 18,
@@ -697,33 +711,33 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     marginBottom: 14,
   },
-  navBox: {
+  navGrid: {
+    gap: 12,
+  },
+  webNavGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  navCard: {
     backgroundColor: COLORS.light,
     borderRadius: 18,
-    padding: 12,
-    marginBottom: 12,
+    padding: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
     flexDirection: "row",
     alignItems: "center",
   },
-  navIconOuter: {
-    width: 58,
-    height: 58,
-    borderRadius: 20,
-    backgroundColor: COLORS.white,
+  webNavCard: {
+    width: "48.5%",
+    minWidth: 320,
+  },
+  navIconBox: {
+    width: 54,
+    height: 54,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  navIconInner: {
-    width: 44,
-    height: 44,
-    borderRadius: 15,
-    alignItems: "center",
-    justifyContent: "center",
   },
   navTextBox: { flex: 1 },
   navTitle: {
