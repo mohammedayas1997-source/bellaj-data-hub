@@ -55,6 +55,10 @@ const AdminDashboard = () => {
     transactions: 0,
   });
 
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
   const getAuthHeaders = async () => {
     const token =
       (await AsyncStorage.getItem("userToken")) ||
@@ -85,7 +89,6 @@ const AdminDashboard = () => {
   const fetchStats = async () => {
     try {
       setLoading(true);
-
       const headers = await getAuthHeaders();
 
       const results = await Promise.allSettled([
@@ -97,12 +100,18 @@ const AdminDashboard = () => {
         axios.get(API_ENDPOINTS.transactions, { headers }),
       ]);
 
-      const usersRes = results[0].status === "fulfilled" ? results[0].value.data : {};
-      const nimcRes = results[1].status === "fulfilled" ? results[1].value.data : {};
-      const bvnRes = results[2].status === "fulfilled" ? results[2].value.data : {};
-      const reportsRes = results[3].status === "fulfilled" ? results[3].value.data : {};
-      const salesRes = results[4].status === "fulfilled" ? results[4].value.data : {};
-      const txRes = results[5].status === "fulfilled" ? results[5].value.data : {};
+      const usersRes =
+        results[0].status === "fulfilled" ? results[0].value.data : {};
+      const nimcRes =
+        results[1].status === "fulfilled" ? results[1].value.data : {};
+      const bvnRes =
+        results[2].status === "fulfilled" ? results[2].value.data : {};
+      const reportsRes =
+        results[3].status === "fulfilled" ? results[3].value.data : {};
+      const salesRes =
+        results[4].status === "fulfilled" ? results[4].value.data : {};
+      const txRes =
+        results[5].status === "fulfilled" ? results[5].value.data : {};
 
       setStats({
         users: getCount(usersRes, "users"),
@@ -125,18 +134,42 @@ const AdminDashboard = () => {
     }
   };
 
-  useEffect(() => {
-    fetchStats();
-  }, []);
-
   const onRefresh = () => {
     setRefreshing(true);
     fetchStats();
   };
 
+  const openMenu = () => {
+    const parent = navigation.getParent?.();
+
+    if (navigation.openDrawer) {
+      navigation.openDrawer();
+      return;
+    }
+
+    if (parent?.openDrawer) {
+      parent.openDrawer();
+      return;
+    }
+
+    Alert.alert("Menu", "Drawer menu is not available on this navigator.");
+  };
+
+  const goBack = () => {
+    if (navigation.canGoBack?.()) {
+      navigation.goBack();
+      return;
+    }
+
+    navigation.navigate("SuperAdminDashboard");
+  };
+
   const safeNavigate = (screenName) => {
     try {
-      navigation.navigate(screenName);
+      navigation.navigate(screenName, {
+        fromAdminDashboard: true,
+        backScreen: "AdminDashboard",
+      });
     } catch (error) {
       Alert.alert("Navigation Error", `${screenName} is not registered.`);
     }
@@ -177,24 +210,24 @@ const AdminDashboard = () => {
       {
         title: "Total Users",
         value: stats.users,
-        icon: "people-outline",
-        type: "ion",
+        icon: "account-group-outline",
+        type: "mci",
         color: COLORS.primary,
-        screen: "AllUsers",
+        screen: "UserManagement",
       },
       {
         title: "Total Sales",
         value: formatMoney(stats.sales),
-        icon: "cash-outline",
-        type: "ion",
+        icon: "cash-multiple",
+        type: "mci",
         color: COLORS.secondary,
-        screen: "SalesLogs",
+        screen: "SalesHistory",
       },
       {
         title: "Transactions",
         value: stats.transactions,
-        icon: "swap-horizontal-outline",
-        type: "ion",
+        icon: "receipt-text-outline",
+        type: "mci",
         color: "#0F766E",
         screen: "SalesHistory",
       },
@@ -209,10 +242,10 @@ const AdminDashboard = () => {
       {
         title: "NIMC Requests",
         value: stats.nimc,
-        icon: "finger-print-outline",
-        type: "ion",
+        icon: "fingerprint",
+        type: "mci",
         color: "#2563EB",
-        screen: "NimcRequests",
+        screen: "NIMCRequests",
       },
       {
         title: "BVN Requests",
@@ -242,83 +275,102 @@ const AdminDashboard = () => {
     [stats]
   );
 
-  const drawerMenus = [
+  const navigationCards = [
     {
-      label: "Admin Overview",
-      icon: "grid-outline",
-      type: "ion",
+      title: "Admin Overview",
+      subtitle: "Main operations center",
+      icon: "view-dashboard-outline",
+      type: "mci",
       color: COLORS.primary,
       action: () => safeNavigate("AdminDashboard"),
     },
     {
-      label: "All Users",
-      icon: "people-outline",
-      type: "ion",
+      title: "All Users",
+      subtitle: "Manage platform users",
+      icon: "account-group-outline",
+      type: "mci",
       color: COLORS.primary,
-      action: () => safeNavigate("AllUsers"),
+      action: () => safeNavigate("UserManagement"),
     },
     {
-      label: "Sales Logs",
-      icon: "cash-outline",
-      type: "ion",
+      title: "Sales Logs",
+      subtitle: "View revenue and sales records",
+      icon: "cash-multiple",
+      type: "mci",
       color: COLORS.secondary,
-      action: () => safeNavigate("SalesLogs"),
+      action: () => safeNavigate("SalesHistory"),
     },
     {
-      label: "Issue Resolution",
+      title: "Issue Resolution",
+      subtitle: "Resolve customer issues",
       icon: "alert-circle-outline",
       type: "ion",
       color: COLORS.danger,
       action: () => safeNavigate("IssueResolution"),
     },
     {
-      label: "Pricing Settings",
+      title: "Pricing Settings",
+      subtitle: "Update product pricing",
       icon: "tag-multiple-outline",
       type: "mci",
       color: "#7C3AED",
       action: () => safeNavigate("PricingSettings"),
     },
     {
-      label: "NIMC Requests",
-      icon: "finger-print-outline",
-      type: "ion",
+      title: "NIMC Requests",
+      subtitle: "Manage NIMC requests",
+      icon: "fingerprint",
+      type: "mci",
       color: "#2563EB",
-      action: () => safeNavigate("NimcRequests"),
+      action: () => safeNavigate("NIMCRequests"),
     },
     {
-      label: "BVN Requests",
+      title: "BVN Requests",
+      subtitle: "Manage BVN requests",
       icon: "card-account-details-outline",
       type: "mci",
       color: "#D97706",
       action: () => safeNavigate("BvnRequests"),
     },
     {
-      label: "Data & Airtime Plans",
+      title: "Data & Airtime",
+      subtitle: "Manage service plans",
       icon: "server-outline",
       type: "mci",
       color: "#334155",
       action: () => safeNavigate("DataPlans"),
     },
     {
-      label: "Cable & Utility Rates",
+      title: "Cable & Utilities",
+      subtitle: "Configure utility rates",
       icon: "television-classic",
       type: "mci",
       color: "#0F766E",
       action: () => safeNavigate("CableTvPlans"),
     },
     {
-      label: "Supervisor Targets",
+      title: "Supervisor Targets",
+      subtitle: "Assign and monitor targets",
       icon: "target",
       type: "mci",
       color: "#B91C1C",
-      action: () => safeNavigate("AssignTargets"),
+      action: () => safeNavigate("AssignTarget"),
     },
     {
-      label: "Support Activities",
+      title: "Support Activities",
+      subtitle: "Audit support logs",
       icon: "headset",
       type: "mci",
       color: "#EA580C",
       action: () => safeNavigate("SupportActivities"),
+    },
+    {
+      title: "Super Admin",
+      subtitle: "Return to command center",
+      icon: "shield-crown-outline",
+      type: "mci",
+      color: "#0F172A",
+      action: () => safeNavigate("SuperAdminDashboard"),
     },
   ];
 
@@ -328,20 +380,6 @@ const AdminDashboard = () => {
     }
 
     return <Ionicons name={item.icon} size={size} color={color} />;
-  };
-
-  const goBack = () => {
-    if (navigation.canGoBack?.()) {
-      navigation.goBack();
-      return;
-    }
-
-    navigation.dispatch(
-      CommonActions.reset({
-        index: 0,
-        routes: [{ name: "AdminDashboard" }],
-      })
-    );
   };
 
   if (loading) {
@@ -360,10 +398,7 @@ const AdminDashboard = () => {
           <Ionicons name="arrow-back" size={23} color={COLORS.white} />
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.headerIconBtn}
-          onPress={() => navigation.openDrawer?.()}
-        >
+        <TouchableOpacity style={styles.headerIconBtn} onPress={openMenu}>
           <Ionicons name="menu" size={25} color={COLORS.white} />
         </TouchableOpacity>
 
@@ -380,7 +415,8 @@ const AdminDashboard = () => {
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -390,7 +426,7 @@ const AdminDashboard = () => {
         }
       >
         <View style={styles.heroCard}>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={styles.heroTitle}>Live Operations Center</Text>
             <Text style={styles.heroText}>
               Monitor users, sales, requests, issues and platform controls in real time.
@@ -426,25 +462,35 @@ const AdminDashboard = () => {
           ))}
         </View>
 
-        <View style={styles.drawerPanel}>
+        <View style={styles.navigationSection}>
           <Text style={styles.panelTitle}>Admin Navigation</Text>
 
-          {drawerMenus.map((item, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.drawerItem}
-              onPress={item.action}
-              activeOpacity={0.86}
-            >
-              <View style={[styles.drawerIcon, { backgroundColor: item.color }]}>
-                {renderIcon(item, 22, COLORS.white)}
-              </View>
+          <View style={[styles.navGrid, isWeb && styles.webNavGrid]}>
+            {navigationCards.map((item, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[styles.navCardBox, isWeb && styles.webNavCardBox]}
+                onPress={item.action}
+                activeOpacity={0.86}
+              >
+                <View style={[styles.navIconLarge, { backgroundColor: item.color }]}>
+                  {renderIcon(item, 30, COLORS.white)}
+                </View>
 
-              <Text style={styles.drawerLabel}>{item.label}</Text>
+                <Text style={styles.navCardTitle}>{item.title}</Text>
+                <Text style={styles.navCardSubtitle}>{item.subtitle}</Text>
 
-              <Ionicons name="chevron-forward" size={20} color={COLORS.muted} />
-            </TouchableOpacity>
-          ))}
+                <View style={styles.openBadge}>
+                  <Text style={styles.openBadgeText}>OPEN</Text>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={14}
+                    color={COLORS.primary}
+                  />
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
         <View style={styles.quickSection}>
@@ -454,7 +500,11 @@ const AdminDashboard = () => {
             style={styles.actionBtn}
             onPress={() => safeNavigate("DataPlans")}
           >
-            <MaterialCommunityIcons name="server-outline" size={22} color={COLORS.secondary} />
+            <MaterialCommunityIcons
+              name="server-outline"
+              size={22}
+              color={COLORS.secondary}
+            />
             <Text style={styles.actionText}>Manage Data & Airtime Plans</Text>
             <Ionicons name="chevron-forward" size={20} color={COLORS.muted} />
           </TouchableOpacity>
@@ -463,16 +513,26 @@ const AdminDashboard = () => {
             style={styles.actionBtn}
             onPress={() => safeNavigate("CableTvPlans")}
           >
-            <MaterialCommunityIcons name="television-classic" size={22} color={COLORS.secondary} />
-            <Text style={styles.actionText}>Configure Cable TV & Utility Rates</Text>
+            <MaterialCommunityIcons
+              name="television-classic"
+              size={22}
+              color={COLORS.secondary}
+            />
+            <Text style={styles.actionText}>
+              Configure Cable TV & Utility Rates
+            </Text>
             <Ionicons name="chevron-forward" size={20} color={COLORS.muted} />
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.actionBtn}
-            onPress={() => safeNavigate("AssignTargets")}
+            onPress={() => safeNavigate("AssignTarget")}
           >
-            <MaterialCommunityIcons name="target" size={22} color={COLORS.secondary} />
+            <MaterialCommunityIcons
+              name="target"
+              size={22}
+              color={COLORS.secondary}
+            />
             <Text style={styles.actionText}>Assign Supervisor Targets</Text>
             <Ionicons name="chevron-forward" size={20} color={COLORS.muted} />
           </TouchableOpacity>
@@ -481,7 +541,11 @@ const AdminDashboard = () => {
             style={styles.actionBtn}
             onPress={() => safeNavigate("SupportActivities")}
           >
-            <MaterialCommunityIcons name="headset" size={22} color={COLORS.secondary} />
+            <MaterialCommunityIcons
+              name="headset"
+              size={22}
+              color={COLORS.secondary}
+            />
             <Text style={styles.actionText}>Audit Support Logs</Text>
             <Ionicons name="chevron-forward" size={20} color={COLORS.muted} />
           </TouchableOpacity>
@@ -527,7 +591,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   container: { flex: 1 },
-  content: { padding: 16, paddingBottom: 50 },
+  content: {
+    padding: 16,
+    paddingBottom: 80,
+    flexGrow: 1,
+  },
   loaderContainer: {
     flex: 1,
     justifyContent: "center",
@@ -613,10 +681,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  drawerPanel: {
+  navigationSection: {
     backgroundColor: COLORS.white,
-    borderRadius: 22,
-    padding: 14,
+    borderRadius: 24,
+    padding: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
     marginBottom: 18,
@@ -625,28 +693,65 @@ const styles = StyleSheet.create({
     color: COLORS.dark,
     fontSize: 18,
     fontWeight: "900",
-    marginBottom: 10,
+    marginBottom: 14,
   },
-  drawerItem: {
+  navGrid: {
     flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 13,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F1F5F9",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    rowGap: 12,
   },
-  drawerIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
+  webNavGrid: {
+    justifyContent: "flex-start",
+    columnGap: 12,
+  },
+  navCardBox: {
+    width: "48%",
+    backgroundColor: COLORS.light,
+    borderRadius: 20,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    minHeight: 150,
+  },
+  webNavCardBox: {
+    width: "23.5%",
+    minWidth: 220,
+  },
+  navIconLarge: {
+    width: 58,
+    height: 58,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
+    marginBottom: 12,
   },
-  drawerLabel: {
-    flex: 1,
+  navCardTitle: {
     color: COLORS.dark,
-    fontSize: 15,
-    fontWeight: "800",
+    fontSize: 14,
+    fontWeight: "900",
+  },
+  navCardSubtitle: {
+    color: COLORS.muted,
+    fontSize: 11,
+    fontWeight: "600",
+    marginTop: 4,
+  },
+  openBadge: {
+    marginTop: "auto",
+    alignSelf: "flex-start",
+    backgroundColor: "#DCFCE7",
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 999,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  openBadgeText: {
+    color: COLORS.secondary,
+    fontSize: 10,
+    fontWeight: "900",
   },
   quickSection: {
     backgroundColor: COLORS.white,
