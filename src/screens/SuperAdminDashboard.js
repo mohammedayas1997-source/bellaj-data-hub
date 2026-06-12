@@ -138,12 +138,19 @@ const SuperAdminDashboard = ({ navigation }) => {
   };
 
   const openMenu = () => {
+    const parent = navigation.getParent?.();
+
     if (navigation.openDrawer) {
       navigation.openDrawer();
       return;
     }
 
-    Alert.alert("Menu", "Drawer menu is not available on this navigator.");
+    if (parent?.openDrawer) {
+      parent.openDrawer();
+      return;
+    }
+
+    navigation.navigate("Main");
   };
 
   const goBack = () => {
@@ -152,12 +159,7 @@ const SuperAdminDashboard = ({ navigation }) => {
       return;
     }
 
-    navigation.dispatch(
-      CommonActions.reset({
-        index: 0,
-        routes: [{ name: "SuperAdminDashboard" }],
-      })
-    );
+    navigation.navigate("SuperAdminDashboard");
   };
 
   const navigateToDashboard = async (screenName, role = null) => {
@@ -167,25 +169,10 @@ const SuperAdminDashboard = ({ navigation }) => {
         await AsyncStorage.setItem("isSuperAdminOverride", "true");
       }
 
-      navigation.navigate(screenName);
-    } catch (error) {
-      Alert.alert("Navigation Error", `${screenName} is not registered.`);
-    }
-  };
-
-  const resetToDashboard = async (screenName, role = null) => {
-    try {
-      if (role) {
-        await AsyncStorage.setItem("overrideRole", role);
-        await AsyncStorage.setItem("isSuperAdminOverride", "true");
-      }
-
-      navigation.dispatch(
-        CommonActions.reset({
-          index: 0,
-          routes: [{ name: screenName }],
-        })
-      );
+      navigation.navigate(screenName, {
+        fromSuperAdmin: true,
+        backScreen: "SuperAdminDashboard",
+      });
     } catch (error) {
       Alert.alert("Navigation Error", `${screenName} is not registered.`);
     }
@@ -248,12 +235,20 @@ const SuperAdminDashboard = ({ navigation }) => {
       action: () => navigateToDashboard("UserManagement"),
     },
     {
+      title: "Admin Dashboard",
+      value: "Open",
+      icon: "view-dashboard",
+      type: "mci",
+      bg: "#0F766E",
+      action: () => navigateToDashboard("AdminDashboard", "admin"),
+    },
+    {
       title: "Agent Dashboard",
       value: "Open",
       icon: "account-tie-outline",
       type: "mci",
       bg: COLORS.danger,
-      action: () => resetToDashboard("AgentDashboard", "agent"),
+      action: () => navigateToDashboard("AgentDashboard", "agent"),
     },
     {
       title: "Support Dashboard",
@@ -261,7 +256,7 @@ const SuperAdminDashboard = ({ navigation }) => {
       icon: "headset",
       type: "mci",
       bg: "#EA580C",
-      action: () => resetToDashboard("SupportDashboard", "support"),
+      action: () => navigateToDashboard("SupportDashboard", "support"),
     },
     {
       title: "Supervisor Dashboard",
@@ -269,7 +264,7 @@ const SuperAdminDashboard = ({ navigation }) => {
       icon: "account-supervisor-outline",
       type: "mci",
       bg: COLORS.secondary,
-      action: () => resetToDashboard("SupervisorDashboard", "supervisor"),
+      action: () => navigateToDashboard("SupervisorDashboard", "supervisor"),
     },
     {
       title: "Admins",
@@ -312,15 +307,23 @@ const SuperAdminDashboard = ({ navigation }) => {
       icon: "view-dashboard-outline",
       type: "mci",
       bg: COLORS.primary,
-      action: () => resetToDashboard("SuperAdminDashboard", "superadmin"),
+      action: () => navigateToDashboard("SuperAdminDashboard", "superadmin"),
+    },
+    {
+      title: "Admin Dashboard",
+      subtitle: "Admin operations",
+      icon: "view-dashboard",
+      type: "mci",
+      bg: "#0F766E",
+      action: () => navigateToDashboard("AdminDashboard", "admin"),
     },
     {
       title: "User Dashboard",
       subtitle: "Open user area",
       icon: "account-circle-outline",
       type: "mci",
-      bg: "#0F766E",
-      action: () => resetToDashboard("Main", "user"),
+      bg: "#0284C7",
+      action: () => navigateToDashboard("Main", "user"),
     },
     {
       title: "Agent Dashboard",
@@ -328,7 +331,7 @@ const SuperAdminDashboard = ({ navigation }) => {
       icon: "account-tie-outline",
       type: "mci",
       bg: COLORS.danger,
-      action: () => resetToDashboard("AgentDashboard", "agent"),
+      action: () => navigateToDashboard("AgentDashboard", "agent"),
     },
     {
       title: "Supervisor",
@@ -336,7 +339,7 @@ const SuperAdminDashboard = ({ navigation }) => {
       icon: "account-supervisor-outline",
       type: "mci",
       bg: COLORS.secondary,
-      action: () => resetToDashboard("SupervisorDashboard", "supervisor"),
+      action: () => navigateToDashboard("SupervisorDashboard", "supervisor"),
     },
     {
       title: "Support",
@@ -344,7 +347,7 @@ const SuperAdminDashboard = ({ navigation }) => {
       icon: "headset",
       type: "mci",
       bg: "#EA580C",
-      action: () => resetToDashboard("SupportDashboard", "support"),
+      action: () => navigateToDashboard("SupportDashboard", "support"),
     },
     {
       title: "Admin Control",
@@ -446,8 +449,8 @@ const SuperAdminDashboard = ({ navigation }) => {
         <View style={styles.welcomeCard}>
           <Text style={styles.welcomeTitle}>Super Admin Access</Text>
           <Text style={styles.welcomeText}>
-            Manage users, agents, supervisors, support, transactions and platform
-            activity records in real time.
+            Manage admin, users, agents, supervisors, support, transactions and
+            platform activity records in real time.
           </Text>
         </View>
 
@@ -636,7 +639,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: {
     padding: 16,
-    paddingBottom: 70,
+    paddingBottom: 80,
     flexGrow: 1,
   },
   welcomeCard: {

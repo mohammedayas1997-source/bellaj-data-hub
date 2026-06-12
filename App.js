@@ -38,6 +38,7 @@ import ManageAgentsScreen from "./src/screens/ManageAgentsScreen";
 import UserManagement from "./src/screens/superadmin/UserManagement";
 import SuperAdminDashboard from "./src/screens/SuperAdminDashboard";
 import SupportDashboard from "./src/screens/SupportDashboard";
+import AdminDashboard from "./src/screens/AdminDashboard";
 
 import NIMCModificationScreen from "./src/screens/Services/NIMCModificationScreen";
 import NIMCRequests from "./src/screens/Admin/NIMCRequests";
@@ -116,7 +117,8 @@ function AppContent() {
 
         <Stack.Screen name="AdminUserControl" component={AdminControlScreen} />
         <Stack.Screen name="AdminControl" component={AdminControlScreen} />
-
+        <Stack.Screen name="AdminDashboard" component={AdminDashboard} />
+        
         <Stack.Screen name="UserManagement" component={UserManagement} />
         <Stack.Screen name="SuperAdminUsers" component={UserManagement} />
 
