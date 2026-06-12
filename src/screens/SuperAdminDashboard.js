@@ -300,6 +300,7 @@ const SuperAdminDashboard = ({ navigation }) => {
   const drawerMenus = [
     {
       label: "Super Admin Dashboard",
+      subtitle: "Main command center",
       icon: "view-dashboard-outline",
       type: "mci",
       color: COLORS.primary,
@@ -307,6 +308,7 @@ const SuperAdminDashboard = ({ navigation }) => {
     },
     {
       label: "User Dashboard",
+      subtitle: "Open user interface",
       icon: "account-circle-outline",
       type: "mci",
       color: "#0F766E",
@@ -314,6 +316,7 @@ const SuperAdminDashboard = ({ navigation }) => {
     },
     {
       label: "Agent Dashboard",
+      subtitle: "Open agent workspace",
       icon: "account-tie-outline",
       type: "mci",
       color: COLORS.danger,
@@ -321,6 +324,7 @@ const SuperAdminDashboard = ({ navigation }) => {
     },
     {
       label: "Supervisor Dashboard",
+      subtitle: "Open supervisor workspace",
       icon: "account-supervisor-outline",
       type: "mci",
       color: COLORS.secondary,
@@ -328,6 +332,7 @@ const SuperAdminDashboard = ({ navigation }) => {
     },
     {
       label: "Support Dashboard",
+      subtitle: "Open support center",
       icon: "headset",
       type: "mci",
       color: "#EA580C",
@@ -335,6 +340,7 @@ const SuperAdminDashboard = ({ navigation }) => {
     },
     {
       label: "Admin Control",
+      subtitle: "Manage admin roles",
       icon: "shield-account-outline",
       type: "mci",
       color: "#B91C1C",
@@ -342,6 +348,7 @@ const SuperAdminDashboard = ({ navigation }) => {
     },
     {
       label: "User Management",
+      subtitle: "Manage users and roles",
       icon: "account-group-outline",
       type: "mci",
       color: COLORS.dark,
@@ -349,6 +356,7 @@ const SuperAdminDashboard = ({ navigation }) => {
     },
     {
       label: "Transactions",
+      subtitle: "View sales and activity logs",
       icon: "receipt-text-outline",
       type: "mci",
       color: "#15803D",
@@ -356,6 +364,7 @@ const SuperAdminDashboard = ({ navigation }) => {
     },
     {
       label: "NIMC History",
+      subtitle: "View NIMC records",
       icon: "fingerprint",
       type: "mci",
       color: "#7C2D12",
@@ -363,6 +372,7 @@ const SuperAdminDashboard = ({ navigation }) => {
     },
     {
       label: "BVN History",
+      subtitle: "View BVN records",
       icon: "card-account-details-outline",
       type: "mci",
       color: "#6D28D9",
@@ -370,6 +380,7 @@ const SuperAdminDashboard = ({ navigation }) => {
     },
     {
       label: "Notifications",
+      subtitle: "Manage notifications",
       icon: "bell-outline",
       type: "mci",
       color: "#2563EB",
@@ -458,25 +469,30 @@ const SuperAdminDashboard = ({ navigation }) => {
           ))}
         </View>
 
-        <View style={styles.drawerLikePanel}>
+        <View style={styles.navigationSection}>
           <Text style={styles.panelTitle}>Admin Navigation</Text>
 
           {drawerMenus.map((item, index) => (
             <TouchableOpacity
               key={index}
-              style={styles.drawerItem}
+              style={styles.navBox}
               onPress={item.action}
               activeOpacity={0.86}
             >
-              <View style={styles.drawerIconBox}>
-                <View style={[styles.drawerIcon, { backgroundColor: item.color }]}>
-                  {renderIcon(item, 22, COLORS.white)}
+              <View style={styles.navIconOuter}>
+                <View style={[styles.navIconInner, { backgroundColor: item.color }]}>
+                  {renderIcon(item, 23, COLORS.white)}
                 </View>
               </View>
 
-              <Text style={styles.drawerLabel}>{item.label}</Text>
+              <View style={styles.navTextBox}>
+                <Text style={styles.navTitle}>{item.label}</Text>
+                <Text style={styles.navSubtitle}>{item.subtitle}</Text>
+              </View>
 
-              <Ionicons name="chevron-forward" size={20} color={COLORS.muted} />
+              <View style={styles.navArrowBox}>
+                <Ionicons name="chevron-forward" size={20} color={COLORS.muted} />
+              </View>
             </TouchableOpacity>
           ))}
         </View>
@@ -667,10 +683,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  drawerLikePanel: {
+  navigationSection: {
     backgroundColor: COLORS.white,
-    borderRadius: 20,
-    padding: 14,
+    borderRadius: 24,
+    padding: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
     marginBottom: 18,
@@ -679,38 +695,57 @@ const styles = StyleSheet.create({
     color: COLORS.dark,
     fontSize: 18,
     fontWeight: "900",
-    marginBottom: 12,
+    marginBottom: 14,
   },
-  drawerItem: {
+  navBox: {
+    backgroundColor: COLORS.light,
+    borderRadius: 18,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 13,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F1F5F9",
   },
-  drawerIconBox: {
-    width: 54,
-    height: 54,
-    borderRadius: 18,
-    backgroundColor: COLORS.light,
+  navIconOuter: {
+    width: 58,
+    height: 58,
+    borderRadius: 20,
+    backgroundColor: COLORS.white,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  drawerIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
+  navIconInner: {
+    width: 44,
+    height: 44,
+    borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
   },
-  drawerLabel: {
-    flex: 1,
+  navTextBox: { flex: 1 },
+  navTitle: {
     color: COLORS.dark,
     fontSize: 15,
-    fontWeight: "800",
+    fontWeight: "900",
+  },
+  navSubtitle: {
+    color: COLORS.muted,
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 3,
+  },
+  navArrowBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    backgroundColor: COLORS.white,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   sectionGrid: { gap: 16 },
   webSectionGrid: { flexDirection: "row" },
