@@ -125,6 +125,8 @@ const SuperAdminDashboard = ({ navigation }) => {
       if (requests[2].status === "fulfilled") {
         setTransactions(normalizeArray(requests[2].value.data, "transactions"));
       }
+    } catch (error) {
+      console.log("Dashboard error:", error?.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -137,7 +139,7 @@ const SuperAdminDashboard = ({ navigation }) => {
   };
 
   const goBack = () => {
-    if (navigation.canGoBack && navigation.canGoBack()) {
+    if (navigation.canGoBack?.()) {
       navigation.goBack();
       return;
     }
@@ -159,10 +161,7 @@ const SuperAdminDashboard = ({ navigation }) => {
 
       navigation.navigate(screenName);
     } catch (error) {
-      Alert.alert(
-        "Navigation Error",
-        `${screenName} is not registered in your navigator.`
-      );
+      Alert.alert("Navigation Error", `${screenName} is not registered.`);
     }
   };
 
@@ -180,10 +179,7 @@ const SuperAdminDashboard = ({ navigation }) => {
         })
       );
     } catch (error) {
-      Alert.alert(
-        "Navigation Error",
-        `${screenName} is not registered in your navigator.`
-      );
+      Alert.alert("Navigation Error", `${screenName} is not registered.`);
     }
   };
 
@@ -238,23 +234,31 @@ const SuperAdminDashboard = ({ navigation }) => {
     {
       title: "Total Users",
       value: roleCounts.totalUsers,
-      icon: "people",
-      type: "ion",
+      icon: "account-group-outline",
+      type: "mci",
       bg: COLORS.primary,
       action: () => safeNavigate("UserManagement"),
     },
     {
-      title: "Agents",
-      value: roleCounts.totalAgents,
-      icon: "account-tie",
+      title: "Agent Dashboard",
+      value: "Open",
+      icon: "account-tie-outline",
       type: "mci",
       bg: COLORS.danger,
       action: () => resetToScreen("AgentDashboard", "agent"),
     },
     {
-      title: "Supervisors",
-      value: roleCounts.totalSupervisors,
-      icon: "account-supervisor",
+      title: "Support Dashboard",
+      value: "Open",
+      icon: "headset",
+      type: "mci",
+      bg: "#EA580C",
+      action: () => safeNavigate("SupportDashboard"),
+    },
+    {
+      title: "Supervisor Dashboard",
+      value: "Open",
+      icon: "account-supervisor-outline",
       type: "mci",
       bg: COLORS.secondary,
       action: () => resetToScreen("SupervisorDashboard", "supervisor"),
@@ -262,40 +266,32 @@ const SuperAdminDashboard = ({ navigation }) => {
     {
       title: "Admins",
       value: roleCounts.totalAdmins,
-      icon: "shield-checkmark",
-      type: "ion",
+      icon: "shield-account-outline",
+      type: "mci",
       bg: "#B91C1C",
       action: () => safeNavigate("AdminUserControl"),
     },
     {
       title: "Revenue",
       value: formatMoney(stats?.finance?.totalRevenue),
-      icon: "cash",
-      type: "ion",
+      icon: "cash-multiple",
+      type: "mci",
       bg: "#065F46",
       action: () => safeNavigate("SalesHistory"),
     },
     {
       title: "Transactions",
       value: stats?.finance?.successfulTransactions || transactions.length || 0,
-      icon: "swap-horizontal",
-      type: "ion",
+      icon: "receipt-text-outline",
+      type: "mci",
       bg: "#991B1B",
       action: () => safeNavigate("SalesHistory"),
     },
     {
-      title: "Wallet",
-      value: formatMoney(stats?.finance?.walletBalance),
-      icon: "wallet",
-      type: "ion",
-      bg: "#15803D",
-      action: () => safeNavigate("Wallet"),
-    },
-    {
       title: "System Status",
       value: "Active",
-      icon: "trending-up",
-      type: "ion",
+      icon: "chart-line",
+      type: "mci",
       bg: COLORS.dark,
       action: fetchDashboard,
     },
@@ -304,21 +300,21 @@ const SuperAdminDashboard = ({ navigation }) => {
   const drawerMenus = [
     {
       label: "Super Admin Dashboard",
-      icon: "grid-outline",
-      type: "ion",
+      icon: "view-dashboard-outline",
+      type: "mci",
       color: COLORS.primary,
       action: () => safeNavigate("SuperAdminDashboard"),
     },
     {
       label: "User Dashboard",
-      icon: "person-circle-outline",
-      type: "ion",
-      color: COLORS.primary,
+      icon: "account-circle-outline",
+      type: "mci",
+      color: "#0F766E",
       action: () => resetToScreen("Main", "user"),
     },
     {
       label: "Agent Dashboard",
-      icon: "account-tie",
+      icon: "account-tie-outline",
       type: "mci",
       color: COLORS.danger,
       action: () => resetToScreen("AgentDashboard", "agent"),
@@ -331,6 +327,13 @@ const SuperAdminDashboard = ({ navigation }) => {
       action: () => resetToScreen("SupervisorDashboard", "supervisor"),
     },
     {
+      label: "Support Dashboard",
+      icon: "headset",
+      type: "mci",
+      color: "#EA580C",
+      action: () => safeNavigate("SupportDashboard"),
+    },
+    {
       label: "Admin Control",
       icon: "shield-account-outline",
       type: "mci",
@@ -339,22 +342,22 @@ const SuperAdminDashboard = ({ navigation }) => {
     },
     {
       label: "User Management",
-      icon: "people-outline",
-      type: "ion",
+      icon: "account-group-outline",
+      type: "mci",
       color: COLORS.dark,
       action: () => safeNavigate("UserManagement"),
     },
     {
       label: "Transactions",
-      icon: "receipt-outline",
-      type: "ion",
+      icon: "receipt-text-outline",
+      type: "mci",
       color: "#15803D",
       action: () => safeNavigate("SalesHistory"),
     },
     {
       label: "NIMC History",
-      icon: "finger-print-outline",
-      type: "ion",
+      icon: "fingerprint",
+      type: "mci",
       color: "#7C2D12",
       action: () => safeNavigate("NIMCHistory"),
     },
@@ -367,9 +370,9 @@ const SuperAdminDashboard = ({ navigation }) => {
     },
     {
       label: "Notifications",
-      icon: "notifications-outline",
-      type: "ion",
-      color: "#EA580C",
+      icon: "bell-outline",
+      type: "mci",
+      color: "#2563EB",
       action: () => safeNavigate("Notifications"),
     },
   ];
@@ -426,8 +429,8 @@ const SuperAdminDashboard = ({ navigation }) => {
         <View style={styles.welcomeCard}>
           <Text style={styles.welcomeTitle}>Super Admin Access</Text>
           <Text style={styles.welcomeText}>
-            Manage users, transactions, agents, supervisors, admin controls,
-            reports and activity records in real time.
+            Manage users, agents, supervisors, support, transactions and platform
+            activity records in real time.
           </Text>
         </View>
 
@@ -448,7 +451,9 @@ const SuperAdminDashboard = ({ navigation }) => {
                 <Text style={styles.statValue}>{card.value}</Text>
               </View>
 
-              <View style={styles.iconCircle}>{renderIcon(card, 28)}</View>
+              <View style={styles.statIconOuter}>
+                <View style={styles.statIconInner}>{renderIcon(card, 28)}</View>
+              </View>
             </TouchableOpacity>
           ))}
         </View>
@@ -463,8 +468,10 @@ const SuperAdminDashboard = ({ navigation }) => {
               onPress={item.action}
               activeOpacity={0.86}
             >
-              <View style={[styles.drawerIcon, { backgroundColor: item.color }]}>
-                {renderIcon(item, 22, COLORS.white)}
+              <View style={styles.drawerIconBox}>
+                <View style={[styles.drawerIcon, { backgroundColor: item.color }]}>
+                  {renderIcon(item, 22, COLORS.white)}
+                </View>
               </View>
 
               <Text style={styles.drawerLabel}>{item.label}</Text>
@@ -477,7 +484,11 @@ const SuperAdminDashboard = ({ navigation }) => {
         <View style={[styles.sectionGrid, isWeb && styles.webSectionGrid]}>
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
-              <Ionicons name="people" size={24} color={COLORS.primary} />
+              <MaterialCommunityIcons
+                name="account-group-outline"
+                size={24}
+                color={COLORS.primary}
+              />
               <Text style={styles.sectionTitle}>Users and Roles</Text>
             </View>
 
@@ -621,7 +632,7 @@ const styles = StyleSheet.create({
   statCard: {
     borderRadius: 18,
     padding: 18,
-    minHeight: 100,
+    minHeight: 105,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -640,10 +651,18 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     marginTop: 6,
   },
-  iconCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+  statIconOuter: {
+    width: 62,
+    height: 62,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.16)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statIconInner: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     backgroundColor: "rgba(255,255,255,0.18)",
     alignItems: "center",
     justifyContent: "center",
@@ -669,13 +688,23 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#F1F5F9",
   },
+  drawerIconBox: {
+    width: 54,
+    height: 54,
+    borderRadius: 18,
+    backgroundColor: COLORS.light,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
   drawerIcon: {
     width: 42,
     height: 42,
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
   },
   drawerLabel: {
     flex: 1,
