@@ -26,7 +26,6 @@ const COLORS = {
   muted: "#64748B",
   border: "#E2E8F0",
   danger: "#DC2626",
-  card: "#FFFFFF",
 };
 
 const API_ENDPOINTS = {
@@ -126,7 +125,7 @@ const AdminDashboard = () => {
           0,
         transactions: getCount(txRes, "transactions"),
       });
-    } catch (err) {
+    } catch {
       Alert.alert("Connection Error", "Failed to load live dashboard data.");
     } finally {
       setLoading(false);
@@ -142,37 +141,17 @@ const AdminDashboard = () => {
   const openMenu = () => {
     const parent = navigation.getParent?.();
 
-    if (navigation.openDrawer) {
-      navigation.openDrawer();
-      return;
-    }
+    if (navigation.openDrawer) return navigation.openDrawer();
+    if (parent?.openDrawer) return parent.openDrawer();
 
-    if (parent?.openDrawer) {
-      parent.openDrawer();
-      return;
-    }
-
-    Alert.alert("Menu", "Drawer menu is not available on this navigator.");
-  };
-
-  const goBack = () => {
-    if (navigation.canGoBack?.()) {
-      navigation.goBack();
-      return;
-    }
-
-    navigation.navigate("SuperAdminDashboard");
+    navigation.navigate("Main");
   };
 
   const safeNavigate = (screenName) => {
-    try {
-      navigation.navigate(screenName, {
-        fromAdminDashboard: true,
-        backScreen: "AdminDashboard",
-      });
-    } catch (error) {
-      Alert.alert("Navigation Error", `${screenName} is not registered.`);
-    }
+    navigation.navigate(screenName, {
+      fromAdminDashboard: true,
+      backScreen: "AdminDashboard",
+    });
   };
 
   const logout = async () => {
@@ -256,127 +235,121 @@ const AdminDashboard = () => {
         screen: "BvnRequests",
       },
       {
-        title: "System Pricing",
-        value: "Manage",
-        icon: "tag-multiple-outline",
-        type: "mci",
+        title: "Notifications",
+        value: "Open",
+        icon: "bell-outline",
+        type: "ion",
         color: "#7C3AED",
-        screen: "PricingSettings",
+        screen: "Notifications",
       },
       {
-        title: "Service Plans",
-        value: "Manage",
-        icon: "server-outline",
-        type: "mci",
+        title: "Settings",
+        value: "Open",
+        icon: "settings-outline",
+        type: "ion",
         color: "#334155",
-        screen: "DataPlans",
+        screen: "Settings",
       },
     ],
     [stats]
   );
 
-  const navigationCards = [
+  const menuCards = [
     {
-      title: "Admin Overview",
-      subtitle: "Main operations center",
+      title: "Dashboard",
+      subtitle: "User dashboard",
+      icon: "home-outline",
+      type: "ion",
+      color: COLORS.secondary,
+      action: () => safeNavigate("Dashboard"),
+    },
+    {
+      title: "Admin Dashboard",
+      subtitle: "Admin operations center",
       icon: "view-dashboard-outline",
       type: "mci",
       color: COLORS.primary,
       action: () => safeNavigate("AdminDashboard"),
     },
     {
-      title: "All Users",
-      subtitle: "Manage platform users",
-      icon: "account-group-outline",
-      type: "mci",
-      color: COLORS.primary,
-      action: () => safeNavigate("UserManagement"),
-    },
-    {
-      title: "Sales Logs",
-      subtitle: "View revenue and sales records",
-      icon: "cash-multiple",
-      type: "mci",
-      color: COLORS.secondary,
-      action: () => safeNavigate("SalesHistory"),
-    },
-    {
-      title: "Issue Resolution",
-      subtitle: "Resolve customer issues",
-      icon: "alert-circle-outline",
-      type: "ion",
-      color: COLORS.danger,
-      action: () => safeNavigate("IssueResolution"),
-    },
-    {
-      title: "Pricing Settings",
-      subtitle: "Update product pricing",
-      icon: "tag-multiple-outline",
-      type: "mci",
-      color: "#7C3AED",
-      action: () => safeNavigate("PricingSettings"),
-    },
-    {
-      title: "NIMC Requests",
-      subtitle: "Manage NIMC requests",
-      icon: "fingerprint",
-      type: "mci",
-      color: "#2563EB",
-      action: () => safeNavigate("NIMCRequests"),
-    },
-    {
-      title: "BVN Requests",
-      subtitle: "Manage BVN requests",
-      icon: "card-account-details-outline",
-      type: "mci",
-      color: "#D97706",
-      action: () => safeNavigate("BvnRequests"),
-    },
-    {
-      title: "Data & Airtime",
-      subtitle: "Manage service plans",
-      icon: "server-outline",
-      type: "mci",
-      color: "#334155",
-      action: () => safeNavigate("DataPlans"),
-    },
-    {
-      title: "Cable & Utilities",
-      subtitle: "Configure utility rates",
-      icon: "television-classic",
+      title: "Agent Dashboard",
+      subtitle: "Agent panel",
+      icon: "account-tie-outline",
       type: "mci",
       color: "#0F766E",
-      action: () => safeNavigate("CableTvPlans"),
+      action: () => safeNavigate("AgentDashboard"),
     },
     {
-      title: "Supervisor Targets",
-      subtitle: "Assign and monitor targets",
-      icon: "target",
-      type: "mci",
-      color: "#B91C1C",
-      action: () => safeNavigate("AssignTarget"),
-    },
-    {
-      title: "Support Activities",
-      subtitle: "Audit support logs",
+      title: "Support Dashboard",
+      subtitle: "Support tracing center",
       icon: "headset",
       type: "mci",
       color: "#EA580C",
-      action: () => safeNavigate("SupportActivities"),
+      action: () => safeNavigate("SupportDashboard"),
+    },
+    {
+      title: "Supervisor Dashboard",
+      subtitle: "Supervisor performance",
+      icon: "account-supervisor-outline",
+      type: "mci",
+      color: "#2563EB",
+      action: () => safeNavigate("SupervisorDashboard"),
     },
     {
       title: "Super Admin",
-      subtitle: "Return to command center",
+      subtitle: "Main command center",
       icon: "shield-crown-outline",
       type: "mci",
-      color: "#0F172A",
+      color: COLORS.dark,
       action: () => safeNavigate("SuperAdminDashboard"),
+    },
+    {
+      title: "Wallet History",
+      subtitle: "Transaction history",
+      icon: "wallet-outline",
+      type: "ion",
+      color: "#7C3AED",
+      action: () => safeNavigate("SalesHistory"),
+    },
+    {
+      title: "BVN History",
+      subtitle: "BVN records",
+      icon: "card-account-details-outline",
+      type: "mci",
+      color: "#D97706",
+      action: () => safeNavigate("BVNHistory"),
+    },
+    {
+      title: "NIMC History",
+      subtitle: "NIMC records",
+      icon: "fingerprint",
+      type: "mci",
+      color: "#B91C1C",
+      action: () => safeNavigate("NIMCHistory"),
+    },
+    {
+      title: "Notifications",
+      subtitle: "Message center",
+      icon: "bell-outline",
+      type: "ion",
+      color: "#2563EB",
+      action: () => safeNavigate("Notifications"),
+    },
+    {
+      title: "Settings",
+      subtitle: "App preferences",
+      icon: "settings-outline",
+      type: "ion",
+      color: "#334155",
+      action: () => safeNavigate("Settings"),
     },
   ];
 
   const renderIcon = (item, size = 24, color = COLORS.white) => {
     if (item.type === "mci") {
-      return <MaterialCommunityIcons name={item.icon} size={size} color={color} />;
+      return (
+        <MaterialCommunityIcons name={item.icon} size={size} color={color} />
+      );
     }
 
     return <Ionicons name={item.icon} size={size} color={color} />;
@@ -394,12 +367,8 @@ const AdminDashboard = () => {
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.headerIconBtn} onPress={goBack}>
-          <Ionicons name="arrow-back" size={23} color={COLORS.white} />
-        </TouchableOpacity>
-
         <TouchableOpacity style={styles.headerIconBtn} onPress={openMenu}>
-          <Ionicons name="menu" size={25} color={COLORS.white} />
+          <Ionicons name="menu" size={26} color={COLORS.white} />
         </TouchableOpacity>
 
         <View style={styles.headerTextBox}>
@@ -429,7 +398,8 @@ const AdminDashboard = () => {
           <View style={{ flex: 1 }}>
             <Text style={styles.heroTitle}>Live Operations Center</Text>
             <Text style={styles.heroText}>
-              Monitor users, sales, requests, issues and platform controls in real time.
+              Monitor users, sales, requests, issues and platform controls in
+              real time.
             </Text>
           </View>
 
@@ -463,10 +433,10 @@ const AdminDashboard = () => {
         </View>
 
         <View style={styles.navigationSection}>
-          <Text style={styles.panelTitle}>Admin Navigation</Text>
+          <Text style={styles.panelTitle}>Menu Navigation</Text>
 
           <View style={[styles.navGrid, isWeb && styles.webNavGrid]}>
-            {navigationCards.map((item, index) => (
+            {menuCards.map((item, index) => (
               <TouchableOpacity
                 key={index}
                 style={[styles.navCardBox, isWeb && styles.webNavCardBox]}
@@ -485,7 +455,7 @@ const AdminDashboard = () => {
                   <Ionicons
                     name="chevron-forward"
                     size={14}
-                    color={COLORS.primary}
+                    color={COLORS.secondary}
                   />
                 </View>
               </TouchableOpacity>
@@ -566,13 +536,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   headerIconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 13,
+    width: 40,
+    height: 40,
+    borderRadius: 14,
     backgroundColor: "rgba(255,255,255,0.16)",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 8,
+    marginRight: 10,
   },
   headerTextBox: { flex: 1 },
   headerTitle: { color: COLORS.white, fontSize: 20, fontWeight: "900" },
@@ -593,7 +563,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: {
     padding: 16,
-    paddingBottom: 80,
+    paddingBottom: 100,
     flexGrow: 1,
   },
   loaderContainer: {
