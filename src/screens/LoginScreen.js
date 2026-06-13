@@ -25,23 +25,6 @@ import axios from "axios";
 import { CommonActions } from "@react-navigation/native";
 import BASE_URL from "../config/api";
 
-const ROLE_EMAILS = {
-  admin: "admin@bellajdatahub.online",
-  superadmin: "superadmin@bellajdatahub.online",
-  leader: "leader@bellajdatahub.online",
-  support: "support@bellajdatahub.online",
-};
-
-const LOGIN_ROLES = [
-  "user",
-  "agent",
-  "supervisor",
-  "leader",
-  "support",
-  "admin",
-  "superadmin",
-];
-
 const COLORS = {
   primary: "#0B5E3C",
   secondary: "#16A34A",
@@ -59,7 +42,6 @@ const LoginScreen = ({ navigation }) => {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [selectedRole, setSelectedRole] = useState("user");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
@@ -72,18 +54,7 @@ const LoginScreen = ({ navigation }) => {
 
   const normalizeEmail = (value) => String(value || "").trim().toLowerCase();
 
-  const detectRoleByEmail = (value) => {
-    const cleanEmail = normalizeEmail(value);
-
-    if (cleanEmail === ROLE_EMAILS.superadmin) return "superadmin";
-    if (cleanEmail === ROLE_EMAILS.admin) return "admin";
-    if (cleanEmail === ROLE_EMAILS.leader) return "leader";
-    if (cleanEmail === ROLE_EMAILS.support) return "support";
-
-    return "";
-  };
-
-  const detectRole = (payload, fallbackEmail = "") => {
+  const detectRole = (payload) => {
     const foundRole =
       payload?.role ||
       payload?.user?.role ||
@@ -91,28 +62,36 @@ const LoginScreen = ({ navigation }) => {
       payload?.data?.user?.role ||
       "";
 
-    const normalizedRole = String(foundRole).trim().toLowerCase();
-
-    if (normalizedRole) return normalizedRole;
-
-    const emailRole = detectRoleByEmail(fallbackEmail);
-    if (emailRole) return emailRole;
-
-    return "user";
+    return String(foundRole || "user").trim().toLowerCase();
   };
 
-  const getToken = (data) => {
-    return (
-      data?.token ||
-      data?.accessToken ||
-      data?.data?.token ||
-      data?.data?.accessToken ||
-      ""
+  const getToken = (data) =>
+    data?.token ||
+    data?.accessToken ||
+    data?.data?.token ||
+    data?.data?.accessToken ||
+    "";
+
+  const getUserPayload = (data) => data?.user || data?.data?.user || data?.data || {};
+
+  const redirectUser = (role) => {
+    const normalizedRole = String(role || "user").trim().toLowerCase();
+
+    const routeMap = {
+      superadmin: "SuperAdminDashboard",
+      admin: "AdminDashboard",
+      leader: "LeaderDashboard",
+      support: "SupportDashboard",
+      supervisor: "SupervisorDashboard",
+      agent: "AgentDashboard",
+    };
+
+    navigation.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [{ name: routeMap[normalizedRole] || "Main" }],
+      })
     );
-  };
-
-  const getUserPayload = (data) => {
-    return data?.user || data?.data?.user || data?.data || {};
   };
 
   const checkLoginStatus = async () => {
@@ -123,9 +102,7 @@ const LoginScreen = ({ navigation }) => {
       if (!token || !storedUserData) return;
 
       const user = JSON.parse(storedUserData);
-      const role = detectRole(user, user?.email);
-
-      redirectUser(role);
+      redirectUser(detectRole(user));
     } catch (e) {
       console.log("Startup auth error:", e.message);
     }
@@ -145,85 +122,6 @@ const LoginScreen = ({ navigation }) => {
     }
   };
 
-  const redirectUser = (role) => {
-    const normalizedRole = String(role || "").trim().toLowerCase();
-
-    switch (normalizedRole) {
-      case "superadmin":
-        navigation.dispatch(
-          CommonActions.reset({
-            index: 0,
-            routes: [{ name: "SuperAdminDashboard" }],
-          })
-        );
-        break;
-
-      case "admin":
-        navigation.dispatch(
-          CommonActions.reset({
-            index: 0,
-            routes: [{ name: "AdminDashboard" }],
-          })
-        );
-        break;
-
-      case "leader":
-        navigation.dispatch(
-          CommonActions.reset({
-            index: 0,
-            routes: [{ name: "LeaderDashboard" }],
-          })
-        );
-        break;
-
-      case "support":
-        navigation.dispatch(
-          CommonActions.reset({
-            index: 0,
-            routes: [{ name: "SupportDashboard" }],
-          })
-        );
-        break;
-
-      case "supervisor":
-        navigation.dispatch(
-          CommonActions.reset({
-            index: 0,
-            routes: [{ name: "SupervisorDashboard" }],
-          })
-        );
-        break;
-
-      case "agent":
-        navigation.dispatch(
-          CommonActions.reset({
-            index: 0,
-            routes: [{ name: "AgentDashboard" }],
-          })
-        );
-        break;
-
-      default:
-        navigation.dispatch(
-          CommonActions.reset({
-            index: 0,
-            routes: [{ name: "Main" }],
-          })
-        );
-        break;
-    }
-  };
-
-  const handleRoleSelect = (role) => {
-    setSelectedRole(role);
-
-    if (ROLE_EMAILS[role]) {
-      setEmail(ROLE_EMAILS[role]);
-    }
-
-    if (errorMessage) setErrorMessage("");
-  };
-
   const handleLogin = async () => {
     setErrorMessage("");
 
@@ -237,20 +135,15 @@ const LoginScreen = ({ navigation }) => {
     setLoading(true);
 
     try {
-      const loginUrl = `${BASE_URL}/auth/login`;
-
       const response = await axios.post(
-        loginUrl,
-        {
-          email: cleanEmail,
-          password,
-        },
+        `${BASE_URL}/auth/login`,
+        { email: cleanEmail, password },
         { timeout: 30000 }
       );
 
       const token = getToken(response.data);
       const userPayload = getUserPayload(response.data);
-      const finalRole = detectRole(response.data, cleanEmail);
+      const finalRole = detectRole(response.data);
 
       if (!token) {
         setErrorMessage("Authentication token missing from server.");
@@ -304,10 +197,8 @@ const LoginScreen = ({ navigation }) => {
       }
 
       const user = JSON.parse(storedUserData);
-      const role = detectRole(user, user?.email);
-
-      redirectUser(role);
-    } catch (error) {
+      redirectUser(detectRole(user));
+    } catch {
       setErrorMessage("Biometric login failed. Please try again.");
     }
   };
@@ -364,32 +255,7 @@ const LoginScreen = ({ navigation }) => {
               </View>
             ) : null}
 
-            <Text style={styles.label}>Login Type</Text>
-
-            <View style={styles.roleBox}>
-              {LOGIN_ROLES.map((role) => (
-                <TouchableOpacity
-                  key={role}
-                  style={[
-                    styles.roleBtn,
-                    selectedRole === role && styles.roleBtnActive,
-                  ]}
-                  onPress={() => handleRoleSelect(role)}
-                >
-                  <Text
-                    style={[
-                      styles.roleText,
-                      selectedRole === role && styles.roleTextActive,
-                    ]}
-                  >
-                    {role.toUpperCase()}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
             <Text style={styles.label}>Email Address</Text>
-
             <View style={styles.inputContainer}>
               <Ionicons
                 name="mail-outline"
@@ -397,7 +263,6 @@ const LoginScreen = ({ navigation }) => {
                 color={COLORS.muted}
                 style={styles.inputIcon}
               />
-
               <TextInput
                 style={styles.input}
                 placeholder="example@mail.com"
@@ -405,10 +270,6 @@ const LoginScreen = ({ navigation }) => {
                 value={email}
                 onChangeText={(text) => {
                   setEmail(text);
-
-                  const emailRole = detectRoleByEmail(text);
-                  if (emailRole) setSelectedRole(emailRole);
-
                   if (errorMessage) setErrorMessage("");
                 }}
                 keyboardType="email-address"
@@ -418,7 +279,6 @@ const LoginScreen = ({ navigation }) => {
             </View>
 
             <Text style={styles.label}>Password</Text>
-
             <View style={styles.inputContainer}>
               <Ionicons
                 name="lock-closed-outline"
@@ -426,7 +286,6 @@ const LoginScreen = ({ navigation }) => {
                 color={COLORS.muted}
                 style={styles.inputIcon}
               />
-
               <TextInput
                 style={styles.input}
                 placeholder="••••••••"
@@ -438,7 +297,6 @@ const LoginScreen = ({ navigation }) => {
                 }}
                 secureTextEntry={!showPassword}
               />
-
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                 <Ionicons
                   name={showPassword ? "eye-off-outline" : "eye-outline"}
@@ -549,21 +407,9 @@ const LoginScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: COLORS.light,
-  },
-
-  keyboardView: {
-    flex: 1,
-    backgroundColor: COLORS.light,
-  },
-
-  scrollView: {
-    flex: 1,
-    backgroundColor: COLORS.light,
-  },
-
+  safeArea: { flex: 1, backgroundColor: COLORS.light },
+  keyboardView: { flex: 1, backgroundColor: COLORS.light },
+  scrollView: { flex: 1, backgroundColor: COLORS.light },
   scrollContent: {
     flexGrow: 1,
     width: "100%",
@@ -572,13 +418,11 @@ const styles = StyleSheet.create({
     paddingBottom: 80,
     backgroundColor: COLORS.light,
   },
-
   webScrollContent: {
     alignItems: "center",
     paddingTop: 35,
     paddingBottom: 90,
   },
-
   card: {
     width: "100%",
     maxWidth: 520,
@@ -591,7 +435,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-
   webCard: {
     padding: 30,
     elevation: 8,
@@ -600,12 +443,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 16,
   },
-
   headerSection: {
     alignItems: "center",
     marginBottom: 24,
   },
-
   logoCircle: {
     width: 96,
     height: 96,
@@ -617,19 +458,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-
-  logoImg: {
-    width: 72,
-    height: 72,
-  },
-
+  logoImg: { width: 72, height: 72 },
   appName: {
     fontSize: 28,
     fontWeight: "900",
     color: COLORS.primary,
     textAlign: "center",
   },
-
   tagline: {
     fontSize: 14,
     color: COLORS.secondary,
@@ -637,45 +472,12 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontWeight: "600",
   },
-
   label: {
     color: "#475569",
     fontSize: 14,
     marginBottom: 8,
     fontWeight: "700",
   },
-
-  roleBox: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 18,
-  },
-
-  roleBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: "#F8FAFC",
-  },
-
-  roleBtnActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
-
-  roleText: {
-    color: COLORS.muted,
-    fontSize: 12,
-    fontWeight: "900",
-  },
-
-  roleTextActive: {
-    color: COLORS.white,
-  },
-
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -687,11 +489,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     minHeight: 52,
   },
-
-  inputIcon: {
-    marginRight: 10,
-  },
-
+  inputIcon: { marginRight: 10 },
   input: {
     flex: 1,
     minHeight: 52,
@@ -699,7 +497,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     ...(Platform.OS === "web" ? { outlineStyle: "none" } : {}),
   },
-
   errorBanner: {
     flexDirection: "row",
     backgroundColor: "#FEF2F2",
@@ -711,42 +508,31 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
-
   errorBannerText: {
     color: "#991B1B",
     fontSize: 14,
     fontWeight: "600",
     flex: 1,
   },
-
   actionRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 22,
   },
-
-  biometricBtn: {
-    alignItems: "center",
-  },
-
+  biometricBtn: { alignItems: "center" },
   biometricText: {
     fontSize: 10,
     color: COLORS.secondary,
     fontWeight: "bold",
     marginTop: 2,
   },
-
-  forgotBtn: {
-    alignSelf: "center",
-  },
-
+  forgotBtn: { alignSelf: "center" },
   forgotText: {
     color: COLORS.primary,
     fontSize: 14,
     fontWeight: "700",
   },
-
   loginBtn: {
     backgroundColor: COLORS.primary,
     minHeight: 56,
@@ -754,17 +540,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-
-  loginBtnDisabled: {
-    opacity: 0.7,
-  },
-
+  loginBtnDisabled: { opacity: 0.7 },
   loginBtnText: {
     color: COLORS.white,
     fontSize: 17,
     fontWeight: "900",
   },
-
   footerLinks: {
     flexDirection: "row",
     justifyContent: "center",
@@ -773,7 +554,6 @@ const styles = StyleSheet.create({
     width: "100%",
     flexWrap: "wrap",
   },
-
   linkText: {
     color: COLORS.muted,
     fontSize: 12,
@@ -781,32 +561,24 @@ const styles = StyleSheet.create({
     textDecorationLine: "underline",
     paddingHorizontal: 4,
   },
-
   divider: {
     width: 1,
     height: 14,
     backgroundColor: "#CBD5E1",
     marginHorizontal: 8,
   },
-
   signupContainer: {
     flexDirection: "row",
     justifyContent: "center",
     marginTop: 22,
     flexWrap: "wrap",
   },
-
-  noAccountText: {
-    color: COLORS.muted,
-    fontSize: 14,
-  },
-
+  noAccountText: { color: COLORS.muted, fontSize: 14 },
   signupText: {
     color: COLORS.secondary,
     fontSize: 14,
     fontWeight: "900",
   },
-
   contactContainer: {
     marginTop: 28,
     alignItems: "center",
@@ -814,7 +586,6 @@ const styles = StyleSheet.create({
     borderTopColor: "#F1F5F9",
     paddingTop: 18,
   },
-
   contactTitle: {
     fontSize: 12,
     fontWeight: "800",
@@ -822,12 +593,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     letterSpacing: 1,
   },
-
-  iconRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-
+  iconRow: { flexDirection: "row", alignItems: "center" },
   contactIconCircle: {
     width: 45,
     height: 45,
@@ -838,7 +604,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-
   phoneNumber: {
     marginTop: 15,
     fontSize: 16,
