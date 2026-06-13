@@ -139,20 +139,20 @@ const AdminDashboard = () => {
   };
 
   const openMenu = () => {
-    const parent = navigation.getParent?.();
+  const parent = navigation.getParent?.();
 
-    if (navigation.openDrawer) return navigation.openDrawer();
-    if (parent?.openDrawer) return parent.openDrawer();
+  if (navigation.openDrawer) {
+    navigation.openDrawer();
+    return;
+  }
 
-    navigation.navigate("Main");
-  };
+  if (parent?.openDrawer) {
+    parent.openDrawer();
+    return;
+  }
 
-  const safeNavigate = (screenName) => {
-    navigation.navigate(screenName, {
-      fromAdminDashboard: true,
-      backScreen: "AdminDashboard",
-    });
-  };
+  Alert.alert("Menu", "Admin drawer is not available. Please register AdminDashboard inside DrawerNavigator.");
+};
 
   const logout = async () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
