@@ -139,20 +139,37 @@ const AdminDashboard = () => {
   };
 
   const openMenu = () => {
-  const parent = navigation.getParent?.();
+    const parent = navigation.getParent?.();
 
-  if (navigation.openDrawer) {
-    navigation.openDrawer();
-    return;
-  }
+    if (navigation.openDrawer) {
+      navigation.openDrawer();
+      return;
+    }
 
-  if (parent?.openDrawer) {
-    parent.openDrawer();
-    return;
-  }
+    if (parent?.openDrawer) {
+      parent.openDrawer();
+      return;
+    }
 
-  Alert.alert("Menu", "Admin drawer is not available. Please register AdminDashboard inside DrawerNavigator.");
-};
+    Alert.alert(
+      "Menu Error",
+      "AdminDashboard must be inside DrawerNavigator for menu to work."
+    );
+  };
+
+  const safeNavigate = (screenName) => {
+    try {
+      navigation.navigate(screenName, {
+        fromAdminDashboard: true,
+        backScreen: "AdminDashboard",
+      });
+    } catch {
+      Alert.alert(
+        "Navigation Error",
+        `${screenName} is not registered in App.js.`
+      );
+    }
+  };
 
   const logout = async () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
@@ -256,14 +273,6 @@ const AdminDashboard = () => {
 
   const menuCards = [
     {
-      title: "Dashboard",
-      subtitle: "User dashboard",
-      icon: "home-outline",
-      type: "ion",
-      color: COLORS.secondary,
-      action: () => safeNavigate("Dashboard"),
-    },
-    {
       title: "Admin Dashboard",
       subtitle: "Admin operations center",
       icon: "view-dashboard-outline",
@@ -272,8 +281,48 @@ const AdminDashboard = () => {
       action: () => safeNavigate("AdminDashboard"),
     },
     {
+      title: "All Users",
+      subtitle: "Manage platform users",
+      icon: "account-group-outline",
+      type: "mci",
+      color: COLORS.primary,
+      action: () => safeNavigate("UserManagement"),
+    },
+    {
+      title: "Sales Logs",
+      subtitle: "Revenue and transactions",
+      icon: "cash-multiple",
+      type: "mci",
+      color: COLORS.secondary,
+      action: () => safeNavigate("SalesHistory"),
+    },
+    {
+      title: "Issue Resolution",
+      subtitle: "Resolve customer issues",
+      icon: "alert-circle-outline",
+      type: "ion",
+      color: COLORS.danger,
+      action: () => safeNavigate("IssueResolution"),
+    },
+    {
+      title: "NIMC Requests",
+      subtitle: "Manage NIMC requests",
+      icon: "fingerprint",
+      type: "mci",
+      color: "#2563EB",
+      action: () => safeNavigate("NIMCRequests"),
+    },
+    {
+      title: "BVN Requests",
+      subtitle: "Manage BVN requests",
+      icon: "card-account-details-outline",
+      type: "mci",
+      color: "#D97706",
+      action: () => safeNavigate("BvnRequests"),
+    },
+    {
       title: "Agent Dashboard",
-      subtitle: "Agent panel",
+      subtitle: "Open agent panel",
       icon: "account-tie-outline",
       type: "mci",
       color: "#0F766E",
@@ -281,7 +330,7 @@ const AdminDashboard = () => {
     },
     {
       title: "Support Dashboard",
-      subtitle: "Support tracing center",
+      subtitle: "Open support center",
       icon: "headset",
       type: "mci",
       color: "#EA580C",
@@ -289,43 +338,11 @@ const AdminDashboard = () => {
     },
     {
       title: "Supervisor Dashboard",
-      subtitle: "Supervisor performance",
+      subtitle: "Open supervisor panel",
       icon: "account-supervisor-outline",
       type: "mci",
       color: "#2563EB",
       action: () => safeNavigate("SupervisorDashboard"),
-    },
-    {
-      title: "Super Admin",
-      subtitle: "Main command center",
-      icon: "shield-crown-outline",
-      type: "mci",
-      color: COLORS.dark,
-      action: () => safeNavigate("SuperAdminDashboard"),
-    },
-    {
-      title: "Wallet History",
-      subtitle: "Transaction history",
-      icon: "wallet-outline",
-      type: "ion",
-      color: "#7C3AED",
-      action: () => safeNavigate("SalesHistory"),
-    },
-    {
-      title: "BVN History",
-      subtitle: "BVN records",
-      icon: "card-account-details-outline",
-      type: "mci",
-      color: "#D97706",
-      action: () => safeNavigate("BVNHistory"),
-    },
-    {
-      title: "NIMC History",
-      subtitle: "NIMC records",
-      icon: "fingerprint",
-      type: "mci",
-      color: "#B91C1C",
-      action: () => safeNavigate("NIMCHistory"),
     },
     {
       title: "Notifications",
@@ -433,7 +450,7 @@ const AdminDashboard = () => {
         </View>
 
         <View style={styles.navigationSection}>
-          <Text style={styles.panelTitle}>Menu Navigation</Text>
+          <Text style={styles.panelTitle}>Admin Navigation</Text>
 
           <View style={[styles.navGrid, isWeb && styles.webNavGrid]}>
             {menuCards.map((item, index) => (
@@ -443,7 +460,12 @@ const AdminDashboard = () => {
                 onPress={item.action}
                 activeOpacity={0.86}
               >
-                <View style={[styles.navIconLarge, { backgroundColor: item.color }]}>
+                <View
+                  style={[
+                    styles.navIconLarge,
+                    { backgroundColor: item.color },
+                  ]}
+                >
                   {renderIcon(item, 30, COLORS.white)}
                 </View>
 
