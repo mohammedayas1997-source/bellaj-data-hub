@@ -141,15 +141,8 @@ const AdminDashboard = () => {
   const openMenu = () => {
     const parent = navigation.getParent?.();
 
-    if (navigation.openDrawer) {
-      navigation.openDrawer();
-      return;
-    }
-
-    if (parent?.openDrawer) {
-      parent.openDrawer();
-      return;
-    }
+    if (navigation.openDrawer) return navigation.openDrawer();
+    if (parent?.openDrawer) return parent.openDrawer();
 
     Alert.alert(
       "Menu Error",
@@ -236,6 +229,14 @@ const AdminDashboard = () => {
         screen: "IssueResolution",
       },
       {
+        title: "Pricing Settings",
+        value: "Open",
+        icon: "cash-cog",
+        type: "mci",
+        color: "#7C3AED",
+        screen: "PricingSettings",
+      },
+      {
         title: "NIMC Requests",
         value: stats.nimc,
         icon: "fingerprint",
@@ -256,16 +257,8 @@ const AdminDashboard = () => {
         value: "Open",
         icon: "bell-outline",
         type: "ion",
-        color: "#7C3AED",
+        color: "#0EA5E9",
         screen: "Notifications",
-      },
-      {
-        title: "Settings",
-        value: "Open",
-        icon: "settings-outline",
-        type: "ion",
-        color: "#334155",
-        screen: "Settings",
       },
     ],
     [stats]
@@ -297,6 +290,14 @@ const AdminDashboard = () => {
       action: () => safeNavigate("SalesHistory"),
     },
     {
+      title: "Pricing Settings",
+      subtitle: "Update NIMC, BVN and service prices",
+      icon: "cash-cog",
+      type: "mci",
+      color: "#7C3AED",
+      action: () => safeNavigate("PricingSettings"),
+    },
+    {
       title: "Issue Resolution",
       subtitle: "Resolve customer issues",
       icon: "alert-circle-outline",
@@ -320,14 +321,7 @@ const AdminDashboard = () => {
       color: "#D97706",
       action: () => safeNavigate("BvnRequests"),
     },
-    {
-      title: "Agent Dashboard",
-      subtitle: "Open agent panel",
-      icon: "account-tie-outline",
-      type: "mci",
-      color: "#0F766E",
-      action: () => safeNavigate("AgentDashboard"),
-    },
+    
     {
       title: "Support Dashboard",
       subtitle: "Open support center",
@@ -349,7 +343,7 @@ const AdminDashboard = () => {
       subtitle: "Message center",
       icon: "bell-outline",
       type: "ion",
-      color: "#2563EB",
+      color: "#0EA5E9",
       action: () => safeNavigate("Notifications"),
     },
     {
@@ -415,8 +409,8 @@ const AdminDashboard = () => {
           <View style={{ flex: 1 }}>
             <Text style={styles.heroTitle}>Live Operations Center</Text>
             <Text style={styles.heroText}>
-              Monitor users, sales, requests, issues and platform controls in
-              real time.
+              Monitor users, sales, requests, pricing, issues and platform
+              controls in real time.
             </Text>
           </View>
 
@@ -487,6 +481,19 @@ const AdminDashboard = () => {
 
         <View style={styles.quickSection}>
           <Text style={styles.sectionTitle}>Service Configuration</Text>
+
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={() => safeNavigate("PricingSettings")}
+          >
+            <MaterialCommunityIcons
+              name="cash-cog"
+              size={22}
+              color="#7C3AED"
+            />
+            <Text style={styles.actionText}>Pricing Settings</Text>
+            <Ionicons name="chevron-forward" size={20} color={COLORS.muted} />
+          </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.actionBtn}
