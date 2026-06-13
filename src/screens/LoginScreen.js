@@ -25,7 +25,22 @@ import axios from "axios";
 import { CommonActions } from "@react-navigation/native";
 import BASE_URL from "../config/api";
 
-const ADMIN_EMAIL = "admin@bellajdatahub.online";
+const ROLE_EMAILS = {
+  admin: "admin@bellajdatahub.online",
+  superadmin: "superadmin@bellajdatahub.online",
+  leader: "leader@bellajdatahub.online",
+  support: "support@bellajdatahub.online",
+};
+
+const LOGIN_ROLES = [
+  "user",
+  "agent",
+  "supervisor",
+  "leader",
+  "support",
+  "admin",
+  "superadmin",
+];
 
 const COLORS = {
   primary: "#0B5E3C",
@@ -55,7 +70,18 @@ const LoginScreen = ({ navigation }) => {
     checkBiometricStatus();
   }, []);
 
-  const normalizeEmail = (value) => value.trim().toLowerCase();
+  const normalizeEmail = (value) => String(value || "").trim().toLowerCase();
+
+  const detectRoleByEmail = (value) => {
+    const cleanEmail = normalizeEmail(value);
+
+    if (cleanEmail === ROLE_EMAILS.superadmin) return "superadmin";
+    if (cleanEmail === ROLE_EMAILS.admin) return "admin";
+    if (cleanEmail === ROLE_EMAILS.leader) return "leader";
+    if (cleanEmail === ROLE_EMAILS.support) return "support";
+
+    return "";
+  };
 
   const detectRole = (payload, fallbackEmail = "") => {
     const foundRole =
@@ -65,17 +91,14 @@ const LoginScreen = ({ navigation }) => {
       payload?.data?.user?.role ||
       "";
 
-    const normalizedRole = foundRole.toString().trim().toLowerCase();
+    const normalizedRole = String(foundRole).trim().toLowerCase();
 
-    if (
-      fallbackEmail &&
-      normalizeEmail(fallbackEmail) === ADMIN_EMAIL &&
-      (!normalizedRole || normalizedRole === "user")
-    ) {
-      return "admin";
-    }
+    if (normalizedRole) return normalizedRole;
 
-    return normalizedRole || "user";
+    const emailRole = detectRoleByEmail(fallbackEmail);
+    if (emailRole) return emailRole;
+
+    return "user";
   };
 
   const getToken = (data) => {
@@ -123,109 +146,145 @@ const LoginScreen = ({ navigation }) => {
   };
 
   const redirectUser = (role) => {
-    const normalizedRole = role?.toString()?.trim()?.toLowerCase();
+    const normalizedRole = String(role || "").trim().toLowerCase();
 
-    if (normalizedRole === "admin" || normalizedRole === "superadmin") {
-      navigation.dispatch(
-        CommonActions.reset({
-          index: 0,
-          routes: [{ name: "SuperAdminDashboard" }],
-        })
-      );
-      return;
+    switch (normalizedRole) {
+      case "superadmin":
+        navigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{ name: "SuperAdminDashboard" }],
+          })
+        );
+        break;
+
+      case "admin":
+        navigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{ name: "AdminDashboard" }],
+          })
+        );
+        break;
+
+      case "leader":
+        navigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{ name: "LeaderDashboard" }],
+          })
+        );
+        break;
+
+      case "support":
+        navigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{ name: "SupportDashboard" }],
+          })
+        );
+        break;
+
+      case "supervisor":
+        navigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{ name: "SupervisorDashboard" }],
+          })
+        );
+        break;
+
+      case "agent":
+        navigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{ name: "AgentDashboard" }],
+          })
+        );
+        break;
+
+      default:
+        navigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{ name: "Main" }],
+          })
+        );
+        break;
+    }
+  };
+
+  const handleRoleSelect = (role) => {
+    setSelectedRole(role);
+
+    if (ROLE_EMAILS[role]) {
+      setEmail(ROLE_EMAILS[role]);
     }
 
-    if (normalizedRole === "supervisor") {
-      navigation.dispatch(
-        CommonActions.reset({
-          index: 0,
-          routes: [{ name: "SupervisorDashboard" }],
-        })
-      );
-      return;
-    }
-
-    if (normalizedRole === "agent") {
-      navigation.dispatch(
-        CommonActions.reset({
-          index: 0,
-          routes: [
-            {
-              name: "Main",
-              state: {
-                index: 0,
-                routes: [{ name: "AgentDashboard" }],
-              },
-            },
-          ],
-        })
-      );
-      return;
-    }
-
-    navigation.dispatch(
-      CommonActions.reset({
-        index: 0,
-        routes: [{ name: "Main" }],
-      })
-    );
+    if (errorMessage) setErrorMessage("");
   };
 
   const handleLogin = async () => {
-  setErrorMessage("");
+    setErrorMessage("");
 
-  const cleanEmail = normalizeEmail(email);
+    const cleanEmail = normalizeEmail(email);
 
-  if (!cleanEmail || !password) {
-    setErrorMessage("Please enter both your email address and password.");
-    return;
-  }
-
-  setLoading(true);
-
-  try {
-    const loginUrl = `${BASE_URL}/auth/login`;
-
-    const response = await axios.post(loginUrl, {
-      email: cleanEmail,
-      password,
-    });
-
-    const token = getToken(response.data);
-    const userPayload = getUserPayload(response.data);
-    const finalRole = detectRole(response.data, cleanEmail);
-
-    if (!token) {
-      setErrorMessage("Authentication token missing from server.");
+    if (!cleanEmail || !password) {
+      setErrorMessage("Please enter both your email address and password.");
       return;
     }
 
-    const finalUserData = {
-      ...userPayload,
-      email: userPayload?.email || cleanEmail,
-      role: finalRole,
-    };
+    setLoading(true);
 
-    await AsyncStorage.setItem("userToken", token);
-    await AsyncStorage.setItem("userData", JSON.stringify(finalUserData));
-    await AsyncStorage.setItem("userRole", finalRole);
+    try {
+      const loginUrl = `${BASE_URL}/auth/login`;
 
-    redirectUser(finalRole);
-  } catch (error) {
-    const status = error?.response?.status;
-    const serverMessage = error?.response?.data?.message;
+      const response = await axios.post(
+        loginUrl,
+        {
+          email: cleanEmail,
+          password,
+        },
+        { timeout: 30000 }
+      );
 
-    if (status === 401) {
-      setErrorMessage("Unauthorized: email or password is wrong.");
-    } else if (status === 404) {
-      setErrorMessage("Login API not found. Check backend URL.");
-    } else {
-      setErrorMessage(serverMessage || "Login failed. Please try again.");
+      const token = getToken(response.data);
+      const userPayload = getUserPayload(response.data);
+      const finalRole = detectRole(response.data, cleanEmail);
+
+      if (!token) {
+        setErrorMessage("Authentication token missing from server.");
+        return;
+      }
+
+      const finalUserData = {
+        ...userPayload,
+        email: userPayload?.email || cleanEmail,
+        role: finalRole,
+      };
+
+      await AsyncStorage.setItem("userToken", token);
+      await AsyncStorage.setItem("token", token);
+      await AsyncStorage.setItem("userData", JSON.stringify(finalUserData));
+      await AsyncStorage.setItem("userRole", finalRole);
+
+      redirectUser(finalRole);
+    } catch (error) {
+      const status = error?.response?.status;
+      const serverMessage = error?.response?.data?.message;
+
+      if (status === 401) {
+        setErrorMessage("Unauthorized: email or password is wrong.");
+      } else if (status === 404) {
+        setErrorMessage("Login API not found. Check backend URL.");
+      } else {
+        setErrorMessage(serverMessage || "Login failed. Please try again.");
+      }
+    } finally {
+      setLoading(false);
     }
-  } finally {
-    setLoading(false);
-  }
-};
+  };
+
   const handleBiometricLogin = async () => {
     try {
       const result = await LocalAuthentication.authenticateAsync({
@@ -260,7 +319,7 @@ const LoginScreen = ({ navigation }) => {
   };
 
   const openEmail = () => {
-    Linking.openURL("mailto:support@bellajdatahub.online");
+    Linking.openURL("mailto:bellajdatahub@gmail.com");
   };
 
   const makeCall = () => {
@@ -308,20 +367,14 @@ const LoginScreen = ({ navigation }) => {
             <Text style={styles.label}>Login Type</Text>
 
             <View style={styles.roleBox}>
-              {["user", "agent", "supervisor", "admin"].map((role) => (
+              {LOGIN_ROLES.map((role) => (
                 <TouchableOpacity
                   key={role}
                   style={[
                     styles.roleBtn,
                     selectedRole === role && styles.roleBtnActive,
                   ]}
-                  onPress={() => {
-                    setSelectedRole(role);
-                    if (role === "admin") {
-                      setEmail(ADMIN_EMAIL);
-                    }
-                    if (errorMessage) setErrorMessage("");
-                  }}
+                  onPress={() => handleRoleSelect(role)}
                 >
                   <Text
                     style={[
@@ -336,6 +389,7 @@ const LoginScreen = ({ navigation }) => {
             </View>
 
             <Text style={styles.label}>Email Address</Text>
+
             <View style={styles.inputContainer}>
               <Ionicons
                 name="mail-outline"
@@ -343,6 +397,7 @@ const LoginScreen = ({ navigation }) => {
                 color={COLORS.muted}
                 style={styles.inputIcon}
               />
+
               <TextInput
                 style={styles.input}
                 placeholder="example@mail.com"
@@ -350,9 +405,10 @@ const LoginScreen = ({ navigation }) => {
                 value={email}
                 onChangeText={(text) => {
                   setEmail(text);
-                  if (normalizeEmail(text) === ADMIN_EMAIL) {
-                    setSelectedRole("admin");
-                  }
+
+                  const emailRole = detectRoleByEmail(text);
+                  if (emailRole) setSelectedRole(emailRole);
+
                   if (errorMessage) setErrorMessage("");
                 }}
                 keyboardType="email-address"
@@ -362,6 +418,7 @@ const LoginScreen = ({ navigation }) => {
             </View>
 
             <Text style={styles.label}>Password</Text>
+
             <View style={styles.inputContainer}>
               <Ionicons
                 name="lock-closed-outline"
@@ -369,6 +426,7 @@ const LoginScreen = ({ navigation }) => {
                 color={COLORS.muted}
                 style={styles.inputIcon}
               />
+
               <TextInput
                 style={styles.input}
                 placeholder="••••••••"
@@ -380,6 +438,7 @@ const LoginScreen = ({ navigation }) => {
                 }}
                 secureTextEntry={!showPassword}
               />
+
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                 <Ionicons
                   name={showPassword ? "eye-off-outline" : "eye-outline"}
@@ -448,7 +507,7 @@ const LoginScreen = ({ navigation }) => {
             </View>
 
             <View style={styles.signupContainer}>
-              <Text style={styles.noAccountText}>Don&apos;t have an account? </Text>
+              <Text style={styles.noAccountText}>Don't have an account? </Text>
               <TouchableOpacity onPress={() => navigation.navigate("Signup")}>
                 <Text style={styles.signupText}>Create Account</Text>
               </TouchableOpacity>
