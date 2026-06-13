@@ -103,6 +103,7 @@ function AppContent() {
         <Stack.Screen name="Signup" component={SignupScreen} options={{ headerShown: false }} />
         <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
         <Stack.Screen name="Success" component={SuccessScreen} />
+        <Stack.Screen name="NewSale" component={SuccessScreen} />
         <Stack.Screen name="Main" component={DrawerNavigator} options={{ headerShown: false }} />
 
         <Stack.Screen name="Dashboard" component={HomeScreen} />

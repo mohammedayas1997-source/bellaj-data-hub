@@ -19,19 +19,20 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
-
+import BASE_URL from "../config/api";
 
 const COLORS = {
   primary: "#0B5E3C",
   secondary: "#16A34A",
+  danger: "#E60000",
   dark: "#0F172A",
   white: "#FFFFFF",
   light: "#F8FAFC",
   muted: "#64748B",
   border: "#E2E8F0",
   softGreen: "#EAF7F1",
+  softRed: "#FFF1F1",
 };
-
 
 const SignupScreen = ({ navigation }) => {
   const { width } = useWindowDimensions();
@@ -44,7 +45,7 @@ const SignupScreen = ({ navigation }) => {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  
+
   const [role, setRole] = useState("user");
   const [state, setState] = useState("");
   const [lga, setLga] = useState("");
@@ -55,51 +56,75 @@ const SignupScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const REGISTER_URL = `${BASE_URL}/auth/register`;
+
   const showAlert = (title, message, buttons = []) => {
     if (Platform.OS === "web") {
       alert(`${title}\n\n${message}`);
-      if (buttons.length > 0 && buttons[0].onPress) buttons[0].onPress();
-    } else {
-      Alert.alert(title, message, buttons.length > 0 ? buttons : undefined, {
-        cancelable: false,
-      });
+      if (buttons.length > 0 && buttons[0]?.onPress) buttons[0].onPress();
+      return;
     }
+
+    Alert.alert(title, message, buttons.length > 0 ? buttons : undefined, {
+      cancelable: false,
+    });
+  };
+
+  const goBack = () => {
+    if (navigation?.canGoBack?.()) {
+      navigation.goBack();
+      return;
+    }
+
+    navigation.navigate("Login");
   };
 
   const pickImage = async () => {
-    if (Platform.OS !== "web") {
-      const { status } =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
+    try {
+      if (Platform.OS !== "web") {
+        const { status } =
+          await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-      if (status !== "granted") {
-        showAlert(
-          "Permission Denied",
-          "Sorry, we need camera roll permissions to upload an image."
-        );
-        return;
+        if (status !== "granted") {
+          showAlert(
+            "Permission Denied",
+            "Camera roll permission is required to upload business verification image."
+          );
+          return;
+        }
       }
-    }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.2,
-      base64: true,
-    });
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.35,
+        base64: true,
+      });
 
-    if (!result.canceled) {
-      const asset = result.assets[0];
-      setImage(asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri);
+      if (!result.canceled) {
+        const asset = result.assets[0];
+        setImage(
+          asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri
+        );
+      }
+    } catch {
+      showAlert("Upload Failed", "Unable to select image. Please try again.");
     }
   };
 
   const validateInputs = () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const phoneRegex = /^[0-9]{10,15}$/;
+    const cleanPhone = phone.replace(/\D/g, "");
 
-    if (!firstName.trim() || !surname.trim() || !email.trim() || !phone.trim() || !password) {
+    if (
+      !firstName.trim() ||
+      !surname.trim() ||
+      !email.trim() ||
+      !phone.trim() ||
+      !password
+    ) {
       showAlert("Missing Fields", "Please fill all compulsory fields.");
       return false;
     }
@@ -109,7 +134,7 @@ const SignupScreen = ({ navigation }) => {
       return false;
     }
 
-    if (!phoneRegex.test(phone.trim())) {
+    if (cleanPhone.length < 10 || cleanPhone.length > 15) {
       showAlert("Invalid Phone Number", "Please enter a valid phone number.");
       return false;
     }
@@ -127,87 +152,138 @@ const SignupScreen = ({ navigation }) => {
     if (role === "agent" && (!state.trim() || !lga.trim() || !address.trim())) {
       showAlert(
         "Agent Verification Missing",
-        "As an Agent, your State, LGA, and Business Address are compulsory."
+        "As an agent, State, LGA and Business Address are compulsory."
       );
       return false;
     }
 
     return true;
   };
-// ... (sauran lambarka)
-const handleSignup = async () => {
-  if (!validateInputs()) return;
-  setLoading(true);
 
-  try {
-    const registrationData = {
-      firstName: firstName.trim(),
-      surname: surname.trim(),
-      otherName: otherName.trim(),
-      email: email.trim().toLowerCase(),
-      phone: phone.trim(),
-      password: password,
-      role: role.trim().toLowerCase(),
-    };
+  const resetForm = () => {
+    setFirstName("");
+    setSurname("");
+    setOtherName("");
+    setEmail("");
+    setPhone("");
+    setPassword("");
+    setConfirmPassword("");
+    setRole("user");
+    setState("");
+    setLga("");
+    setAddress("");
+    setSupervisorId("");
+    setImage(null);
+  };
 
-    if (role === "agent") {
-      registrationData.state = state.trim();
-      registrationData.lga = lga.trim();
-      registrationData.address = address.trim();
-      if (supervisorId) registrationData.supervisorId = supervisorId.toUpperCase().trim();
-      if (image) registrationData.businessImage = image;
-    }
+  const handleSignup = async () => {
+    if (!validateInputs()) return;
 
-    // Na gyara URL ɗin ya zama daidai da yadda aka saita a backend (index.js)
-    const response = await axios.post(
-      "https://bellaj-data-server.onrender.com/api/v1/auth/register", 
-      registrationData, 
-      {
-        headers: { "Content-Type": "application/json" }
+    setLoading(true);
+
+    try {
+      const registrationData = {
+        firstName: firstName.trim(),
+        surname: surname.trim(),
+        otherName: otherName.trim(),
+        name: `${firstName.trim()} ${surname.trim()}`.trim(),
+        fullName: `${surname.trim()} ${firstName.trim()} ${otherName.trim()}`
+          .replace(/\s+/g, " ")
+          .trim(),
+        email: email.trim().toLowerCase(),
+        phone: phone.trim(),
+        phoneNumber: phone.trim(),
+        password,
+        role: role.trim().toLowerCase(),
+      };
+
+      if (role === "agent") {
+        registrationData.state = state.trim();
+        registrationData.lga = lga.trim();
+        registrationData.address = address.trim();
+
+        if (supervisorId.trim()) {
+          registrationData.supervisorId = supervisorId.toUpperCase().trim();
+          registrationData.referralCode = supervisorId.toUpperCase().trim();
+        }
+
+        if (image) {
+          registrationData.businessImage = image;
+          registrationData.profileImage = image;
+        }
       }
-    );
 
-    setLoading(false);
-    
-    // Store user data
-    const userPayload = response.data.user || response.data.data || { role: role };
-    await AsyncStorage.setItem("userData", JSON.stringify(userPayload));
-    
-    if (response.data.token) {
-      await AsyncStorage.setItem("userToken", response.data.token);
+      const response = await axios.post(REGISTER_URL, registrationData, {
+        headers: { "Content-Type": "application/json" },
+        timeout: 30000,
+      });
+
+      const payload = response?.data || {};
+      const userPayload =
+        payload?.user || payload?.data?.user || payload?.data || {
+          ...registrationData,
+          password: undefined,
+        };
+
+      const token = payload?.token || payload?.data?.token;
+
+      await AsyncStorage.setItem("userData", JSON.stringify(userPayload));
+      await AsyncStorage.setItem("userRole", userPayload?.role || role);
+
+      if (token) {
+        await AsyncStorage.setItem("userToken", token);
+        await AsyncStorage.setItem("token", token);
+      }
+
+      resetForm();
+
+      showAlert("Success", "Account created successfully!", [
+        {
+          text: "Continue",
+          onPress: () => navigation.replace("Success"),
+        },
+      ]);
+    } catch (error) {
+      const msg =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        "Registration failed. Please check your connection and try again.";
+
+      console.log("Signup Error:", error?.response?.data || error.message);
+      showAlert("Registration Failed", msg);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    showAlert("Success", "Account created successfully!", [
-      { text: "OK", onPress: () => navigation.replace("Success") }
-    ]);
-
-  } catch (error) {
-    setLoading(false);
-    // Wannan zai nuna ainihin dalilin kuskure (404 ko wani abu) a cikin Console
-    console.error("Signup Error:", error.response?.data || error.message);
-    
-    const msg = error.response?.data?.message || "Registration failed. Please check your connection.";
-    showAlert("Registration Failed", msg);
-  }
-};
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.mainWrapper}
       >
+        <StatusBar barStyle="dark-content" backgroundColor={COLORS.light} />
+
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={[
             styles.scrollContent,
             isWeb && styles.webScrollContent,
           ]}
-          showsVerticalScrollIndicator={true}
+          showsVerticalScrollIndicator
           keyboardShouldPersistTaps="handled"
         >
-          <StatusBar barStyle="dark-content" backgroundColor={COLORS.light} />
-
           <View style={[styles.card, isWeb && styles.webCard]}>
+            <View style={styles.topBar}>
+              <TouchableOpacity style={styles.backBtn} onPress={goBack}>
+                <Ionicons name="arrow-back" size={24} color={COLORS.dark} />
+              </TouchableOpacity>
+
+              <View style={styles.logoBadge}>
+                <Text style={styles.logoText}>BDH</Text>
+              </View>
+            </View>
+
             <View style={styles.headerArea}>
               <Text style={styles.title}>Create Account</Text>
               <Text style={styles.subtitle}>
@@ -222,28 +298,40 @@ const handleSignup = async () => {
               <TouchableOpacity
                 style={[styles.roleBtn, role === "user" && styles.activeRole]}
                 onPress={() => setRole("user")}
+                activeOpacity={0.86}
               >
+                <Ionicons
+                  name="person-outline"
+                  size={18}
+                  color={role === "user" ? COLORS.white : COLORS.muted}
+                />
                 <Text
                   style={[
                     styles.roleBtnText,
                     role === "user" && styles.activeRoleText,
                   ]}
                 >
-                  Customer / User
+                  Customer
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={[styles.roleBtn, role === "agent" && styles.activeRole]}
                 onPress={() => setRole("agent")}
+                activeOpacity={0.86}
               >
+                <Ionicons
+                  name="business-outline"
+                  size={18}
+                  color={role === "agent" ? COLORS.white : COLORS.muted}
+                />
                 <Text
                   style={[
                     styles.roleBtnText,
                     role === "agent" && styles.activeRoleText,
                   ]}
                 >
-                  Sub-Agent / Reseller
+                  Agent / Reseller
                 </Text>
               </TouchableOpacity>
             </View>
@@ -294,6 +382,7 @@ const handleSignup = async () => {
                 placeholder="example@gmail.com"
                 keyboardType="email-address"
                 autoCapitalize="none"
+                autoCorrect={false}
                 value={email}
                 onChangeText={setEmail}
                 placeholderTextColor="#94A3B8"
@@ -369,13 +458,24 @@ const handleSignup = async () => {
                   </View>
                 </View>
 
-                <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
+                <TouchableOpacity
+                  style={styles.imagePicker}
+                  onPress={pickImage}
+                  activeOpacity={0.86}
+                >
                   {image ? (
                     <Image source={{ uri: image }} style={styles.previewImage} />
                   ) : (
-                    <Text style={styles.imagePickerText}>
-                      Upload Utility Bill or Shop Image
-                    </Text>
+                    <View style={styles.uploadBox}>
+                      <Ionicons
+                        name="cloud-upload-outline"
+                        size={30}
+                        color={COLORS.primary}
+                      />
+                      <Text style={styles.imagePickerText}>
+                        Upload Utility Bill or Shop Image
+                      </Text>
+                    </View>
                   )}
                 </TouchableOpacity>
               </View>
@@ -431,11 +531,15 @@ const handleSignup = async () => {
               style={[styles.signupBtn, loading && { opacity: 0.75 }]}
               onPress={handleSignup}
               disabled={loading}
+              activeOpacity={0.86}
             >
               {loading ? (
                 <ActivityIndicator color={COLORS.white} />
               ) : (
-                <Text style={styles.signupText}>REGISTER ACCOUNT</Text>
+                <>
+                  <Ionicons name="person-add-outline" size={20} color={COLORS.white} />
+                  <Text style={styles.signupText}>REGISTER ACCOUNT</Text>
+                </>
               )}
             </TouchableOpacity>
 
@@ -453,18 +557,9 @@ const handleSignup = async () => {
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: COLORS.light,
-  },
-  mainWrapper: {
-    flex: 1,
-    backgroundColor: COLORS.light,
-  },
-  scrollView: {
-    flex: 1,
-    backgroundColor: COLORS.light,
-  },
+  safeArea: { flex: 1, backgroundColor: COLORS.light },
+  mainWrapper: { flex: 1, backgroundColor: COLORS.light },
+  scrollView: { flex: 1, backgroundColor: COLORS.light },
   scrollContent: {
     flexGrow: 1,
     width: "100%",
@@ -480,10 +575,10 @@ const styles = StyleSheet.create({
   },
   card: {
     width: "100%",
-    maxWidth: 520,
+    maxWidth: 540,
     alignSelf: "center",
     backgroundColor: COLORS.white,
-    borderRadius: 22,
+    borderRadius: 24,
     paddingHorizontal: 20,
     paddingVertical: 24,
     borderWidth: 1,
@@ -497,13 +592,42 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 16,
   },
+  topBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 14,
+  },
+  backBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 15,
+    backgroundColor: COLORS.light,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  logoBadge: {
+    backgroundColor: COLORS.softGreen,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+  },
+  logoText: {
+    color: COLORS.primary,
+    fontWeight: "900",
+    letterSpacing: 1,
+  },
   headerArea: {
     alignItems: "center",
     marginBottom: 25,
     width: "100%",
   },
   title: {
-    fontSize: 26,
+    fontSize: 27,
     fontWeight: "900",
     color: COLORS.primary,
   },
@@ -531,7 +655,7 @@ const styles = StyleSheet.create({
   label: {
     color: "#334155",
     fontSize: 11,
-    fontWeight: "800",
+    fontWeight: "900",
     marginBottom: 6,
     marginLeft: 2,
     textTransform: "uppercase",
@@ -544,14 +668,16 @@ const styles = StyleSheet.create({
   },
   roleBtn: {
     flex: 1,
-    minHeight: 45,
+    minHeight: 48,
     backgroundColor: COLORS.light,
-    borderRadius: 12,
+    borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
     borderColor: COLORS.border,
     paddingHorizontal: 8,
+    flexDirection: "row",
+    gap: 6,
   },
   activeRole: {
     backgroundColor: COLORS.primary,
@@ -559,7 +685,7 @@ const styles = StyleSheet.create({
   },
   roleBtnText: {
     color: COLORS.muted,
-    fontWeight: "800",
+    fontWeight: "900",
     fontSize: 12,
     textAlign: "center",
   },
@@ -569,8 +695,8 @@ const styles = StyleSheet.create({
   inputView: {
     width: "100%",
     backgroundColor: COLORS.light,
-    borderRadius: 12,
-    minHeight: 50,
+    borderRadius: 13,
+    minHeight: 52,
     marginBottom: 14,
     justifyContent: "center",
     paddingHorizontal: 14,
@@ -582,15 +708,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     width: "100%",
     minHeight: 50,
-    outlineStyle: "none",
+    ...(Platform.OS === "web" ? { outlineStyle: "none" } : {}),
   },
   passwordWrapper: {
     flexDirection: "row",
     alignItems: "center",
     width: "100%",
     backgroundColor: COLORS.light,
-    borderRadius: 12,
-    minHeight: 50,
+    borderRadius: 13,
+    minHeight: 52,
     marginBottom: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -601,16 +727,16 @@ const styles = StyleSheet.create({
     color: COLORS.dark,
     fontSize: 14,
     minHeight: 50,
-    outlineStyle: "none",
+    ...(Platform.OS === "web" ? { outlineStyle: "none" } : {}),
   },
   eyeIcon: {
     padding: 5,
   },
   agentSection: {
     marginTop: 5,
-    padding: 12,
+    padding: 13,
     backgroundColor: COLORS.softGreen,
-    borderRadius: 14,
+    borderRadius: 16,
     marginBottom: 14,
     width: "100%",
     borderWidth: 1,
@@ -625,9 +751,9 @@ const styles = StyleSheet.create({
   },
   imagePicker: {
     width: "100%",
-    minHeight: 120,
+    minHeight: 122,
     backgroundColor: COLORS.white,
-    borderRadius: 12,
+    borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 10,
@@ -637,32 +763,40 @@ const styles = StyleSheet.create({
     marginTop: 8,
     overflow: "hidden",
   },
+  uploadBox: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 10,
+  },
   imagePickerText: {
     color: COLORS.muted,
-    fontSize: 11,
-    fontWeight: "700",
+    fontSize: 12,
+    fontWeight: "800",
     textAlign: "center",
+    marginTop: 6,
   },
   previewImage: {
     width: "100%",
-    height: 120,
-    borderRadius: 10,
+    height: 122,
+    borderRadius: 12,
   },
   signupBtn: {
     width: "100%",
     backgroundColor: COLORS.primary,
-    borderRadius: 12,
-    minHeight: 54,
+    borderRadius: 15,
+    minHeight: 56,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 15,
     elevation: 4,
+    flexDirection: "row",
+    gap: 8,
   },
   signupText: {
     color: COLORS.white,
     fontWeight: "900",
     fontSize: 14,
-    letterSpacing: 1.2,
+    letterSpacing: 1,
   },
   footer: {
     flexDirection: "row",

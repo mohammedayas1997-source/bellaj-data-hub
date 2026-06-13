@@ -13,6 +13,8 @@ import {
   Platform,
 } from "react-native";
 import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { CommonActions } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import BASE_URL from "../config/api";
 
@@ -29,7 +31,7 @@ const COLORS = {
 };
 
 const API_ENDPOINTS = {
-  forgotPassword: "",
+  forgotPassword: `${BASE_URL}/auth/forgot-password`,
 };
 
 const ForgotPasswordScreen = ({ navigation }) => {
@@ -41,47 +43,103 @@ const ForgotPasswordScreen = ({ navigation }) => {
     return reg.test(text);
   };
 
+  const goBack = () => {
+    if (navigation?.canGoBack?.()) {
+      navigation.goBack();
+      return;
+    }
+
+    navigation.navigate("Login");
+  };
+
+  const openMenu = () => {
+    const parent = navigation?.getParent?.();
+
+    if (navigation?.openDrawer) {
+      navigation.openDrawer();
+      return;
+    }
+
+    if (parent?.openDrawer) {
+      parent.openDrawer();
+      return;
+    }
+
+    navigation.navigate("Login");
+  };
+
+  const logout = async () => {
+    Alert.alert("Logout", "Are you sure you want to logout?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Logout",
+        style: "destructive",
+        onPress: async () => {
+          await AsyncStorage.multiRemove([
+            "userToken",
+            "token",
+            "adminToken",
+            "userData",
+            "userRole",
+            "overrideRole",
+            "isSuperAdminOverride",
+          ]);
+
+          navigation.dispatch(
+            CommonActions.reset({
+              index: 0,
+              routes: [{ name: "Login" }],
+            })
+          );
+        },
+      },
+    ]);
+  };
+
   const handleReset = async () => {
     if (!email.trim()) {
-      return Alert.alert("Required", "Please enter your email address.");
+      Alert.alert("Required", "Please enter your email address.");
+      return;
     }
 
     if (!validateEmail(email.trim())) {
-      return Alert.alert(
-        "Invalid Email",
-        "Please enter a valid email address format.",
-      );
+      Alert.alert("Invalid Email", "Please enter a valid email address.");
+      return;
     }
-
-    if (!API_ENDPOINTS.forgotPassword) {
-      return Alert.alert(
-        "Not Configured",
-        "Forgot password API endpoint has not been configured.",
-      );
-    }
-
-    setLoading(true);
 
     try {
+      setLoading(true);
+
       const response = await axios.post(
         API_ENDPOINTS.forgotPassword,
-        { email: email.trim().toLowerCase() },
-        { timeout: 15000 },
+        {
+          email: email.trim().toLowerCase(),
+        },
+        {
+          timeout: 20000,
+        }
       );
 
-      if (response.data.success || response.status === 200) {
-        Alert.alert(
-          "Check Your Inbox",
+      Alert.alert(
+        "Check Your Inbox",
+        response?.data?.message ||
           "If an account exists with that email, you will receive password reset instructions shortly.",
-          [{ text: "OK", onPress: () => navigation.navigate("Login") }],
-        );
-      }
-    } catch (error) {
-      const errorMessage =
-        error.response?.data?.message ||
-        "Unable to connect to the server. Please check your internet and try again.";
+        [
+          {
+            text: "Login",
+            onPress: () => navigation.navigate("Login"),
+          },
+        ]
+      );
 
-      Alert.alert("Request Failed", errorMessage);
+      setEmail("");
+    } catch (error) {
+      Alert.alert(
+        "Request Failed",
+        error?.response?.data?.message ||
+          error?.response?.data?.error ||
+          "Unable to connect to the server. Please check your internet and try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -89,18 +147,34 @@ const ForgotPasswordScreen = ({ navigation }) => {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
       style={styles.flex}
     >
-      <ScrollView contentContainerStyle={styles.container} bounces={false}>
-        <StatusBar barStyle="light-content" backgroundColor={COLORS.dark} />
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.dark} />
 
-        <TouchableOpacity
-          style={styles.backArrow}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="arrow-back" size={28} color={COLORS.primary} />
-        </TouchableOpacity>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        bounces={false}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.topBar}>
+          <TouchableOpacity style={styles.topIconBtn} onPress={goBack}>
+            <Ionicons name="arrow-back" size={26} color={COLORS.white} />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.topIconBtn} onPress={openMenu}>
+            <Ionicons name="menu" size={28} color={COLORS.white} />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
+            <Ionicons name="log-out-outline" size={24} color={COLORS.white} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.brandBadge}>
+          <Text style={styles.brandText}>BDH</Text>
+        </View>
 
         <View style={styles.iconCircle}>
           <Ionicons name="lock-open-outline" size={45} color={COLORS.primary} />
@@ -109,41 +183,61 @@ const ForgotPasswordScreen = ({ navigation }) => {
         <Text style={styles.title}>Forgot Password?</Text>
 
         <Text style={styles.subtitle}>
-          No worries! Enter your registered email address and Bellaj Data Hub
-          will send you a link to reset your password.
+          No worries. Enter your registered email address and Bellaj Data Hub
+          will send reset instructions if the account exists.
         </Text>
 
-        <View style={styles.inputWrapper}>
-          <Ionicons
-            name="mail-outline"
-            size={20}
-            color={COLORS.muted}
-            style={styles.inputIcon}
-          />
+        <View style={styles.formCard}>
+          <Text style={styles.inputLabel}>Registered Email</Text>
 
-          <TextInput
-            style={styles.inputText}
-            placeholder="Email Address"
-            placeholderTextColor="#64748B"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            value={email}
-            onChangeText={setEmail}
-          />
+          <View style={styles.inputWrapper}>
+            <Ionicons
+              name="mail-outline"
+              size={20}
+              color={COLORS.muted}
+              style={styles.inputIcon}
+            />
+
+            <TextInput
+              style={styles.inputText}
+              placeholder="Email Address"
+              placeholderTextColor="#64748B"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              value={email}
+              onChangeText={setEmail}
+            />
+          </View>
+
+          <TouchableOpacity
+            style={[styles.resetBtn, loading && { opacity: 0.8 }]}
+            onPress={handleReset}
+            disabled={loading}
+            activeOpacity={0.86}
+          >
+            {loading ? (
+              <ActivityIndicator color={COLORS.white} />
+            ) : (
+              <>
+                <Ionicons name="send-outline" size={20} color={COLORS.white} />
+                <Text style={styles.resetText}>SEND RESET LINK</Text>
+              </>
+            )}
+          </TouchableOpacity>
         </View>
 
-        <TouchableOpacity
-          style={[styles.resetBtn, loading && { opacity: 0.8 }]}
-          onPress={handleReset}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color={COLORS.white} />
-          ) : (
-            <Text style={styles.resetText}>SEND RESET LINK</Text>
-          )}
-        </TouchableOpacity>
+        <View style={styles.infoBox}>
+          <Ionicons
+            name="shield-checkmark-outline"
+            size={22}
+            color={COLORS.secondary}
+          />
+          <Text style={styles.infoText}>
+            For security, reset instructions are only sent to verified account
+            emails.
+          </Text>
+        </View>
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>Remember your password? </Text>
@@ -160,6 +254,7 @@ const ForgotPasswordScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
+    backgroundColor: COLORS.dark,
   },
   container: {
     flexGrow: 1,
@@ -167,17 +262,56 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: 24,
+    paddingTop: Platform.OS === "android" ? 50 : 30,
+    paddingBottom: 40,
   },
-  backArrow: {
+  topBar: {
     position: "absolute",
-    top: 50,
+    top: Platform.OS === "android" ? 42 : 22,
     left: 20,
-    padding: 10,
+    right: 20,
+    zIndex: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  topIconBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logoutBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: COLORS.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  brandBadge: {
+    backgroundColor: COLORS.softRed,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 999,
+    marginBottom: 18,
+    marginTop: 55,
+  },
+  brandText: {
+    color: COLORS.primary,
+    fontWeight: "900",
+    letterSpacing: 1,
   },
   iconCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 104,
+    height: 104,
+    borderRadius: 52,
     backgroundColor: COLORS.card,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -191,19 +325,36 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "800",
+    fontSize: 29,
+    fontWeight: "900",
     color: COLORS.white,
     marginBottom: 12,
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
+    textAlign: "center",
   },
   subtitle: {
     color: COLORS.muted,
     textAlign: "center",
-    marginBottom: 40,
+    marginBottom: 28,
     lineHeight: 24,
     fontSize: 15,
-    paddingHorizontal: 10,
+    paddingHorizontal: 6,
+    maxWidth: 430,
+  },
+  formCard: {
+    width: "100%",
+    maxWidth: 460,
+    backgroundColor: "rgba(30,41,59,0.92)",
+    borderRadius: 22,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  inputLabel: {
+    color: COLORS.light,
+    fontWeight: "800",
+    fontSize: 13,
+    marginBottom: 10,
   },
   inputWrapper: {
     flexDirection: "row",
@@ -212,7 +363,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.card,
     borderRadius: 16,
     height: 60,
-    marginBottom: 24,
+    marginBottom: 18,
     paddingHorizontal: 18,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -225,6 +376,7 @@ const styles = StyleSheet.create({
     height: "100%",
     color: COLORS.light,
     fontSize: 16,
+    ...(Platform.OS === "web" ? { outlineStyle: "none" } : {}),
   },
   resetBtn: {
     width: "100%",
@@ -233,7 +385,8 @@ const styles = StyleSheet.create({
     height: 60,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 8,
+    flexDirection: "row",
+    gap: 8,
     shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -242,13 +395,33 @@ const styles = StyleSheet.create({
   },
   resetText: {
     color: COLORS.white,
-    fontWeight: "bold",
-    fontSize: 16,
+    fontWeight: "900",
+    fontSize: 15,
     letterSpacing: 1,
+  },
+  infoBox: {
+    width: "100%",
+    maxWidth: 460,
+    backgroundColor: "rgba(11,94,60,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(11,94,60,0.45)",
+    borderRadius: 18,
+    padding: 14,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginTop: 16,
+  },
+  infoText: {
+    color: COLORS.muted,
+    fontSize: 12,
+    fontWeight: "600",
+    lineHeight: 18,
+    marginLeft: 10,
+    flex: 1,
   },
   footer: {
     flexDirection: "row",
-    marginTop: 40,
+    marginTop: 34,
     alignItems: "center",
   },
   footerText: {
@@ -257,7 +430,7 @@ const styles = StyleSheet.create({
   },
   loginLink: {
     color: COLORS.secondary,
-    fontWeight: "bold",
+    fontWeight: "900",
     fontSize: 15,
   },
 });

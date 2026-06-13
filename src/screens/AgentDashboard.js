@@ -33,7 +33,8 @@ const { width } = Dimensions.get("window");
 const COLORS = {
   primary: "#E60000",
   secondary: "#0B5E3C",
-  dark: "#121212",
+  dark: "#0F172A",
+  dark2: "#111827",
   white: "#FFFFFF",
   light: "#F8FAFC",
   muted: "#64748B",
@@ -50,12 +51,14 @@ const API_ENDPOINTS = {
 };
 
 const AgentDashboard = ({ navigation }) => {
+  const { isDarkMode } = useContext(ThemeContext);
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [userData, setUserData] = useState(null);
+  const [supervisor, setSupervisor] = useState(null);
   const [isBalanceVisible, setIsBalanceVisible] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
-  const { isDarkMode } = useContext(ThemeContext);
 
   const [performance, setPerformance] = useState({
     totalGB: 0,
@@ -65,10 +68,16 @@ const AgentDashboard = ({ navigation }) => {
     monthlyTargetSales: 100000,
   });
 
-  const [supervisor, setSupervisor] = useState(null);
+  useEffect(() => {
+    loadDashboard();
+  }, []);
 
   const getHeaders = async () => {
-    const token = await AsyncStorage.getItem("userToken");
+    const token =
+      (await AsyncStorage.getItem("userToken")) ||
+      (await AsyncStorage.getItem("token")) ||
+      (await AsyncStorage.getItem("adminToken"));
+
     return token
       ? {
           Authorization: `Bearer ${token}`,
@@ -77,8 +86,20 @@ const AgentDashboard = ({ navigation }) => {
       : null;
   };
 
-  const fetchAgentAndProfileData = async () => {
+  const normalizeProfile = (payload) =>
+    payload?.user || payload?.data?.user || payload?.data || payload || null;
+
+  const normalizeList = (payload) => {
+    const data = payload?.data || payload || [];
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data?.notifications)) return data.notifications;
+    return [];
+  };
+
+  const loadDashboard = async () => {
     try {
+      setLoading(true);
+
       const headers = await getHeaders();
 
       if (!headers) {
@@ -91,23 +112,21 @@ const AgentDashboard = ({ navigation }) => {
         return;
       }
 
-      const [profileRes, perfRes, supRes] = await Promise.allSettled([
-        axios.get(API_ENDPOINTS.profile, { headers }),
-        axios.get(API_ENDPOINTS.performance, { headers }),
-        axios.get(API_ENDPOINTS.supervisor, { headers }),
-      ]);
+      const [profileRes, perfRes, supRes, notificationRes] =
+        await Promise.allSettled([
+          axios.get(API_ENDPOINTS.profile, { headers }),
+          axios.get(API_ENDPOINTS.performance, { headers }),
+          axios.get(API_ENDPOINTS.supervisor, { headers }),
+          axios.get(API_ENDPOINTS.notifications, { headers }),
+        ]);
 
       if (profileRes.status === "fulfilled") {
-        const payload = profileRes.value.data;
-        setUserData(payload?.user || payload?.data?.user || payload?.data || payload);
+        setUserData(normalizeProfile(profileRes.value.data));
       }
 
       if (perfRes.status === "fulfilled") {
-        const payload = perfRes.value.data;
-        setPerformance((prev) => ({
-          ...prev,
-          ...(payload?.data || payload),
-        }));
+        const payload = perfRes.value.data?.data || perfRes.value.data || {};
+        setPerformance((prev) => ({ ...prev, ...payload }));
       }
 
       if (supRes.status === "fulfilled") {
@@ -116,8 +135,13 @@ const AgentDashboard = ({ navigation }) => {
       } else {
         setSupervisor(null);
       }
-    } catch (err) {
-      if (err?.response?.status === 401) {
+
+      if (notificationRes.status === "fulfilled") {
+        const list = normalizeList(notificationRes.value.data);
+        setUnreadCount(list.filter((item) => item?.read === false).length);
+      }
+    } catch (error) {
+      if (error?.response?.status === 401) {
         navigation.dispatch(
           CommonActions.reset({
             index: 0,
@@ -131,36 +155,43 @@ const AgentDashboard = ({ navigation }) => {
     }
   };
 
-  const fetchNotifications = async () => {
-    try {
-      const headers = await getHeaders();
-      if (!headers) return;
-
-      const response = await axios.get(API_ENDPOINTS.notifications, { headers });
-      const payload = response.data?.data || response.data || [];
-      const list = Array.isArray(payload) ? payload : payload?.notifications || [];
-      const unread = list.filter((item) => item?.read === false).length;
-
-      setUnreadCount(unread);
-    } catch (error) {
-      setUnreadCount(0);
-    }
-  };
-
-  useEffect(() => {
-    fetchAgentAndProfileData();
-    fetchNotifications();
-  }, []);
-
   const onRefresh = () => {
     setRefreshing(true);
-    fetchAgentAndProfileData();
-    fetchNotifications();
+    loadDashboard();
   };
 
-  const safeNavigate = (screenName, params = undefined) => {
+  const openMenu = () => {
+    const parent = navigation.getParent?.();
+
+    if (navigation.openDrawer) {
+      navigation.openDrawer();
+      return;
+    }
+
+    if (parent?.openDrawer) {
+      parent.openDrawer();
+      return;
+    }
+
+    navigation.navigate("Main");
+  };
+
+  const goBack = () => {
+    if (navigation.canGoBack?.()) {
+      navigation.goBack();
+      return;
+    }
+
+    navigation.navigate("SuperAdminDashboard");
+  };
+
+  const safeNavigate = (screenName, params = {}) => {
     try {
-      navigation.navigate(screenName, params);
+      navigation.navigate(screenName, {
+        fromAgentDashboard: true,
+        backScreen: "AgentDashboard",
+        ...params,
+      });
     } catch (error) {
       Alert.alert("Navigation Error", `${screenName} is not registered.`);
     }
@@ -196,7 +227,9 @@ const AgentDashboard = ({ navigation }) => {
 
   const copyToClipboard = async (text) => {
     if (!text) return;
-    await Clipboard.setStringAsync(text);
+
+    await Clipboard.setStringAsync(String(text));
+
     if (Platform.OS === "android") {
       ToastAndroid.show("Copied to clipboard", ToastAndroid.SHORT);
     } else {
@@ -209,37 +242,39 @@ const AgentDashboard = ({ navigation }) => {
     const message =
       "Hello Bellaj Data Hub Support, I need assistance with my Agent account.";
 
-    const url = `whatsapp://send?phone=${phoneNumber}&text=${encodeURIComponent(
+    const appUrl = `whatsapp://send?phone=${phoneNumber}&text=${encodeURIComponent(
+      message
+    )}`;
+    const webUrl = `https://wa.me/${phoneNumber.replace("+", "")}?text=${encodeURIComponent(
       message
     )}`;
 
-    Linking.openURL(url).catch(() =>
-      Linking.openURL(`https://wa.me/${phoneNumber.replace("+", "")}`)
-    );
+    Linking.openURL(appUrl).catch(() => Linking.openURL(webUrl));
   };
-
-  const currentSales = Number(performance.totalSalesValue || 0);
-  const targetSales = Number(performance.monthlyTargetSales || 0);
-  const remainingToTarget = Math.max(targetSales - currentSales, 0);
-
-  const achievementPercentage =
-    targetSales > 0
-      ? Math.min(Math.round((currentSales / targetSales) * 100), 100)
-      : 0;
 
   const agentName = useMemo(() => {
     const name =
       userData?.name ||
+      userData?.fullName ||
       `${userData?.firstName || ""} ${userData?.surname || ""}`.trim();
 
     return name || "Agent";
   }, [userData]);
 
+  const balance = Number(userData?.walletBalance || userData?.balance || 0);
+  const currentSales = Number(performance.totalSalesValue || 0);
+  const targetSales = Number(performance.monthlyTargetSales || 0);
+  const remainingToTarget = Math.max(targetSales - currentSales, 0);
+  const achievementPercentage =
+    targetSales > 0
+      ? Math.min(Math.round((currentSales / targetSales) * 100), 100)
+      : 0;
+
   const menuItems = [
     {
       label: "Dashboard",
-      icon: "home-outline",
-      type: "ion",
+      icon: "view-dashboard-outline",
+      type: "mci",
       color: COLORS.primary,
       action: () => safeNavigate("AgentDashboard"),
     },
@@ -259,29 +294,29 @@ const AgentDashboard = ({ navigation }) => {
     },
     {
       label: "Sales History",
-      icon: "receipt-outline",
-      type: "ion",
+      icon: "receipt-text-outline",
+      type: "mci",
       color: "#F97316",
       action: () => safeNavigate("SalesHistory"),
     },
     {
       label: "Wallet History",
-      icon: "time-outline",
-      type: "ion",
+      icon: "clock-time-four-outline",
+      type: "mci",
       color: "#7C3AED",
       action: () => safeNavigate("Main", { screen: "Wallet History" }),
     },
     {
       label: "Notifications",
-      icon: "notifications-outline",
-      type: "ion",
+      icon: "bell-outline",
+      type: "mci",
       color: "#EA580C",
       action: () => safeNavigate("Notifications"),
     },
     {
       label: "Profile",
-      icon: "person-outline",
-      type: "ion",
+      icon: "account-circle-outline",
+      type: "mci",
       color: COLORS.dark,
       action: () => safeNavigate("Profile"),
     },
@@ -299,10 +334,10 @@ const AgentDashboard = ({ navigation }) => {
     { icon: "phone-alt", color: COLORS.secondary, label: "Airtime", screen: "BuyAirtime" },
     { icon: "bolt", color: "#EAB308", label: "Power", screen: "Electricity" },
     { icon: "tv", color: "#8B5CF6", label: "Cable", screen: "Cable" },
-    { icon: "id-card", color: "#F43F5E", label: "NIMC Verify", screen: "NIMC" },
+    { icon: "id-card", color: "#F43F5E", label: "NIMC", screen: "NIMC" },
     { icon: "fingerprint", color: "#EC4899", label: "NIMC Mod", screen: "NIMCModification" },
     { icon: "user-shield", color: "#64748B", label: "BVN", screen: "BVNScreen" },
-    { icon: "shield-alt", color: COLORS.secondary, label: "NIN Valid", screen: "NINValidation" },
+    { icon: "shield-alt", color: COLORS.secondary, label: "NIN", screen: "NINValidation" },
     { icon: "history", color: "#F97316", label: "History", screen: "SalesHistory" },
   ];
 
@@ -337,17 +372,20 @@ const AgentDashboard = ({ navigation }) => {
       />
 
       <LinearGradient
-        colors={
-          isDarkMode ? [COLORS.dark, "#1A1A1A"] : [COLORS.white, COLORS.light]
-        }
+        colors={isDarkMode ? [COLORS.dark, "#1A1A1A"] : [COLORS.white, COLORS.light]}
         style={styles.screenBg}
       >
         <View style={styles.topHeader}>
           <View style={styles.navRow}>
-            <TouchableOpacity
-              style={styles.headerIconBtn}
-              onPress={() => navigation.openDrawer?.()}
-            >
+            <TouchableOpacity style={styles.headerIconBtn} onPress={goBack}>
+              <Ionicons
+                name="arrow-back"
+                size={24}
+                color={isDarkMode ? COLORS.white : COLORS.dark}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.headerIconBtn} onPress={openMenu}>
               <Ionicons
                 name="menu"
                 size={26}
@@ -356,10 +394,7 @@ const AgentDashboard = ({ navigation }) => {
             </TouchableOpacity>
 
             <View style={styles.logoCircle}>
-              <Image
-                source={require("../assets/Logo.png")}
-                style={styles.logoImg}
-              />
+              <Image source={require("../assets/Logo.png")} style={styles.logoImg} />
             </View>
 
             <View style={styles.headerActions}>
@@ -369,10 +404,9 @@ const AgentDashboard = ({ navigation }) => {
               >
                 <Ionicons
                   name="notifications-outline"
-                  size={28}
+                  size={27}
                   color={isDarkMode ? COLORS.white : COLORS.dark}
                 />
-
                 {unreadCount > 0 && (
                   <View style={styles.badge}>
                     <Text style={styles.badgeText}>{unreadCount}</Text>
@@ -381,7 +415,7 @@ const AgentDashboard = ({ navigation }) => {
               </TouchableOpacity>
 
               <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
-                <Ionicons name="log-out-outline" size={22} color={COLORS.white} />
+                <Ionicons name="log-out-outline" size={21} color={COLORS.white} />
               </TouchableOpacity>
             </View>
           </View>
@@ -400,13 +434,10 @@ const AgentDashboard = ({ navigation }) => {
         </View>
 
         <ScrollView
-          showsVerticalScrollIndicator={false}
+          showsVerticalScrollIndicator
           style={{ flex: 1 }}
-          contentContainerStyle={{
-            paddingHorizontal: 16,
-            paddingBottom: 180,
-            flexGrow: 1,
-          }}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.scrollContent}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -415,16 +446,10 @@ const AgentDashboard = ({ navigation }) => {
             />
           }
         >
-          <LinearGradient
-            colors={[COLORS.primary, "#990000"]}
-            style={styles.walletCard}
-          >
+          <LinearGradient colors={[COLORS.primary, "#990000"]} style={styles.walletCard}>
             <View style={styles.walletTop}>
               <Text style={styles.walletLabel}>Agent Available Balance</Text>
-
-              <TouchableOpacity
-                onPress={() => safeNavigate("Main", { screen: "Wallet History" })}
-              >
+              <TouchableOpacity onPress={() => safeNavigate("Main", { screen: "Wallet History" })}>
                 <Text style={styles.historyText}>
                   Transactions <Ionicons name="chevron-forward" size={12} />
                 </Text>
@@ -433,16 +458,10 @@ const AgentDashboard = ({ navigation }) => {
 
             <View style={styles.balanceContainer}>
               <Text style={styles.currency}>₦</Text>
-
               <Text style={styles.balanceText}>
-                {isBalanceVisible
-                  ? userData?.walletBalance || userData?.balance || "0.00"
-                  : "****"}
+                {isBalanceVisible ? balance.toLocaleString() : "****"}
               </Text>
-
-              <TouchableOpacity
-                onPress={() => setIsBalanceVisible(!isBalanceVisible)}
-              >
+              <TouchableOpacity onPress={() => setIsBalanceVisible(!isBalanceVisible)}>
                 <Ionicons
                   name={isBalanceVisible ? "eye-outline" : "eye-off-outline"}
                   size={24}
@@ -453,14 +472,8 @@ const AgentDashboard = ({ navigation }) => {
             </View>
 
             <View style={styles.walletActions}>
-              <TouchableOpacity
-                style={styles.actionBtn}
-                onPress={() => safeNavigate("FundWallet")}
-              >
-                <LinearGradient
-                  colors={[COLORS.secondary, "#063B26"]}
-                  style={styles.innerBtnGradient}
-                >
+              <TouchableOpacity style={styles.actionBtn} onPress={() => safeNavigate("FundWallet")}>
+                <LinearGradient colors={[COLORS.secondary, "#063B26"]} style={styles.innerBtnGradient}>
                   <Ionicons name="add-circle" size={18} color={COLORS.white} />
                   <Text style={styles.actionBtnText}>FUND WALLET</Text>
                 </LinearGradient>
@@ -476,28 +489,29 @@ const AgentDashboard = ({ navigation }) => {
           <View style={styles.drawerPanel}>
             <Text style={styles.panelTitle}>Agent Navigation</Text>
 
-            {menuItems.map((item, index) => (
-              <TouchableOpacity
-                key={index}
-                style={styles.drawerItem}
-                onPress={item.action}
-                activeOpacity={0.86}
-              >
-                <View style={[styles.drawerIcon, { backgroundColor: item.color }]}>
-                  {renderMenuIcon(item, 22, COLORS.white)}
-                </View>
-
-                <Text style={styles.drawerLabel}>{item.label}</Text>
-
-                <Ionicons name="chevron-forward" size={20} color={COLORS.muted} />
-              </TouchableOpacity>
-            ))}
+            <View style={styles.navGrid}>
+              {menuItems.map((item, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.navCard}
+                  onPress={item.action}
+                  activeOpacity={0.86}
+                >
+                  <View style={[styles.navIconBox, { backgroundColor: item.color }]}>
+                    {renderMenuIcon(item, 24, COLORS.white)}
+                  </View>
+                  <Text style={styles.navTitle}>{item.label}</Text>
+                  <View style={styles.openBadge}>
+                    <Text style={styles.openBadgeText}>OPEN</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
 
           <Text style={styles.sectionLabel}>Automatic Funding Accounts</Text>
 
-          {userData?.accountNumber &&
-          userData?.accountNumber !== "Initialization Pending" ? (
+          {userData?.accountNumber && userData?.accountNumber !== "Initialization Pending" ? (
             <BankCard
               bank={userData.bankName || "Wema Bank"}
               acc={userData.accountNumber}
@@ -542,7 +556,6 @@ const AgentDashboard = ({ navigation }) => {
               unit="GB"
               color={COLORS.primary}
             />
-
             <StatCard
               title="Monthly Revenue"
               value={`₦${currentSales.toLocaleString()}`}
@@ -553,14 +566,13 @@ const AgentDashboard = ({ navigation }) => {
 
           <View style={styles.statsGridAlt}>
             <StatCard
-              title="Commissions Earned"
+              title="Commissions"
               value={`₦${Number(performance.commissionsEarned || 0).toLocaleString()}`}
               unit=""
               color="#F97316"
             />
-
             <StatCard
-              title="Bonus Earned"
+              title="Bonus"
               value={`₦${Number(performance.bonusEarned || 0).toLocaleString()}`}
               unit=""
               color="#DC2626"
@@ -574,41 +586,26 @@ const AgentDashboard = ({ navigation }) => {
               <View style={styles.targetRow}>
                 <View>
                   <Text style={styles.targetLabel}>Monthly Target</Text>
-                  <Text style={styles.targetValue}>
-                    ₦{targetSales.toLocaleString()}
-                  </Text>
+                  <Text style={styles.targetValue}>₦{targetSales.toLocaleString()}</Text>
                 </View>
 
                 <View style={styles.rightAlign}>
                   <Text style={styles.targetLabel}>Achievement</Text>
-                  <Text style={styles.percentageText}>
-                    {achievementPercentage}%
-                  </Text>
+                  <Text style={styles.percentageText}>{achievementPercentage}%</Text>
                 </View>
               </View>
 
               <View style={styles.progressTrack}>
-                <View
-                  style={[
-                    styles.progressBar,
-                    { width: `${achievementPercentage}%` },
-                  ]}
-                />
+                <View style={[styles.progressBar, { width: `${achievementPercentage}%` }]} />
               </View>
 
               <View style={styles.targetRowAlt}>
                 <Text style={styles.progressSubText}>
-                  Current:{" "}
-                  <Text style={styles.boldText}>
-                    ₦{currentSales.toLocaleString()}
-                  </Text>
+                  Current: <Text style={styles.boldText}>₦{currentSales.toLocaleString()}</Text>
                 </Text>
-
                 <Text style={styles.remainingText}>
                   Remaining:{" "}
-                  <Text style={styles.boldTextRed}>
-                    ₦{remainingToTarget.toLocaleString()}
-                  </Text>
+                  <Text style={styles.boldTextRed}>₦{remainingToTarget.toLocaleString()}</Text>
                 </Text>
               </View>
             </View>
@@ -652,10 +649,7 @@ const AgentDashboard = ({ navigation }) => {
           <View style={styles.actionSection}>
             <Text style={styles.sectionTitle}>Quick Agent Actions</Text>
 
-            <TouchableOpacity
-              style={styles.actionBtnFull}
-              onPress={() => safeNavigate("NewSale")}
-            >
+            <TouchableOpacity style={styles.actionBtnFull} onPress={() => safeNavigate("NewSale")}>
               <Text style={styles.actionBtnTextFull}>Process New Sale</Text>
             </TouchableOpacity>
 
@@ -671,29 +665,9 @@ const AgentDashboard = ({ navigation }) => {
             <Text style={styles.footerHeadline}>Why Choose Bellaj Data Hub?</Text>
 
             <View style={styles.trustGrid}>
-              <TrustItem
-                icon="shield-check"
-                color={COLORS.secondary}
-                bg={COLORS.softGreen}
-                title="100% Secure"
-                sub="Encrypted"
-              />
-
-              <TrustItem
-                icon="flash"
-                color="#CA8A04"
-                bg="#FEF9C3"
-                title="Instant"
-                sub="Automated"
-              />
-
-              <TrustItem
-                icon="headset"
-                color={COLORS.primary}
-                bg={COLORS.softRed}
-                title="24/7 Support"
-                sub="Reliable"
-              />
+              <TrustItem icon="shield-check" color={COLORS.secondary} bg={COLORS.softGreen} title="100% Secure" sub="Encrypted" />
+              <TrustItem icon="flash" color="#CA8A04" bg="#FEF9C3" title="Instant" sub="Automated" />
+              <TrustItem icon="headset" color={COLORS.primary} bg={COLORS.softRed} title="24/7 Support" sub="Reliable" />
             </View>
           </View>
         </ScrollView>
@@ -701,24 +675,9 @@ const AgentDashboard = ({ navigation }) => {
 
       <View style={styles.bottomTab}>
         <TabItem icon="home" label="Dashboard" active onPress={() => {}} />
-
-        <TabItem
-          icon="time-outline"
-          label="History"
-          onPress={() => safeNavigate("Main", { screen: "Wallet History" })}
-        />
-
-        <TabItem
-          icon="person-outline"
-          label="Profile"
-          onPress={() => safeNavigate("Profile")}
-        />
-
-        <TabItem
-          icon="help-buoy-outline"
-          label="Support"
-          onPress={() => safeNavigate("Contact")}
-        />
+        <TabItem icon="time-outline" label="History" onPress={() => safeNavigate("Main", { screen: "Wallet History" })} />
+        <TabItem icon="person-outline" label="Profile" onPress={() => safeNavigate("Profile")} />
+        <TabItem icon="help-buoy-outline" label="Support" onPress={() => safeNavigate("Contact")} />
       </View>
     </View>
   );
@@ -728,6 +687,7 @@ const BankCard = ({ bank, acc, code, onCopy, isDarkMode }) => (
   <TouchableOpacity
     style={[styles.bankBox, isDarkMode && { backgroundColor: "#1E293B" }]}
     onPress={onCopy}
+    activeOpacity={0.86}
   >
     <View style={styles.bankInfo}>
       <View style={styles.bankLogoCircle}>
@@ -736,9 +696,7 @@ const BankCard = ({ bank, acc, code, onCopy, isDarkMode }) => (
 
       <View>
         <Text style={styles.bankTitle}>{bank}</Text>
-        <Text style={[styles.accNo, isDarkMode && { color: COLORS.white }]}>
-          {acc}
-        </Text>
+        <Text style={[styles.accNo, isDarkMode && { color: COLORS.white }]}>{acc}</Text>
       </View>
     </View>
 
@@ -747,11 +705,10 @@ const BankCard = ({ bank, acc, code, onCopy, isDarkMode }) => (
 );
 
 const ServiceItem = ({ icon, label, color, onPress }) => (
-  <TouchableOpacity style={styles.gridItem} onPress={onPress}>
+  <TouchableOpacity style={styles.gridItem} onPress={onPress} activeOpacity={0.86}>
     <View style={styles.iconBox}>
       <FontAwesome5 name={icon} size={20} color={color} />
     </View>
-
     <Text style={styles.gridLabel}>{label}</Text>
   </TouchableOpacity>
 );
@@ -759,7 +716,6 @@ const ServiceItem = ({ icon, label, color, onPress }) => (
 const StatCard = ({ title, value, unit, color }) => (
   <View style={[styles.statCard, { borderLeftColor: color }]}>
     <Text style={styles.statLabel}>{title}</Text>
-
     <Text style={styles.statValue}>
       {value} <Text style={styles.statUnit}>{unit}</Text>
     </Text>
@@ -775,7 +731,6 @@ const TrustItem = ({ icon, color, bg, title, sub }) => (
         <MaterialCommunityIcons name={icon} size={28} color={color} />
       )}
     </View>
-
     <Text style={styles.trustTitle}>{title}</Text>
     <Text style={styles.trustSub}>{sub}</Text>
   </View>
@@ -783,15 +738,8 @@ const TrustItem = ({ icon, color, bg, title, sub }) => (
 
 const TabItem = ({ icon, label, active, onPress }) => (
   <TouchableOpacity style={styles.tabItem} onPress={onPress}>
-    <Ionicons
-      name={icon}
-      size={24}
-      color={active ? COLORS.primary : "#94A3B8"}
-    />
-
-    <Text
-      style={[styles.tabLabel, { color: active ? COLORS.primary : "#94A3B8" }]}
-    >
+    <Ionicons name={icon} size={24} color={active ? COLORS.primary : "#94A3B8"} />
+    <Text style={[styles.tabLabel, { color: active ? COLORS.primary : "#94A3B8" }]}>
       {label}
     </Text>
   </TouchableOpacity>
@@ -806,32 +754,30 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: COLORS.light,
   },
-  loaderText: {
-    marginTop: 12,
-    color: COLORS.primary,
-    fontWeight: "800",
-  },
+  loaderText: { marginTop: 12, color: COLORS.primary, fontWeight: "800" },
   topHeader: {
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
+    paddingHorizontal: 18,
+    paddingTop: Platform.OS === "android" ? 56 : 38,
+    paddingBottom: 16,
   },
   navRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 18,
+    gap: 8,
   },
-  headerActions: { flexDirection: "row", alignItems: "center" },
+  headerActions: { flexDirection: "row", alignItems: "center", marginLeft: "auto" },
   headerIconBtn: {
-    width: 44,
-    height: 44,
+    width: 42,
+    height: 42,
     borderRadius: 15,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "rgba(15,23,42,0.06)",
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
-  notificationBtn: { marginRight: 14 },
+  notificationBtn: { marginRight: 12 },
   logoutBtn: {
     width: 42,
     height: 42,
@@ -841,22 +787,27 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
   },
   logoCircle: {
-    width: 48,
-    height: 48,
+    width: 46,
+    height: 46,
     backgroundColor: COLORS.white,
-    borderRadius: 24,
+    borderRadius: 23,
     justifyContent: "center",
     alignItems: "center",
     elevation: 4,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  logoImg: { width: 36, height: 36, resizeMode: "contain" },
-  welcomeSection: { marginBottom: 10 },
-  welcomeText: { color: COLORS.muted, fontSize: 14, fontWeight: "500" },
-  userName: { fontSize: 24, fontWeight: "bold" },
+  logoImg: { width: 34, height: 34, resizeMode: "contain" },
+  welcomeSection: { marginBottom: 8 },
+  welcomeText: { color: COLORS.muted, fontSize: 14, fontWeight: "600" },
+  userName: { fontSize: 25, fontWeight: "900" },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 180,
+    flexGrow: 1,
+  },
   walletCard: {
-    borderRadius: 24,
+    borderRadius: 26,
     padding: 22,
     marginBottom: 18,
     elevation: 10,
@@ -866,26 +817,22 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  walletLabel: { color: "#FFE4E4", fontSize: 13 },
-  historyText: { color: COLORS.white, fontSize: 12, fontWeight: "600" },
+  walletLabel: { color: "#FFE4E4", fontSize: 13, fontWeight: "700" },
+  historyText: { color: COLORS.white, fontSize: 12, fontWeight: "800" },
   balanceContainer: { flexDirection: "row", alignItems: "center", marginVertical: 15 },
-  currency: { color: COLORS.white, fontSize: 24, fontWeight: "600" },
+  currency: { color: COLORS.white, fontSize: 24, fontWeight: "700" },
   balanceText: {
     color: COLORS.white,
-    fontSize: 34,
-    fontWeight: "bold",
+    fontSize: 35,
+    fontWeight: "900",
     marginLeft: 8,
   },
-  walletActions: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 10,
-  },
-  actionBtn: { flex: 0.48, height: 48, borderRadius: 14, overflow: "hidden" },
+  walletActions: { flexDirection: "row", justifyContent: "space-between", marginTop: 10 },
+  actionBtn: { flex: 0.48, height: 48, borderRadius: 15, overflow: "hidden" },
   supportBtn: {
     flex: 0.48,
     height: 48,
-    borderRadius: 14,
+    borderRadius: 15,
     backgroundColor: "rgba(255,255,255,0.15)",
     justifyContent: "center",
     alignItems: "center",
@@ -899,48 +846,55 @@ const styles = StyleSheet.create({
   },
   actionBtnText: {
     color: COLORS.white,
-    fontWeight: "bold",
+    fontWeight: "900",
     fontSize: 12,
     marginLeft: 8,
   },
   drawerPanel: {
     backgroundColor: COLORS.white,
-    borderRadius: 22,
-    padding: 14,
+    borderRadius: 24,
+    padding: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
     marginBottom: 18,
   },
-  panelTitle: {
-    color: COLORS.dark,
-    fontSize: 18,
-    fontWeight: "900",
-    marginBottom: 10,
-  },
-  drawerItem: {
+  panelTitle: { color: COLORS.dark, fontSize: 18, fontWeight: "900", marginBottom: 14 },
+  navGrid: {
     flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 13,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F1F5F9",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    rowGap: 12,
   },
-  drawerIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
+  navCard: {
+    width: "48%",
+    backgroundColor: COLORS.light,
+    borderRadius: 20,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    minHeight: 145,
+  },
+  navIconBox: {
+    width: 56,
+    height: 56,
+    borderRadius: 19,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
+    marginBottom: 12,
   },
-  drawerLabel: {
-    flex: 1,
-    color: COLORS.dark,
-    fontSize: 15,
-    fontWeight: "800",
+  navTitle: { color: COLORS.dark, fontSize: 14, fontWeight: "900" },
+  openBadge: {
+    marginTop: "auto",
+    alignSelf: "flex-start",
+    backgroundColor: "#DCFCE7",
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 999,
   },
+  openBadgeText: { color: COLORS.secondary, fontSize: 10, fontWeight: "900" },
   sectionLabel: {
     fontSize: 16,
-    fontWeight: "700",
+    fontWeight: "900",
     color: COLORS.dark,
     marginTop: 15,
     marginBottom: 15,
@@ -948,51 +902,52 @@ const styles = StyleSheet.create({
   },
   bankBox: {
     backgroundColor: COLORS.white,
-    width: width * 0.75,
+    width: width * 0.86,
     padding: 16,
     borderRadius: 20,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginRight: 15,
     marginBottom: 12,
     elevation: 3,
-    borderLeftWidth: 4,
+    borderLeftWidth: 5,
     borderLeftColor: COLORS.primary,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   bankInfo: { flexDirection: "row", alignItems: "center" },
   bankLogoCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 15,
     backgroundColor: COLORS.softRed,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
   },
-  bankLogoText: { color: COLORS.primary, fontWeight: "bold", fontSize: 12 },
-  bankTitle: { fontSize: 12, color: COLORS.muted },
-  accNo: { fontSize: 17, color: COLORS.dark, fontWeight: "bold" },
+  bankLogoText: { color: COLORS.primary, fontWeight: "900", fontSize: 12 },
+  bankTitle: { fontSize: 12, color: COLORS.muted, fontWeight: "700" },
+  accNo: { fontSize: 17, color: COLORS.dark, fontWeight: "900" },
   statsGrid: { flexDirection: "row", justifyContent: "space-between", marginBottom: 12 },
   statsGridAlt: { flexDirection: "row", justifyContent: "space-between", marginBottom: 15 },
   statCard: {
     backgroundColor: COLORS.white,
     width: "48%",
     padding: 15,
-    borderRadius: 12,
-    borderLeftWidth: 6,
-    elevation: 3,
+    borderRadius: 18,
+    borderLeftWidth: 5,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
-  statLabel: { fontSize: 12, color: COLORS.muted, fontWeight: "600" },
-  statValue: { fontSize: 18, fontWeight: "bold", color: COLORS.dark, marginTop: 5 },
+  statLabel: { fontSize: 12, color: COLORS.muted, fontWeight: "800" },
+  statValue: { fontSize: 18, fontWeight: "900", color: COLORS.dark, marginTop: 5 },
   statUnit: { fontSize: 12, color: "#94A3B8" },
   targetTrackingSection: { marginTop: 10, marginBottom: 20 },
-  sectionTitle: { fontSize: 16, fontWeight: "bold", color: COLORS.dark, marginBottom: 10 },
+  sectionTitle: { fontSize: 17, fontWeight: "900", color: COLORS.dark, marginBottom: 10 },
   targetCard: {
     backgroundColor: COLORS.white,
-    padding: 20,
-    borderRadius: 12,
-    elevation: 3,
+    padding: 18,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -1003,10 +958,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 12,
   },
-  targetLabel: { fontSize: 12, color: COLORS.muted },
-  targetValue: { fontSize: 16, fontWeight: "bold", color: COLORS.dark },
+  targetLabel: { fontSize: 12, color: COLORS.muted, fontWeight: "700" },
+  targetValue: { fontSize: 16, fontWeight: "900", color: COLORS.dark },
   rightAlign: { alignItems: "flex-end" },
-  percentageText: { fontSize: 20, fontWeight: "800", color: COLORS.secondary },
+  percentageText: { fontSize: 20, fontWeight: "900", color: COLORS.secondary },
   progressTrack: {
     width: "100%",
     height: 10,
@@ -1016,63 +971,67 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   progressBar: { height: "100%", backgroundColor: COLORS.secondary, borderRadius: 5 },
-  progressSubText: { fontSize: 12, color: COLORS.muted },
-  remainingText: { fontSize: 12, color: COLORS.muted },
-  boldText: { fontWeight: "700", color: COLORS.dark },
-  boldTextRed: { fontWeight: "700", color: COLORS.primary },
+  progressSubText: { fontSize: 12, color: COLORS.muted, fontWeight: "600" },
+  remainingText: { fontSize: 12, color: COLORS.muted, fontWeight: "600" },
+  boldText: { fontWeight: "900", color: COLORS.dark },
+  boldTextRed: { fontWeight: "900", color: COLORS.primary },
   servicesContainer: {
-    borderRadius: 28,
-    padding: 20,
+    borderRadius: 24,
+    padding: 18,
     elevation: 4,
     marginBottom: 20,
     backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   grid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
-  gridItem: { width: "23%", alignItems: "center", marginBottom: 22 },
+  gridItem: { width: "31%", alignItems: "center", marginBottom: 22 },
   iconBox: {
-    width: 54,
-    height: 54,
-    borderRadius: 18,
+    width: 56,
+    height: 56,
+    borderRadius: 19,
     backgroundColor: COLORS.light,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 8,
-    elevation: 1,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   gridLabel: {
     color: "#475569",
     fontSize: 11,
     textAlign: "center",
-    fontWeight: "600",
+    fontWeight: "800",
   },
   supervisorSection: { marginBottom: 20 },
   infoBox: {
     backgroundColor: COLORS.white,
-    padding: 15,
-    borderRadius: 15,
-    elevation: 2,
-    borderLeftWidth: 4,
+    padding: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderLeftWidth: 5,
     borderLeftColor: COLORS.secondary,
   },
-  infoText: { color: COLORS.muted },
-  supName: { fontWeight: "bold", fontSize: 16, color: COLORS.dark },
-  supPhone: { color: COLORS.secondary, marginTop: 4 },
+  infoText: { color: COLORS.muted, fontWeight: "700" },
+  supName: { fontWeight: "900", fontSize: 16, color: COLORS.dark },
+  supPhone: { color: COLORS.secondary, marginTop: 4, fontWeight: "700" },
   actionSection: { marginBottom: 20 },
   actionBtnFull: {
     backgroundColor: COLORS.primary,
     padding: 15,
-    borderRadius: 12,
+    borderRadius: 16,
     marginBottom: 10,
     alignItems: "center",
   },
   actionBtnFullAlt: {
     backgroundColor: COLORS.secondary,
     padding: 15,
-    borderRadius: 12,
+    borderRadius: 16,
     marginBottom: 10,
     alignItems: "center",
   },
-  actionBtnTextFull: { color: COLORS.white, fontWeight: "bold" },
+  actionBtnTextFull: { color: COLORS.white, fontWeight: "900" },
   footerBranding: {
     marginTop: 10,
     paddingBottom: 40,
@@ -1084,7 +1043,7 @@ const styles = StyleSheet.create({
   footerHeadline: {
     textAlign: "center",
     fontSize: 16,
-    fontWeight: "bold",
+    fontWeight: "900",
     marginBottom: 15,
     color: COLORS.primary,
   },
@@ -1093,13 +1052,13 @@ const styles = StyleSheet.create({
   trustIconCircle: {
     width: 60,
     height: 60,
-    borderRadius: 30,
+    borderRadius: 22,
     justifyContent: "center",
     alignItems: "center",
   },
   trustTitle: {
     fontSize: 12,
-    fontWeight: "bold",
+    fontWeight: "900",
     marginTop: 8,
     color: COLORS.dark,
     textAlign: "center",
@@ -1120,19 +1079,20 @@ const styles = StyleSheet.create({
     elevation: 20,
   },
   tabItem: { flex: 1, justifyContent: "center", alignItems: "center" },
-  tabLabel: { fontSize: 10, marginTop: 4, fontWeight: "600" },
+  tabLabel: { fontSize: 10, marginTop: 4, fontWeight: "800" },
   badge: {
     position: "absolute",
     right: -5,
     top: -5,
     backgroundColor: COLORS.primary,
     borderRadius: 10,
-    width: 18,
+    minWidth: 18,
     height: 18,
     justifyContent: "center",
     alignItems: "center",
+    paddingHorizontal: 4,
   },
-  badgeText: { color: COLORS.white, fontSize: 10, fontWeight: "bold" },
+  badgeText: { color: COLORS.white, fontSize: 10, fontWeight: "900" },
 });
 
 export default AgentDashboard;

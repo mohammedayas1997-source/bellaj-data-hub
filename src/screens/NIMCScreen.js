@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,10 @@ import {
   Image,
   ActivityIndicator,
   Dimensions,
+  StatusBar,
+  RefreshControl,
+  Platform,
+  Linking,
 } from "react-native";
 import {
   MaterialCommunityIcons,
@@ -18,13 +22,17 @@ import {
 } from "@expo/vector-icons";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { CommonActions } from "@react-navigation/native";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
 import BASE_URL from "../config/api";
+
 const { width } = Dimensions.get("window");
 
 const COLORS = {
   primary: "#E60000",
   secondary: "#0B5E3C",
-  dark: "#121212",
+  dark: "#0F172A",
   white: "#FFFFFF",
   light: "#F8FAFC",
   muted: "#64748B",
@@ -34,8 +42,26 @@ const COLORS = {
 };
 
 const API_ENDPOINTS = {
-  nimcPrices: "",
-  verifyAndCharge: "",
+  nimcPrices: `${BASE_URL}/nimc/prices`,
+  verifyAndCharge: `${BASE_URL}/nimc/verify`,
+};
+
+const SERVICES = [
+  { id: "nin", title: "NIN Verification", icon: "fingerprint" },
+  { id: "phone", title: "Phone Search", icon: "phone-alt" },
+  { id: "trackingId", title: "Tracking ID", icon: "barcode" },
+  { id: "premiumCard", title: "Premium ID Card", icon: "id-card" },
+  { id: "standardSlip", title: "Standard Slip", icon: "file-alt" },
+  { id: "basicSlip", title: "Basic NIMC Slip", icon: "print" },
+];
+
+const DEFAULT_PRICES = {
+  nin: 0,
+  phone: 0,
+  trackingId: 0,
+  premiumCard: 0,
+  standardSlip: 0,
+  basicSlip: 0,
 };
 
 const NIMCScreen = ({ navigation }) => {
@@ -44,265 +70,440 @@ const NIMCScreen = ({ navigation }) => {
   const [formData, setFormData] = useState({ searchValue: "", pin: "" });
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [prices, setPrices] = useState({});
+  const [prices, setPrices] = useState(DEFAULT_PRICES);
   const [fetchingPrices, setFetchingPrices] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    const fetchPrices = async () => {
-      try {
-        if (!API_ENDPOINTS.nimcPrices) return;
-
-        const res = await axios.get(API_ENDPOINTS.nimcPrices);
-
-        if (res.data.success) {
-          setPrices(res.data.prices);
-        }
-      } catch (err) {
-        console.log("Error fetching NIMC prices", err.message);
-      } finally {
-        setFetchingPrices(false);
-      }
-    };
-
     fetchPrices();
   }, []);
 
-  const handleVerification = async () => {
-    if (!formData.searchValue.trim() || !formData.pin.trim()) {
-      Alert.alert("Required", "Please enter ID number and Transaction PIN.");
-      return;
-    }
+  const getAuthHeaders = async () => {
+    const token =
+      (await AsyncStorage.getItem("userToken")) ||
+      (await AsyncStorage.getItem("token")) ||
+      (await AsyncStorage.getItem("adminToken"));
 
-    if (!API_ENDPOINTS.verifyAndCharge) {
-      Alert.alert("Not Configured", "NIMC verification API is not configured.");
-      return;
-    }
+    return token ? { Authorization: `Bearer ${token}` } : null;
+  };
 
-    setLoading(true);
-
+  const fetchPrices = async () => {
     try {
-      const token = await AsyncStorage.getItem("userToken");
+      setFetchingPrices(true);
+      const headers = await getAuthHeaders();
 
-      const res = await axios.post(
-        API_ENDPOINTS.verifyAndCharge,
-        {
-          searchValue: formData.searchValue.trim(),
-          searchType: searchType.id,
-          pin: formData.pin,
-        },
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
+      const { data } = await axios.get(API_ENDPOINTS.nimcPrices, {
+        headers: headers || {},
+        timeout: 20000,
+      });
 
-      if (res.data.success) {
-        setUserData(res.data.data);
-        setView("result");
+      const livePrices = data?.prices || data?.data?.prices || data?.data || data;
+
+      if (livePrices && typeof livePrices === "object") {
+        setPrices((prev) => ({ ...prev, ...livePrices }));
       }
     } catch (err) {
-      Alert.alert(
-        "Verification Failed",
-        err.response?.data?.message || "Internal Server Error",
-      );
+      console.log("NIMC price error:", err?.response?.data || err.message);
     } finally {
-      setLoading(false);
+      setFetchingPrices(false);
+      setRefreshing(false);
     }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchPrices();
+  };
+
+  const openMenu = () => {
+    const parent = navigation?.getParent?.();
+
+    if (navigation?.openDrawer) return navigation.openDrawer();
+    if (parent?.openDrawer) return parent.openDrawer();
+
+    navigation?.navigate?.("Main");
+  };
+
+  const goBack = () => {
+    if (view === "result") {
+      setView("main");
+      setUserData(null);
+      return;
+    }
+
+    if (searchType) {
+      setSearchType(null);
+      setFormData({ searchValue: "", pin: "" });
+      return;
+    }
+
+    if (navigation?.canGoBack?.()) return navigation.goBack();
+
+    navigation?.navigate?.("Main");
+  };
+
+  const logout = async () => {
+    Alert.alert("Logout", "Are you sure you want to logout?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Logout",
+        style: "destructive",
+        onPress: async () => {
+          await AsyncStorage.multiRemove([
+            "userToken",
+            "token",
+            "adminToken",
+            "userData",
+            "userRole",
+            "overrideRole",
+            "isSuperAdminOverride",
+          ]);
+
+          navigation.dispatch(
+            CommonActions.reset({
+              index: 0,
+              routes: [{ name: "Login" }],
+            })
+          );
+        },
+      },
+    ]);
+  };
+
+  const selectedPrice = useMemo(() => {
+    return searchType ? Number(prices?.[searchType.id] || 0) : 0;
+  }, [prices, searchType]);
+
+  const validateForm = () => {
+    if (!searchType) {
+      Alert.alert("Required", "Please select a NIMC service.");
+      return false;
+    }
+
+    if (!formData.searchValue.trim()) {
+      Alert.alert("Required", "Please enter ID number or search value.");
+      return false;
+    }
+
+    if (!formData.pin.trim() || formData.pin.length !== 4) {
+      Alert.alert("Required", "Please enter your 4-digit transaction PIN.");
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleVerification = async () => {
+    if (!validateForm()) return;
+
+    Alert.alert(
+      "Confirm NIMC Request",
+      `Proceed with ${searchType.name} for ₦${selectedPrice.toLocaleString()}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Proceed",
+          onPress: async () => {
+            try {
+              setLoading(true);
+
+              const headers = await getAuthHeaders();
+
+              if (!headers) {
+                Alert.alert("Session Expired", "Please login again.", [
+                  { text: "Login", onPress: () => navigation.navigate("Login") },
+                ]);
+                return;
+              }
+
+              const { data } = await axios.post(
+                API_ENDPOINTS.verifyAndCharge,
+                {
+                  searchValue: formData.searchValue.trim(),
+                  searchType: searchType.id,
+                  serviceType: searchType.id,
+                  pin: formData.pin,
+                  transactionPin: formData.pin,
+                  amount: selectedPrice,
+                },
+                {
+                  headers,
+                  timeout: 30000,
+                }
+              );
+
+              if (data?.success === false) {
+                Alert.alert(
+                  "Verification Failed",
+                  data?.message || "NIMC request failed."
+                );
+                return;
+              }
+
+              setUserData(data?.data || data?.result || data);
+              setView("result");
+            } catch (err) {
+              Alert.alert(
+                "Verification Failed",
+                err?.response?.data?.message ||
+                  err?.response?.data?.error ||
+                  "Unable to complete NIMC verification."
+              );
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const generatePDF = async () => {
-    if (!userData) return;
-    Alert.alert("Bellaj Data Hub", "Generating your document for printing...");
+    try {
+      if (!userData) return;
+
+      if (userData?.pdfUrl || userData?.slipUrl) {
+        await Linking.openURL(userData.pdfUrl || userData.slipUrl);
+        return;
+      }
+
+      const html = `
+        <html>
+          <body style="font-family: Arial; padding: 30px; color: #0F172A;">
+            <div style="border: 2px solid #E60000; border-radius: 16px; padding: 25px;">
+              <h1 style="text-align:center;color:#E60000;">BELLAJ DATA HUB</h1>
+              <h2 style="text-align:center;color:#0B5E3C;">NIMC PRINTING SLIP</h2>
+              <hr />
+              <p><b>Service:</b> ${searchType?.name || "NIMC Service"}</p>
+              <p><b>Full Name:</b> ${userData?.fullName || userData?.name || "N/A"}</p>
+              <p><b>NIN Number:</b> ${userData?.nin || "N/A"}</p>
+              <p><b>Tracking ID:</b> ${userData?.trackingId || "N/A"}</p>
+              <p><b>Reference:</b> ${userData?.reference || userData?.transactionId || "N/A"}</p>
+              <p><b>Date:</b> ${new Date().toLocaleString()}</p>
+              <p style="margin-top:30px;font-size:12px;color:#64748B;">
+                Generated securely by Bellaj Data Hub.
+              </p>
+            </div>
+          </body>
+        </html>
+      `;
+
+      const { uri } = await Print.printToFileAsync({ html });
+      await Sharing.shareAsync(uri);
+    } catch (error) {
+      Alert.alert("PDF Error", "Unable to generate printing slip.");
+    }
   };
 
-  if (view === "main" && !searchType) {
+  const renderHeader = (title, subtitle) => (
+    <View style={styles.header}>
+      <TouchableOpacity style={styles.headerIconBtn} onPress={goBack}>
+        <Ionicons name="arrow-back" size={23} color={COLORS.white} />
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.headerIconBtn} onPress={openMenu}>
+        <Ionicons name="menu" size={25} color={COLORS.white} />
+      </TouchableOpacity>
+
+      <View style={styles.headerTextBox}>
+        <Text style={styles.headerTitle}>{title}</Text>
+        <Text style={styles.headerSubtitle}>{subtitle}</Text>
+      </View>
+
+      <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
+        <Ionicons name="log-out-outline" size={21} color={COLORS.white} />
+      </TouchableOpacity>
+    </View>
+  );
+
+  if (!searchType && view === "main") {
     return (
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        <View style={styles.headerSection}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
-          </TouchableOpacity>
+      <View style={styles.screen}>
+        <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
+        {renderHeader("NIMC Services", "Verification, search and printing")}
 
-          <Text style={styles.headerTitle}>NIMC Printing Services</Text>
-
-          <View style={{ width: 24 }} />
-        </View>
-
-        <View style={styles.bannerCard}>
-          <MaterialCommunityIcons
-            name="printer-check"
-            size={40}
-            color={COLORS.white}
-          />
-
-          <View style={{ marginLeft: 15 }}>
-            <Text style={styles.bannerText}>Print NIMC Slips</Text>
-            <Text style={styles.bannerSub}>
-              Verify and download official slips
-            </Text>
-          </View>
-        </View>
-
-        <Text style={styles.sectionLabel}>Verification & Printing Options</Text>
-
-        <View style={styles.grid}>
-          <ServiceCard
-            title="NIN Verification"
-            icon="fingerprint"
-            price={prices.nin || 0}
-            onPress={() =>
-              setSearchType({ id: "nin", name: "NIN Verification" })
-            }
-          />
-
-          <ServiceCard
-            title="Phone Search"
-            icon="phone-alt"
-            price={prices.phone || 0}
-            onPress={() =>
-              setSearchType({ id: "phone", name: "Phone Number Search" })
-            }
-          />
-
-          <ServiceCard
-            title="Tracking ID"
-            icon="barcode"
-            price={prices.trackingId || 0}
-            onPress={() =>
-              setSearchType({ id: "trackingId", name: "Tracking ID Search" })
-            }
-          />
-
-          <ServiceCard
-            title="Premium ID Card"
-            icon="id-card"
-            price={prices.premiumCard || 0}
-            onPress={() =>
-              setSearchType({
-                id: "premiumCard",
-                name: "Premium Card Printing",
-              })
-            }
-          />
-
-          <ServiceCard
-            title="Standard Slip"
-            icon="file-alt"
-            price={prices.standardSlip || 0}
-            onPress={() =>
-              setSearchType({ id: "standardSlip", name: "Standard NIMC Slip" })
-            }
-          />
-
-          <ServiceCard
-            title="Basic NIMC Slip"
-            icon="print"
-            price={prices.basicSlip || 0}
-            onPress={() =>
-              setSearchType({ id: "basicSlip", name: "Basic Slip Printing" })
-            }
-          />
-        </View>
-
-        <TouchableOpacity
-          style={styles.modCard}
-          onPress={() => navigation.navigate("NIMCModification")}
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[COLORS.primary]}
+            />
+          }
         >
-          <View style={styles.modIconBox}>
-            <FontAwesome5 name="edit" size={20} color={COLORS.primary} />
+          <View style={styles.bannerCard}>
+            <MaterialCommunityIcons
+              name="printer-check"
+              size={40}
+              color={COLORS.white}
+            />
+
+            <View style={{ marginLeft: 15, flex: 1 }}>
+              <Text style={styles.bannerText}>Print NIMC Slips</Text>
+              <Text style={styles.bannerSub}>
+                Verify and download NIMC slips in real time.
+              </Text>
+            </View>
+
+            {fetchingPrices && (
+              <ActivityIndicator color={COLORS.white} size="small" />
+            )}
           </View>
 
-          <View style={{ flex: 1, marginLeft: 15 }}>
-            <Text style={styles.modTitle}>Data Modifications</Text>
-            <Text style={styles.modSub}>Correct Name, DOB or Phone Number</Text>
-          </View>
+          <Text style={styles.sectionLabel}>Verification & Printing Options</Text>
 
-          <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
-        </TouchableOpacity>
-      </ScrollView>
-    );
-  }
-
-  if (view === "main" && searchType) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.headerSection}>
-          <TouchableOpacity onPress={() => setSearchType(null)}>
-            <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
-          </TouchableOpacity>
-
-          <Text style={styles.headerTitle}>{searchType.name}</Text>
-
-          <View style={{ width: 24 }} />
-        </View>
-
-        <View style={styles.formCard}>
-          <Text style={styles.inputLabel}>Identification Number / Face ID</Text>
-
-          <TextInput
-            placeholder="Enter ID or Number"
-            placeholderTextColor="#94A3B8"
-            style={styles.input}
-            value={formData.searchValue}
-            onChangeText={(v) => setFormData({ ...formData, searchValue: v })}
-          />
-
-          <Text style={styles.inputLabel}>Transaction PIN</Text>
-
-          <TextInput
-            placeholder="****"
-            placeholderTextColor="#94A3B8"
-            style={styles.input}
-            secureTextEntry
-            keyboardType="numeric"
-            maxLength={4}
-            value={formData.pin}
-            onChangeText={(v) => setFormData({ ...formData, pin: v })}
-          />
-
-          <View style={styles.priceTag}>
-            <Text style={styles.priceLabel}>Service Fee:</Text>
-            <Text style={styles.priceValue}>₦{prices[searchType.id] || 0}</Text>
+          <View style={styles.grid}>
+            {SERVICES.map((service) => (
+              <ServiceCard
+                key={service.id}
+                title={service.title}
+                icon={service.icon}
+                price={prices?.[service.id] || 0}
+                onPress={() =>
+                  setSearchType({ id: service.id, name: service.title })
+                }
+              />
+            ))}
           </View>
 
           <TouchableOpacity
-            style={[styles.submitBtn, loading && { opacity: 0.75 }]}
-            onPress={handleVerification}
-            disabled={loading}
+            style={styles.modCard}
+            onPress={() => navigation.navigate("NIMCModification")}
+            activeOpacity={0.86}
           >
-            {loading ? (
-              <ActivityIndicator color={COLORS.white} />
-            ) : (
-              <Text style={styles.submitText}>Verify & Print</Text>
-            )}
+            <View style={styles.modIconBox}>
+              <FontAwesome5 name="edit" size={20} color={COLORS.primary} />
+            </View>
+
+            <View style={{ flex: 1, marginLeft: 15 }}>
+              <Text style={styles.modTitle}>Data Modifications</Text>
+              <Text style={styles.modSub}>Correct Name, DOB or Phone Number</Text>
+            </View>
+
+            <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
           </TouchableOpacity>
-        </View>
+        </ScrollView>
       </View>
     );
   }
 
-  if (view === "result") {
+  if (searchType && view === "main") {
     return (
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        <View style={styles.headerSection}>
-          <TouchableOpacity onPress={() => setView("main")}>
-            <Ionicons name="close" size={24} color={COLORS.primary} />
-          </TouchableOpacity>
+      <View style={styles.screen}>
+        <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
+        {renderHeader(searchType.name, "Enter details and transaction PIN")}
 
-          <Text style={styles.headerTitle}>Verification Success</Text>
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator
+        >
+          <View style={styles.formCard}>
+            <Text style={styles.inputLabel}>Identification Number / Search Value</Text>
 
-          <View style={{ width: 24 }} />
-        </View>
+            <View style={styles.inputWrapper}>
+              <MaterialCommunityIcons
+                name="card-search-outline"
+                size={22}
+                color={COLORS.muted}
+              />
+              <TextInput
+                placeholder="Enter ID, NIN, Phone or Tracking ID"
+                placeholderTextColor="#94A3B8"
+                style={styles.input}
+                value={formData.searchValue}
+                onChangeText={(v) =>
+                  setFormData({ ...formData, searchValue: v })
+                }
+              />
+            </View>
 
+            <Text style={styles.inputLabel}>Transaction PIN</Text>
+
+            <View style={styles.inputWrapper}>
+              <MaterialCommunityIcons
+                name="lock-outline"
+                size={22}
+                color={COLORS.muted}
+              />
+              <TextInput
+                placeholder="Enter 4-digit PIN"
+                placeholderTextColor="#94A3B8"
+                style={styles.input}
+                secureTextEntry
+                keyboardType="numeric"
+                maxLength={4}
+                value={formData.pin}
+                onChangeText={(v) => setFormData({ ...formData, pin: v })}
+              />
+            </View>
+
+            <View style={styles.priceTag}>
+              <Text style={styles.priceLabel}>Service Fee</Text>
+              <Text style={styles.priceValue}>
+                ₦{Number(selectedPrice || 0).toLocaleString()}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.submitBtn, loading && { opacity: 0.75 }]}
+              onPress={handleVerification}
+              disabled={loading}
+              activeOpacity={0.86}
+            >
+              {loading ? (
+                <ActivityIndicator color={COLORS.white} />
+              ) : (
+                <>
+                  <MaterialCommunityIcons
+                    name="shield-check-outline"
+                    size={22}
+                    color={COLORS.white}
+                  />
+                  <Text style={styles.submitText}>VERIFY & PRINT</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.screen}>
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
+      {renderHeader("Verification Success", "NIMC record found")}
+
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator
+      >
         <View style={styles.resultCard}>
-          {userData?.photo && (
+          {userData?.photo ? (
             <Image
               source={{ uri: `data:image/jpeg;base64,${userData.photo}` }}
               style={styles.userPhoto}
             />
+          ) : (
+            <View style={styles.photoFallback}>
+              <Ionicons name="person" size={55} color={COLORS.primary} />
+            </View>
           )}
 
           <View style={styles.infoBox}>
-            <InfoRow label="Full Name" value={userData?.fullName} />
+            <InfoRow label="Full Name" value={userData?.fullName || userData?.name} />
             <InfoRow label="NIN Number" value={userData?.nin} />
             <InfoRow label="Tracking ID" value={userData?.trackingId} />
+            <InfoRow
+              label="Reference"
+              value={userData?.reference || userData?.transactionId}
+            />
           </View>
 
           <TouchableOpacity style={styles.downloadBtn} onPress={generatePDF}>
@@ -311,15 +512,24 @@ const NIMCScreen = ({ navigation }) => {
               size={24}
               color={COLORS.white}
             />
-
             <Text style={styles.downloadText}>Download Printing Slip</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.doneBtn}
+            onPress={() => {
+              setView("main");
+              setSearchType(null);
+              setUserData(null);
+              setFormData({ searchValue: "", pin: "" });
+            }}
+          >
+            <Text style={styles.doneText}>Done</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
-    );
-  }
-
-  return null;
+    </View>
+  );
 };
 
 const ServiceCard = ({ title, icon, price, onPress }) => (
@@ -329,56 +539,80 @@ const ServiceCard = ({ title, icon, price, onPress }) => (
     </View>
 
     <Text style={styles.cardTitle}>{title}</Text>
-    <Text style={styles.cardPrice}>₦{price}</Text>
+    <Text style={styles.cardPrice}>₦{Number(price || 0).toLocaleString()}</Text>
   </TouchableOpacity>
 );
 
 const InfoRow = ({ label, value }) => (
-  <View style={{ marginBottom: 15 }}>
+  <View style={styles.infoRow}>
     <Text style={styles.infoLabel}>{label}</Text>
     <Text style={styles.infoValue}>{value || "N/A"}</Text>
   </View>
 );
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.light,
-    padding: 20,
-  },
-  headerSection: {
+  screen: { flex: 1, backgroundColor: COLORS.light },
+  header: {
+    backgroundColor: COLORS.primary,
+    paddingTop: Platform.OS === "android" ? 42 : 22,
+    paddingBottom: 16,
+    paddingHorizontal: 12,
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 40,
-    marginBottom: 25,
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "900",
-    color: COLORS.primary,
-    textAlign: "center",
+  headerIconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 13,
+    backgroundColor: "rgba(255,255,255,0.16)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 8,
+  },
+  headerTextBox: { flex: 1 },
+  headerTitle: { color: COLORS.white, fontSize: 19, fontWeight: "900" },
+  headerSubtitle: {
+    color: "#FFE4E4",
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 3,
+  },
+  logoutBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    backgroundColor: COLORS.dark,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  container: { flex: 1 },
+  content: {
+    padding: 16,
+    paddingBottom: 80,
+    flexGrow: 1,
   },
   bannerCard: {
     backgroundColor: COLORS.primary,
     padding: 20,
-    borderRadius: 20,
+    borderRadius: 22,
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 25,
+    marginBottom: 20,
   },
   bannerText: {
     color: COLORS.white,
-    fontSize: 18,
-    fontWeight: "bold",
+    fontSize: 20,
+    fontWeight: "900",
   },
   bannerSub: {
     color: "#FFE4E4",
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: "600",
+    marginTop: 3,
   },
   sectionLabel: {
-    fontSize: 16,
-    fontWeight: "800",
+    fontSize: 17,
+    fontWeight: "900",
     color: COLORS.dark,
     marginBottom: 15,
   },
@@ -386,30 +620,31 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
+    rowGap: 14,
   },
   card: {
     backgroundColor: COLORS.white,
-    width: (width - 55) / 2,
-    padding: 20,
+    width: (width - 46) / 2,
+    padding: 18,
     borderRadius: 20,
     alignItems: "center",
-    marginBottom: 15,
-    elevation: 3,
     borderWidth: 1,
     borderColor: COLORS.border,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.primary,
   },
   iconCircle: {
-    width: 50,
-    height: 50,
+    width: 52,
+    height: 52,
     backgroundColor: COLORS.softRed,
-    borderRadius: 25,
+    borderRadius: 18,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 10,
   },
   cardTitle: {
     fontSize: 13,
-    fontWeight: "700",
+    fontWeight: "800",
     color: "#475569",
     textAlign: "center",
   },
@@ -417,137 +652,162 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "900",
     color: COLORS.secondary,
-    marginTop: 5,
+    marginTop: 6,
   },
   modCard: {
     backgroundColor: COLORS.white,
     flexDirection: "row",
-    padding: 15,
+    padding: 16,
     borderRadius: 20,
     alignItems: "center",
-    marginTop: 10,
+    marginTop: 18,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderLeftWidth: 4,
+    borderLeftWidth: 5,
     borderLeftColor: COLORS.secondary,
   },
   modIconBox: {
-    width: 45,
-    height: 45,
+    width: 48,
+    height: 48,
     backgroundColor: COLORS.softGreen,
-    borderRadius: 12,
+    borderRadius: 15,
     justifyContent: "center",
     alignItems: "center",
   },
-  modTitle: {
-    fontWeight: "800",
-    color: COLORS.secondary,
-  },
-  modSub: {
-    fontSize: 11,
-    color: COLORS.muted,
-  },
+  modTitle: { fontWeight: "900", color: COLORS.secondary },
+  modSub: { fontSize: 12, color: COLORS.muted, fontWeight: "600" },
   formCard: {
     backgroundColor: COLORS.white,
-    padding: 25,
-    borderRadius: 25,
-    elevation: 5,
+    padding: 20,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderLeftWidth: 4,
+    borderLeftWidth: 5,
     borderLeftColor: COLORS.primary,
   },
   inputLabel: {
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 13,
+    fontWeight: "900",
     color: COLORS.muted,
-    marginBottom: 8,
-    marginLeft: 5,
+    marginBottom: 9,
   },
-  input: {
+  inputWrapper: {
     backgroundColor: COLORS.light,
-    padding: 18,
-    borderRadius: 15,
-    marginBottom: 20,
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.dark,
     borderWidth: 1,
     borderColor: COLORS.border,
+    paddingHorizontal: 13,
+    borderRadius: 15,
+    minHeight: 54,
+    marginBottom: 16,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  input: {
+    flex: 1,
+    paddingVertical: 13,
+    paddingHorizontal: 10,
+    fontSize: 15,
+    fontWeight: "700",
+    color: COLORS.dark,
+    ...(Platform.OS === "web" ? { outlineStyle: "none" } : {}),
   },
   priceTag: {
+    backgroundColor: COLORS.softGreen,
+    borderRadius: 16,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: COLORS.secondary,
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 25,
+    marginBottom: 18,
   },
-  priceLabel: {
-    fontWeight: "700",
-    color: COLORS.muted,
-  },
-  priceValue: {
-    fontWeight: "900",
-    color: COLORS.secondary,
-    fontSize: 16,
-  },
+  priceLabel: { fontWeight: "900", color: COLORS.secondary },
+  priceValue: { fontWeight: "900", color: COLORS.secondary, fontSize: 16 },
   submitBtn: {
     backgroundColor: COLORS.primary,
-    padding: 20,
-    borderRadius: 18,
+    minHeight: 58,
+    borderRadius: 17,
     alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
   },
   submitText: {
     color: COLORS.white,
     fontWeight: "900",
-    fontSize: 16,
+    fontSize: 15,
   },
   resultCard: {
     backgroundColor: COLORS.white,
     padding: 20,
-    borderRadius: 25,
+    borderRadius: 24,
     alignItems: "center",
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   userPhoto: {
-    width: 120,
-    height: 120,
-    borderRadius: 15,
+    width: 125,
+    height: 125,
+    borderRadius: 18,
     marginBottom: 20,
+    borderWidth: 3,
+    borderColor: COLORS.primary,
+  },
+  photoFallback: {
+    width: 125,
+    height: 125,
+    borderRadius: 18,
+    marginBottom: 20,
+    backgroundColor: COLORS.softRed,
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 3,
     borderColor: COLORS.primary,
   },
   infoBox: {
     width: "100%",
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    paddingTop: 20,
+    backgroundColor: COLORS.light,
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
+  infoRow: { marginBottom: 14 },
   infoLabel: {
     fontSize: 11,
     color: "#94A3B8",
-    fontWeight: "700",
+    fontWeight: "900",
     textTransform: "uppercase",
   },
   infoValue: {
     fontSize: 16,
     color: COLORS.dark,
-    fontWeight: "800",
-    marginBottom: 15,
+    fontWeight: "900",
+    marginTop: 3,
   },
   downloadBtn: {
     backgroundColor: COLORS.primary,
     flexDirection: "row",
     width: "100%",
-    padding: 18,
-    borderRadius: 15,
+    minHeight: 58,
+    borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 10,
+    marginTop: 18,
   },
   downloadText: {
     color: COLORS.white,
     fontWeight: "900",
     marginLeft: 10,
+  },
+  doneBtn: {
+    marginTop: 16,
+    paddingVertical: 10,
+  },
+  doneText: {
+    color: COLORS.primary,
+    fontWeight: "900",
+    fontSize: 15,
   },
 });
 

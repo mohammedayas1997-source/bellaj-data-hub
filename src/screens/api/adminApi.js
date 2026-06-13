@@ -1,18 +1,14 @@
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import BASE_URL from "../config/api";
 
-/*
-|--------------------------------------------------------------------------
-| Bellaj Data Hub Admin API
-|--------------------------------------------------------------------------
-| Configure your backend endpoint below
-|--------------------------------------------------------------------------
-*/
-
-const API_BASE_URL = "";
+const API_BASE_URL = `${BASE_URL}/admin`;
 
 const getHeader = async () => {
-  const token = await AsyncStorage.getItem("userToken");
+  const token =
+    (await AsyncStorage.getItem("userToken")) ||
+    (await AsyncStorage.getItem("token")) ||
+    (await AsyncStorage.getItem("adminToken"));
 
   return {
     headers: {
@@ -20,83 +16,50 @@ const getHeader = async () => {
       Accept: "application/json",
       "Content-Type": "application/json",
     },
+    timeout: 30000,
   };
 };
 
-/*
-|--------------------------------------------------------------------------
-| Transaction Tracking
-|--------------------------------------------------------------------------
-*/
 export const trackTx = async (transactionId) => {
-  return axios.get(`${API_BASE_URL}/track/${transactionId}`, await getHeader());
+  return axios.get(
+    `${API_BASE_URL}/track/${encodeURIComponent(transactionId)}`,
+    await getHeader()
+  );
 };
 
-/*
-|--------------------------------------------------------------------------
-| Debit User Wallet
-|--------------------------------------------------------------------------
-*/
 export const debitUser = async (payload) => {
   return axios.post(`${API_BASE_URL}/debit-user`, payload, await getHeader());
 };
 
-/*
-|--------------------------------------------------------------------------
-| Resolve Customer Report
-|--------------------------------------------------------------------------
-*/
 export const resolveIssue = async (payload) => {
-  return axios.patch(
-    `${API_BASE_URL}/handle-report`,
-    payload,
-    await getHeader(),
-  );
+  return axios.patch(`${API_BASE_URL}/handle-report`, payload, await getHeader());
 };
 
-/*
-|--------------------------------------------------------------------------
-| Get All Reports
-|--------------------------------------------------------------------------
-*/
 export const getAllReports = async () => {
   return axios.get(`${API_BASE_URL}/all-reports`, await getHeader());
 };
-
-/*
-|--------------------------------------------------------------------------
-| Additional Bellaj Admin Functions
-|--------------------------------------------------------------------------
-*/
 
 export const getAllUsers = async () => {
   return axios.get(`${API_BASE_URL}/users`, await getHeader());
 };
 
 export const blockUser = async (userId) => {
-  return axios.patch(
-    `${API_BASE_URL}/block-user`,
-    { userId },
-    await getHeader(),
-  );
+  return axios.patch(`${API_BASE_URL}/block-user`, { userId }, await getHeader());
 };
 
 export const unblockUser = async (userId) => {
   return axios.patch(
     `${API_BASE_URL}/unblock-user`,
     { userId },
-    await getHeader(),
+    await getHeader()
   );
 };
 
-export const updateUserRole = async (userId, role) => {
+export const updateUserRole = async (userId, newRole) => {
   return axios.put(
     `${API_BASE_URL}/manage-role`,
-    {
-      userId,
-      role,
-    },
-    await getHeader(),
+    { userId, newRole, role: newRole },
+    await getHeader()
   );
 };
 
