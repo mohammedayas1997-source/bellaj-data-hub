@@ -51,6 +51,7 @@ import AboutScreen from "./src/screens/AboutScreen";
 import PrivacyPolicyScreen from "./src/screens/PrivacyPolicyScreen";
 import TermsScreen from "./src/screens/TermsScreen";
 import NINValidation from "./src/screens/NINValidation";
+import PricingSettings from "./src/screens/PricingSettings";
 
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -149,7 +150,7 @@ function AppContent() {
         <Stack.Screen name="SalesLogs" component={HistoryScreen} />
 
         <Stack.Screen name="IssueResolution" component={PlaceholderScreen} />
-        <Stack.Screen name="PricingSettings" component={PlaceholderScreen} />
+        <Stack.Screen name="PricingSettings" component={PricingSettings} />
         <Stack.Screen name="BvnRequests" component={PlaceholderScreen} />
         <Stack.Screen name="DataPlans" component={PlaceholderScreen} />
         <Stack.Screen name="CableTvPlans" component={PlaceholderScreen} />
