@@ -6,6 +6,7 @@ import {
   View,
   SafeAreaView,
   Platform,
+  StatusBar,
 } from "react-native";
 
 const COLORS = {
@@ -19,78 +20,100 @@ const COLORS = {
   softGreen: "#EAF7F1",
 };
 
+const TERMS = [
+  [
+    "1. Acceptance of Terms",
+    "By creating an account or using Bellaj Data Hub services, you acknowledge that you have read, understood, and agreed to be bound by these Terms and Conditions. Continued use of the platform constitutes acceptance of all applicable rules and policies.",
+  ],
+  [
+    "2. Account Responsibility",
+    "Users are solely responsible for maintaining the security of their login credentials, transaction PINs, and device access. Any activity carried out through your account shall be considered authorized by the account owner.",
+  ],
+  [
+    "3. Transaction Policy",
+    "All purchases of airtime, data subscriptions, cable TV services, electricity units, and identity verification services should be carefully reviewed before confirmation. Successfully completed digital transactions are generally non-refundable except where service failure is verified by Bellaj Data Hub.",
+  ],
+  [
+    "4. Service Availability",
+    "While Bellaj Data Hub strives to provide uninterrupted services, temporary outages may occur due to maintenance, network provider issues, banking disruptions, or events beyond our reasonable control.",
+  ],
+  [
+    "5. Prohibited Activities",
+    "Users must not engage in fraudulent transactions, unauthorized access attempts, identity theft, money laundering, abuse of promotional offers, or any activity that violates applicable laws and regulations.",
+  ],
+  [
+    "6. Limitation of Liability",
+    "Bellaj Data Hub shall not be liable for indirect, consequential, incidental, or special damages resulting from service interruptions, network failures, banking delays, or third-party system malfunctions beyond our operational control.",
+  ],
+  [
+    "7. Policy Updates",
+    "Bellaj Data Hub reserves the right to modify these Terms and Conditions at any time. Updated versions will become effective immediately after publication within the application.",
+  ],
+];
+
 const TermsScreen = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.page}>
-        <Text style={styles.headerTitle}>Terms & Conditions</Text>
-        <Text style={styles.headerSub}>Bellaj Data Hub User Agreement</Text>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.light} />
 
-        <View style={styles.scrollBox}>
-          <ScrollView
-            style={styles.innerScroll}
-            contentContainerStyle={styles.innerContent}
-            showsVerticalScrollIndicator
-            nestedScrollEnabled
-          >
-            {[
-              [
-                "1. Acceptance of Terms",
-                "By creating an account or using Bellaj Data Hub services, you acknowledge that you have read, understood, and agreed to be bound by these Terms and Conditions. Continued use of the platform constitutes acceptance of all applicable rules and policies.",
-              ],
-              [
-                "2. Account Responsibility",
-                "Users are solely responsible for maintaining the security of their login credentials, transaction PINs, and device access. Any activity carried out through your account shall be considered authorized by the account owner.",
-              ],
-              [
-                "3. Transaction Policy",
-                "All purchases of airtime, data subscriptions, cable TV services, electricity units, and identity verification services should be carefully reviewed before confirmation. Successfully completed digital transactions are generally non-refundable except where service failure is verified by Bellaj Data Hub.",
-              ],
-              [
-                "4. Service Availability",
-                "While Bellaj Data Hub strives to provide uninterrupted services, temporary outages may occur due to maintenance, network provider issues, banking disruptions, or events beyond our reasonable control.",
-              ],
-              [
-                "5. Prohibited Activities",
-                "Users must not engage in fraudulent transactions, unauthorized access attempts, identity theft, money laundering, abuse of promotional offers, or any activity that violates applicable laws and regulations.",
-              ],
-              [
-                "6. Limitation of Liability",
-                "Bellaj Data Hub shall not be liable for indirect, consequential, incidental, or special damages resulting from service interruptions, network failures, banking delays, or third-party system malfunctions beyond our operational control.",
-              ],
-              [
-                "7. Policy Updates",
-                "Bellaj Data Hub reserves the right to modify these Terms and Conditions at any time. Updated versions will become effective immediately after publication within the application.",
-              ],
-            ].map(([title, body]) => (
-              <View style={styles.card} key={title}>
-                <Text style={styles.sectionTitle}>{title}</Text>
-                <Text style={styles.bodyText}>{body}</Text>
-              </View>
-            ))}
-
-            <View style={styles.noticeBox}>
-              <Text style={styles.noticeTitle}>Important Notice</Text>
-              <Text style={styles.noticeText}>
-                By continuing to use Bellaj Data Hub, you agree to comply with
-                all platform policies, security requirements, and applicable
-                financial regulations.
-              </Text>
-            </View>
-          </ScrollView>
+      <ScrollView
+        style={styles.mainScroll}
+        contentContainerStyle={styles.mainContent}
+        showsVerticalScrollIndicator
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
+        bounces
+      >
+        <View style={styles.headerBox}>
+          <Text style={styles.headerTitle}>Terms & Conditions</Text>
+          <Text style={styles.headerSub}>Bellaj Data Hub User Agreement</Text>
         </View>
-      </View>
+
+        <View style={styles.contentCard}>
+          {TERMS.map(([title, body]) => (
+            <View style={styles.card} key={title}>
+              <Text style={styles.sectionTitle}>{title}</Text>
+              <Text style={styles.bodyText}>{body}</Text>
+            </View>
+          ))}
+
+          <View style={styles.noticeBox}>
+            <Text style={styles.noticeTitle}>Important Notice</Text>
+            <Text style={styles.noticeText}>
+              By continuing to use Bellaj Data Hub, you agree to comply with all
+              platform policies, security requirements, and applicable financial
+              regulations.
+            </Text>
+          </View>
+        </View>
+
+        <View style={{ height: 40 }} />
+      </ScrollView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: COLORS.light },
-  page: {
+  safeArea: {
     flex: 1,
-    paddingHorizontal: 18,
+    backgroundColor: COLORS.light,
+  },
+  mainScroll: {
+    flex: 1,
+    backgroundColor: COLORS.light,
+  },
+  mainContent: {
+    flexGrow: 1,
+    paddingHorizontal: 16,
     paddingTop: Platform.OS === "android" ? 35 : 20,
-    paddingBottom: 20,
+    paddingBottom: 60,
+    width: "100%",
+    maxWidth: 900,
+    alignSelf: "center",
+  },
+  headerBox: {
+    marginBottom: 16,
+    alignItems: "center",
   },
   headerTitle: {
     fontSize: 29,
@@ -104,21 +127,15 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     textAlign: "center",
     marginTop: 5,
-    marginBottom: 16,
   },
-  scrollBox: {
-    flex: 1,
+  contentCard: {
     backgroundColor: COLORS.white,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: COLORS.border,
-    overflow: "hidden",
+    padding: 14,
     elevation: 3,
-  },
-  innerScroll: { flex: 1 },
-  innerContent: {
-    padding: 16,
-    paddingBottom: 35,
+    width: "100%",
   },
   card: {
     backgroundColor: COLORS.light,
@@ -148,6 +165,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     borderColor: "#BBF7D0",
+    marginTop: 4,
   },
   noticeTitle: {
     fontSize: 18,

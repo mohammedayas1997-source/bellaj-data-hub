@@ -15,7 +15,10 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import axios from "axios";
 import * as Clipboard from "expo-clipboard";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { CommonActions } from "@react-navigation/native";
+import {
+  CommonActions,
+  DrawerActions,
+} from "@react-navigation/native";
 import BASE_URL from "../config/api";
 
 const COLORS = {
@@ -49,7 +52,7 @@ const DEFAULT_DATA = {
   agents: [],
 };
 
-const SupervisorDashboard = ({ navigation }) => {
+const SupervisorDashboard = ({ navigation, route }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [supervisorData, setSupervisorData] = useState(DEFAULT_DATA);
@@ -178,29 +181,35 @@ const SupervisorDashboard = ({ navigation }) => {
   };
 
   const openMenu = () => {
+  try {
+    navigation.dispatch(DrawerActions.openDrawer());
+  } catch {
     const parent = navigation?.getParent?.();
 
-    if (navigation?.openDrawer) {
-      navigation.openDrawer();
-      return;
-    }
+    if (navigation?.openDrawer) return navigation.openDrawer();
+    if (parent?.openDrawer) return parent.openDrawer();
 
-    if (parent?.openDrawer) {
-      parent.openDrawer();
-      return;
-    }
-
-    navigation?.navigate?.("Main");
-  };
+    navigation.navigate("Main", {
+      screen: "SuperAdminDashboard",
+    });
+  }
+};
 
   const goBack = () => {
-    if (navigation?.canGoBack?.()) {
-      navigation.goBack();
-      return;
-    }
-
-    navigation?.navigate?.("Main");
-  };
+  navigation.dispatch(
+    CommonActions.reset({
+      index: 0,
+      routes: [
+        {
+          name: "Main",
+          params: {
+            screen: "SuperAdminDashboard",
+          },
+        },
+      ],
+    })
+  );
+};
 
   const logout = async () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
@@ -417,7 +426,13 @@ const SupervisorDashboard = ({ navigation }) => {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Daily Agent Performance</Text>
 
-          <TouchableOpacity onPress={() => navigation.navigate("ManageAgents")}>
+          <TouchableOpacity
+  onPress={() =>
+    navigation.navigate("ManageAgents", {
+      backScreen: "SuperAdminDashboard",
+    })
+  }
+>
             <Text style={styles.viewAll}>View All</Text>
           </TouchableOpacity>
         </View>
@@ -480,7 +495,11 @@ const SupervisorDashboard = ({ navigation }) => {
 
         <TouchableOpacity
           style={styles.addAgentBtn}
-          onPress={() => navigation.navigate("Signup")}
+          onPress={() =>
+  navigation.navigate("Signup", {
+    backScreen: "SuperAdminDashboard",
+  })
+}
         >
           <Ionicons
             name="person-add"

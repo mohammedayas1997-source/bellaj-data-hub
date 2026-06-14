@@ -368,23 +368,6 @@ const NIMCScreen = ({ navigation }) => {
               />
             ))}
           </View>
-
-          <TouchableOpacity
-            style={styles.modCard}
-            onPress={() => navigation.navigate("NIMCModification")}
-            activeOpacity={0.86}
-          >
-            <View style={styles.modIconBox}>
-              <FontAwesome5 name="edit" size={20} color={COLORS.primary} />
-            </View>
-
-            <View style={{ flex: 1, marginLeft: 15 }}>
-              <Text style={styles.modTitle}>Data Modifications</Text>
-              <Text style={styles.modSub}>Correct Name, DOB or Phone Number</Text>
-            </View>
-
-            <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
-          </TouchableOpacity>
         </ScrollView>
       </View>
     );
@@ -654,28 +637,6 @@ const styles = StyleSheet.create({
     color: COLORS.secondary,
     marginTop: 6,
   },
-  modCard: {
-    backgroundColor: COLORS.white,
-    flexDirection: "row",
-    padding: 16,
-    borderRadius: 20,
-    alignItems: "center",
-    marginTop: 18,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderLeftWidth: 5,
-    borderLeftColor: COLORS.secondary,
-  },
-  modIconBox: {
-    width: 48,
-    height: 48,
-    backgroundColor: COLORS.softGreen,
-    borderRadius: 15,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modTitle: { fontWeight: "900", color: COLORS.secondary },
-  modSub: { fontSize: 12, color: COLORS.muted, fontWeight: "600" },
   formCard: {
     backgroundColor: COLORS.white,
     padding: 20,

@@ -15,7 +15,10 @@ import {
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { CommonActions } from "@react-navigation/native";
+import {
+  CommonActions,
+  DrawerActions,
+} from "@react-navigation/native";
 import BASE_URL from "../config/api";
 
 const COLORS = {
@@ -115,29 +118,51 @@ const AssignTargetScreen = ({ navigation, route }) => {
   };
 
   const openMenu = () => {
+  try {
+    navigation.dispatch(DrawerActions.openDrawer());
+  } catch {
     const parent = navigation.getParent?.();
 
-    if (navigation.openDrawer) {
-      navigation.openDrawer();
-      return;
-    }
+    if (navigation.openDrawer) return navigation.openDrawer();
+    if (parent?.openDrawer) return parent.openDrawer();
 
-    if (parent?.openDrawer) {
-      parent.openDrawer();
-      return;
-    }
-
-    Alert.alert("Menu", "Drawer menu is not available on this navigator.");
-  };
+    navigation.navigate("Main", { screen: "AssignTarget" });
+  }
+};
 
   const goBack = () => {
-    if (navigation.canGoBack?.()) {
-      navigation.goBack();
-      return;
-    }
+  if (
+    route?.params?.fromSuperAdmin ||
+    route?.params?.backScreen === "SuperAdminDashboard"
+  ) {
+    navigation.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [
+          {
+            name: "Main",
+            params: {
+              screen: "SuperAdminDashboard",
+            },
+          },
+        ],
+      })
+    );
+    return;
+  }
 
+  if (route?.params?.backScreen === "AdminDashboard") {
     navigation.navigate("AdminDashboard");
-  };
+    return;
+  }
+
+  if (navigation.canGoBack?.()) {
+    navigation.goBack();
+    return;
+  }
+
+  navigation.navigate("Main", { screen: "AdminDashboard" });
+};
 
   const logout = async () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [

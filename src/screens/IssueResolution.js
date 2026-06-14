@@ -105,13 +105,20 @@ const IssueResolution = ({ navigation }) => {
   };
 
   const goBack = () => {
-    if (navigation.canGoBack?.()) {
-      navigation.goBack();
-      return;
-    }
-
-    navigation.navigate("AdminDashboard");
-  };
+  navigation.dispatch(
+    CommonActions.reset({
+      index: 0,
+      routes: [
+        {
+          name: "Main",
+          params: {
+            screen: "SuperAdminDashboard",
+          },
+        },
+      ],
+    })
+  );
+};
 
   const logout = async () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
@@ -240,9 +247,16 @@ const IssueResolution = ({ navigation }) => {
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.headerIconBtn} onPress={goBack}>
-          <Ionicons name="arrow-back" size={23} color={COLORS.white} />
-        </TouchableOpacity>
+        <TouchableOpacity
+  style={styles.headerIconBtn}
+  onPress={goBack}
+>
+  <Ionicons
+    name="arrow-back"
+    size={23}
+    color={COLORS.white}
+  />
+</TouchableOpacity>
 
         <TouchableOpacity style={styles.headerIconBtn} onPress={openMenu}>
           <Ionicons name="menu" size={25} color={COLORS.white} />

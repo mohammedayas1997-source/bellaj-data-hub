@@ -16,7 +16,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { CommonActions } from "@react-navigation/native";
 import BASE_URL from "../config/api";
-
+import { CommonActions, DrawerActions } from "@react-navigation/native";
 const COLORS = {
   primary: "#E60000",
   secondary: "#0B5E3C",
@@ -72,14 +72,38 @@ const AdminUserControl = ({ navigation }) => {
   };
 
   const goBack = () => {
-    if (navigation.canGoBack?.()) {
-      navigation.goBack();
-      return;
-    }
+  if (
+    route?.params?.fromSuperAdmin ||
+    route?.params?.backScreen === "SuperAdminDashboard"
+  ) {
+    navigation.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [
+          {
+            name: "Main",
+            params: {
+              screen: "SuperAdminDashboard",
+            },
+          },
+        ],
+      })
+    );
+    return;
+  }
 
+  if (route?.params?.backScreen === "AdminDashboard") {
     navigation.navigate("AdminDashboard");
-  };
+    return;
+  }
 
+  if (navigation.canGoBack?.()) {
+    navigation.goBack();
+    return;
+  }
+
+  navigation.navigate("Main", { screen: "AdminDashboard" });
+};
   const logout = async () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
       { text: "Cancel", style: "cancel" },

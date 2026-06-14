@@ -6,6 +6,7 @@ import {
   View,
   SafeAreaView,
   Platform,
+  StatusBar,
 } from "react-native";
 
 const COLORS = {
@@ -53,35 +54,41 @@ const PrivacyPolicyScreen = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.page}>
-        <Text style={styles.headerTitle}>Privacy Policy</Text>
-        <Text style={styles.date}>Effective Date: May 2026</Text>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.light} />
 
-        <View style={styles.scrollBox}>
-          <ScrollView
-            style={styles.innerScroll}
-            contentContainerStyle={styles.innerContent}
-            showsVerticalScrollIndicator
-            nestedScrollEnabled
-            keyboardShouldPersistTaps="handled"
-          >
-            {privacySections.map(([title, body]) => (
-              <View style={styles.card} key={title}>
-                <Text style={styles.sectionTitle}>{title}</Text>
-                <Text style={styles.bodyText}>{body}</Text>
-              </View>
-            ))}
-
-            <View style={styles.noticeBox}>
-              <Text style={styles.noticeTitle}>Your Privacy Matters</Text>
-              <Text style={styles.noticeText}>
-                We are committed to protecting your information and providing a
-                secure digital experience every time you use Bellaj Data Hub.
-              </Text>
-            </View>
-          </ScrollView>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={true}
+        nestedScrollEnabled={true}
+        keyboardShouldPersistTaps="handled"
+        bounces={true}
+      >
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Privacy Policy</Text>
+          <Text style={styles.date}>Effective Date: May 2026</Text>
         </View>
-      </View>
+
+        <View style={styles.contentCard}>
+          {privacySections.map(([title, body]) => (
+            <View style={styles.card} key={title}>
+              <Text style={styles.sectionTitle}>{title}</Text>
+              <Text style={styles.bodyText}>{body}</Text>
+            </View>
+          ))}
+
+          <View style={styles.noticeBox}>
+            <Text style={styles.noticeTitle}>Your Privacy Matters</Text>
+
+            <Text style={styles.noticeText}>
+              We are committed to protecting your information and providing a
+              secure digital experience every time you use Bellaj Data Hub.
+            </Text>
+          </View>
+        </View>
+
+        <View style={{ height: 40 }} />
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -92,12 +99,24 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.light,
   },
 
-  page: {
+  container: {
     flex: 1,
     backgroundColor: COLORS.light,
-    paddingHorizontal: 18,
+  },
+
+  contentContainer: {
+    flexGrow: 1,
+    paddingHorizontal: 16,
     paddingTop: Platform.OS === "android" ? 35 : 20,
-    paddingBottom: 20,
+    paddingBottom: 60,
+    width: "100%",
+    maxWidth: 900,
+    alignSelf: "center",
+  },
+
+  header: {
+    alignItems: "center",
+    marginBottom: 18,
   },
 
   headerTitle: {
@@ -105,34 +124,23 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     color: COLORS.primary,
     textAlign: "center",
-    marginBottom: 5,
   },
 
   date: {
     fontSize: 13,
     color: COLORS.muted,
-    marginBottom: 16,
     textAlign: "center",
+    marginTop: 6,
     fontWeight: "700",
   },
 
-  scrollBox: {
-    flex: 1,
+  contentCard: {
     backgroundColor: COLORS.white,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: COLORS.border,
-    overflow: "hidden",
+    padding: 15,
     elevation: 3,
-  },
-
-  innerScroll: {
-    flex: 1,
-  },
-
-  innerContent: {
-    padding: 16,
-    paddingBottom: 35,
   },
 
   card: {
@@ -166,6 +174,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     borderColor: "#BBF7D0",
+    marginTop: 5,
   },
 
   noticeTitle: {

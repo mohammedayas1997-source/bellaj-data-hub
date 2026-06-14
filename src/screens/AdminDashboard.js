@@ -12,11 +12,7 @@ import {
   useWindowDimensions,
   StatusBar,
 } from "react-native";
-import {
-  useNavigation,
-  CommonActions,
-  DrawerActions,
-} from "@react-navigation/native";
+import { CommonActions, DrawerActions } from "@react-navigation/native";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -62,8 +58,7 @@ const API_ENDPOINTS = {
   transactions: `${BASE_URL}/admin/transactions`,
 };
 
-const AdminDashboard = () => {
-  const navigation = useNavigation();
+const AdminDashboard = ({ navigation, route }) => {
   const { width } = useWindowDimensions();
   const { isDarkMode } = useContext(ThemeContext);
 
@@ -167,6 +162,39 @@ const AdminDashboard = () => {
     fetchStats();
   };
 
+  const goToSuperAdmin = () => {
+    navigation.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [
+          {
+            name: "Main",
+            params: {
+              screen: "SuperAdminDashboard",
+            },
+          },
+        ],
+      })
+    );
+  };
+
+  const goBack = () => {
+    if (
+      route?.params?.fromSuperAdmin ||
+      route?.params?.backScreen === "SuperAdminDashboard"
+    ) {
+      goToSuperAdmin();
+      return;
+    }
+
+    if (navigation.canGoBack?.()) {
+      navigation.goBack();
+      return;
+    }
+
+    navigation.navigate("Main", { screen: "AdminDashboard" });
+  };
+
   const openMenu = () => {
     try {
       navigation.dispatch(DrawerActions.openDrawer());
@@ -182,8 +210,15 @@ const AdminDashboard = () => {
 
   const safeNavigate = (screenName) => {
     navigation.navigate(screenName, {
+      fromSuperAdmin:
+        route?.params?.fromSuperAdmin ||
+        route?.params?.backScreen === "SuperAdminDashboard",
       fromAdminDashboard: true,
-      backScreen: "AdminDashboard",
+      backScreen:
+        route?.params?.fromSuperAdmin ||
+        route?.params?.backScreen === "SuperAdminDashboard"
+          ? "SuperAdminDashboard"
+          : "AdminDashboard",
     });
   };
 
@@ -398,6 +433,10 @@ const AdminDashboard = () => {
       <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
 
       <View style={styles.header}>
+        <TouchableOpacity style={styles.headerIconBtn} onPress={goBack}>
+          <Ionicons name="arrow-back" size={24} color={COLORS.white} />
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.headerIconBtn} onPress={openMenu}>
           <Ionicons name="menu" size={26} color={COLORS.white} />
         </TouchableOpacity>

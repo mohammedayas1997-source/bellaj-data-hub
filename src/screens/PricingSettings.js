@@ -15,7 +15,10 @@ import {
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { CommonActions } from "@react-navigation/native";
+import {
+  CommonActions,
+  DrawerActions,
+} from "@react-navigation/native";
 import BASE_URL from "../config/api";
 
 const COLORS = {
@@ -60,7 +63,7 @@ const DEFAULT_PRICING = {
   },
 };
 
-const PricingSettings = ({ navigation }) => {
+const PricingSettings = ({ navigation, route }) => {
   const [pricing, setPricing] = useState(DEFAULT_PRICING);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -198,18 +201,32 @@ const PricingSettings = ({ navigation }) => {
   };
 
   const goBack = () => {
-    if (navigation?.canGoBack?.()) return navigation.goBack();
-    navigation?.navigate?.("AdminDashboard");
-  };
-
+  navigation.dispatch(
+    CommonActions.reset({
+      index: 0,
+      routes: [
+        {
+          name: "Main",
+          params: {
+            screen: "SuperAdminDashboard",
+          },
+        },
+      ],
+    })
+  );
+};
   const openMenu = () => {
+  try {
+    navigation.dispatch(DrawerActions.openDrawer());
+  } catch {
     const parent = navigation?.getParent?.();
 
     if (navigation?.openDrawer) return navigation.openDrawer();
     if (parent?.openDrawer) return parent.openDrawer();
 
-    navigation?.navigate?.("Main");
-  };
+    navigation?.navigate?.("Main", { screen: "PricingSettings" });
+  }
+};
 
   const logout = async () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [

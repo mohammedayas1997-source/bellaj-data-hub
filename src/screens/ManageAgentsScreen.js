@@ -15,7 +15,10 @@ import { MaterialIcons, FontAwesome5, Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { CommonActions } from "@react-navigation/native";
+import {
+  CommonActions,
+  DrawerActions,
+} from "@react-navigation/native";
 import BASE_URL from "../config/api";
 
 const COLORS = {
@@ -36,7 +39,7 @@ const API_ENDPOINTS = {
   assignAgent: `${BASE_URL}/admin/assign-agent`,
 };
 
-const ManageAgentsScreen = ({ navigation }) => {
+const ManageAgentsScreen = ({ navigation, route }) => {
   const [agents, setAgents] = useState([]);
   const [supervisors, setSupervisors] = useState([]);
   const [selectedSupervisor, setSelectedSupervisor] = useState({});
@@ -140,30 +143,33 @@ const ManageAgentsScreen = ({ navigation }) => {
   };
 
   const openMenu = () => {
+  try {
+    navigation.dispatch(DrawerActions.openDrawer());
+  } catch {
     const parent = navigation?.getParent?.();
 
-    if (navigation?.openDrawer) {
-      navigation.openDrawer();
-      return;
-    }
+    if (navigation?.openDrawer) return navigation.openDrawer();
+    if (parent?.openDrawer) return parent.openDrawer();
 
-    if (parent?.openDrawer) {
-      parent.openDrawer();
-      return;
-    }
-
-    navigation?.navigate?.("Main");
-  };
+    navigation?.navigate?.("Main", { screen: "ManageAgents" });
+  }
+};
 
   const goBack = () => {
-    if (navigation?.canGoBack?.()) {
-      navigation.goBack();
-      return;
-    }
-
-    navigation?.navigate?.("LeaderDashboard");
-  };
-
+  navigation.dispatch(
+    CommonActions.reset({
+      index: 0,
+      routes: [
+        {
+          name: "Main",
+          params: {
+            screen: "SuperAdminDashboard",
+          },
+        },
+      ],
+    })
+  );
+};
   const logout = async () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
       { text: "Cancel", style: "cancel" },

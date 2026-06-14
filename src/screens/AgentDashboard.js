@@ -21,7 +21,10 @@ import {
   Ionicons,
   FontAwesome5,
 } from "@expo/vector-icons";
-import { CommonActions } from "@react-navigation/native";
+import {
+  CommonActions,
+  DrawerActions,
+} from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
@@ -50,7 +53,7 @@ const API_ENDPOINTS = {
   notifications: `${BASE_URL}/notifications`,
 };
 
-const AgentDashboard = ({ navigation }) => {
+const AgentDashboard = ({ navigation, route }) => {
   const { isDarkMode } = useContext(ThemeContext);
 
   const [loading, setLoading] = useState(true);
@@ -160,43 +163,64 @@ const AgentDashboard = ({ navigation }) => {
     loadDashboard();
   };
 
-  const openMenu = () => {
+ const openMenu = () => {
+  try {
+    navigation.dispatch(DrawerActions.openDrawer());
+  } catch {
     const parent = navigation.getParent?.();
 
-    if (navigation.openDrawer) {
-      navigation.openDrawer();
-      return;
-    }
+    if (navigation.openDrawer) return navigation.openDrawer();
+    if (parent?.openDrawer) return parent.openDrawer();
 
-    if (parent?.openDrawer) {
-      parent.openDrawer();
-      return;
-    }
-
-    navigation.navigate("Main");
-  };
+    navigation.navigate("Main", { screen: "AgentDashboard" });
+  }
+};
 
   const goBack = () => {
-    if (navigation.canGoBack?.()) {
-      navigation.goBack();
-      return;
-    }
+  if (
+    route?.params?.fromSuperAdmin ||
+    route?.params?.backScreen === "SuperAdminDashboard"
+  ) {
+    navigation.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [
+          {
+            name: "Main",
+            params: {
+              screen: "SuperAdminDashboard",
+            },
+          },
+        ],
+      })
+    );
+    return;
+  }
 
-    navigation.navigate("SuperAdminDashboard");
-  };
+  if (navigation.canGoBack?.()) {
+    navigation.goBack();
+    return;
+  }
+
+  navigation.navigate("Main", { screen: "AgentDashboard" });
+};
 
   const safeNavigate = (screenName, params = {}) => {
-    try {
-      navigation.navigate(screenName, {
-        fromAgentDashboard: true,
-        backScreen: "AgentDashboard",
-        ...params,
-      });
-    } catch (error) {
-      Alert.alert("Navigation Error", `${screenName} is not registered.`);
-    }
-  };
+  try {
+    const fromSuperAdmin =
+      route?.params?.fromSuperAdmin ||
+      route?.params?.backScreen === "SuperAdminDashboard";
 
+    navigation.navigate(screenName, {
+      ...params,
+      fromAgentDashboard: true,
+      fromSuperAdmin,
+      backScreen: fromSuperAdmin ? "SuperAdminDashboard" : "AgentDashboard",
+    });
+  } catch (error) {
+    Alert.alert("Navigation Error", `${screenName} is not registered.`);
+  }
+};
   const handleLogout = async () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
       { text: "Cancel", style: "cancel" },

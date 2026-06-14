@@ -171,13 +171,20 @@ const LeaderDashboard = ({ navigation }) => {
   };
 
   const goBack = () => {
-    if (navigation.canGoBack?.()) {
-      navigation.goBack();
-      return;
-    }
-
-    navigation.navigate("AdminDashboard");
-  };
+  navigation.dispatch(
+    CommonActions.reset({
+      index: 0,
+      routes: [
+        {
+          name: "Main",
+          params: {
+            screen: "SuperAdminDashboard",
+          },
+        },
+      ],
+    })
+  );
+};
 
   const logout = async () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [

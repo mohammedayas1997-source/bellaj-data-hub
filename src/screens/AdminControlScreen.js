@@ -42,7 +42,7 @@ const API_ENDPOINTS = {
   transactions: `${BASE_URL}/admin/transactions`,
 };
 
-const AdminControlScreen = ({ navigation }) => {
+const AdminControlScreen = ({ navigation, route }) => {
   const { width } = useWindowDimensions();
   const isWeb = width >= 768;
 
@@ -212,14 +212,30 @@ const AdminControlScreen = ({ navigation }) => {
   };
 
   const goBack = () => {
-    if (navigation.canGoBack?.()) {
-      navigation.goBack();
-      return;
-    }
+  if (route?.params?.fromSuperAdmin || route?.params?.backScreen === "SuperAdminDashboard") {
+    navigation.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [
+          {
+            name: "Main",
+            params: {
+              screen: "SuperAdminDashboard",
+            },
+          },
+        ],
+      })
+    );
+    return;
+  }
 
-    navigation.navigate("AdminDashboard");
-  };
+  if (navigation.canGoBack?.()) {
+    navigation.goBack();
+    return;
+  }
 
+  navigation.navigate("Main");
+};
   const safeNavigate = (screenName, params = {}) => {
     try {
       navigation.navigate(screenName, {

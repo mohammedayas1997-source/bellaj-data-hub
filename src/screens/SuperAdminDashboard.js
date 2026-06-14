@@ -170,22 +170,33 @@ const SuperAdminDashboard = ({ navigation }) => {
   };
 
   const navigateToDashboard = async (screenName, role = null) => {
-    try {
-      if (role) {
-        await AsyncStorage.setItem("overrideRole", role);
-        await AsyncStorage.setItem("isSuperAdminOverride", "true");
-      }
-
-      navigation.navigate(screenName, {
-        fromSuperAdmin: true,
-        backScreen: "SuperAdminDashboard",
-        parentScreen: "SuperAdminDashboard",
-      });
-    } catch {
-      Alert.alert("Navigation Error", `${screenName} is not registered.`);
+  try {
+    if (role) {
+      await AsyncStorage.setItem("overrideRole", role);
+      await AsyncStorage.setItem("isSuperAdminOverride", "true");
     }
-  };
 
+    navigation.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [
+          {
+            name: "Main",
+            params: {
+              screen: screenName,
+              params: {
+                fromSuperAdmin: true,
+                backScreen: "SuperAdminDashboard",
+              },
+            },
+          },
+        ],
+      })
+    );
+  } catch {
+    Alert.alert("Navigation Error", `${screenName} is not registered.`);
+  }
+};
   const logout = async () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
       { text: "Cancel", style: "cancel" },

@@ -15,7 +15,10 @@ import {
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { CommonActions } from "@react-navigation/native";
+import {
+  CommonActions,
+  DrawerActions,
+} from "@react-navigation/native";
 import BASE_URL from "../../config/api";
 
 const COLORS = {
@@ -105,18 +108,40 @@ const UserManagement = ({ navigation }) => {
   };
 
   const openMenu = () => {
+  try {
+    navigation.dispatch(DrawerActions.openDrawer());
+  } catch (error) {
     const parent = navigation?.getParent?.();
 
-    if (navigation?.openDrawer) return navigation.openDrawer();
-    if (parent?.openDrawer) return parent.openDrawer();
+    if (navigation?.openDrawer) {
+      return navigation.openDrawer();
+    }
 
-    navigation?.navigate?.("Main");
-  };
+    if (parent?.openDrawer) {
+      return parent.openDrawer();
+    }
+
+    navigation.navigate("Main", {
+      screen: "SuperAdminDashboard",
+    });
+  }
+};
 
   const goBack = () => {
-    if (navigation?.canGoBack?.()) return navigation.goBack();
-    navigation?.navigate?.("SuperAdminDashboard");
-  };
+  navigation.dispatch(
+    CommonActions.reset({
+      index: 0,
+      routes: [
+        {
+          name: "Main",
+          params: {
+            screen: "SuperAdminDashboard",
+          },
+        },
+      ],
+    })
+  );
+};
 
   const logout = async () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
