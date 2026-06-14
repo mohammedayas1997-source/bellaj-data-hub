@@ -31,26 +31,26 @@ const COLORS = {
   muted: "#64748B",
   border: "#E2E8F0",
   softGreen: "#EAF7F1",
-  softRed: "#FFF1F1",
 };
 
 const SignupScreen = ({ navigation }) => {
   const { width } = useWindowDimensions();
   const isWeb = width >= 768;
 
-  const [firstName, setFirstName] = useState("");
-  const [surname, setSurname] = useState("");
-  const [otherName, setOtherName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-
-  const [role, setRole] = useState("user");
-  const [state, setState] = useState("");
-  const [lga, setLga] = useState("");
-  const [address, setAddress] = useState("");
-  const [supervisorId, setSupervisorId] = useState("");
+  const [form, setForm] = useState({
+    firstName: "",
+    surname: "",
+    otherName: "",
+    email: "",
+    phone: "",
+    password: "",
+    confirmPassword: "",
+    role: "user",
+    state: "",
+    lga: "",
+    address: "",
+    supervisorCode: "",
+  });
 
   const [image, setImage] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -59,38 +59,34 @@ const SignupScreen = ({ navigation }) => {
 
   const REGISTER_URL = `${BASE_URL}/auth/register`;
 
+  const updateField = (key, value) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
   const showAlert = (title, message, buttons = []) => {
     if (Platform.OS === "web") {
-      alert(`${title}\n\n${message}`);
-      if (buttons.length > 0 && buttons[0]?.onPress) buttons[0].onPress();
+      window.alert(`${title}\n\n${message}`);
+      if (buttons?.[0]?.onPress) buttons[0].onPress();
       return;
     }
 
-    Alert.alert(title, message, buttons.length > 0 ? buttons : undefined, {
+    Alert.alert(title, message, buttons.length ? buttons : undefined, {
       cancelable: false,
     });
   };
 
   const goBack = () => {
-    if (navigation?.canGoBack?.()) {
-      navigation.goBack();
-      return;
-    }
-
+    if (navigation?.canGoBack?.()) return navigation.goBack();
     navigation.navigate("Login");
   };
 
   const pickImage = async () => {
     try {
       if (Platform.OS !== "web") {
-        const { status } =
-          await ImagePicker.requestMediaLibraryPermissionsAsync();
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
         if (status !== "granted") {
-          showAlert(
-            "Permission Denied",
-            "Camera roll permission is required to upload business verification image."
-          );
+          showAlert("Permission Denied", "Image upload permission is required.");
           return;
         }
       }
@@ -99,60 +95,61 @@ const SignupScreen = ({ navigation }) => {
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.35,
+        quality: 0.25,
         base64: true,
       });
 
       if (!result.canceled) {
-        const asset = result.assets[0];
-        setImage(
-          asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri
-        );
+        const asset = result.assets?.[0];
+        setImage(asset?.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset?.uri);
       }
     } catch {
-      showAlert("Upload Failed", "Unable to select image. Please try again.");
+      showAlert("Upload Failed", "Unable to select image.");
     }
   };
 
   const validateInputs = () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const cleanPhone = phone.replace(/\D/g, "");
+    const cleanPhone = form.phone.replace(/\D/g, "");
 
     if (
-      !firstName.trim() ||
-      !surname.trim() ||
-      !email.trim() ||
-      !phone.trim() ||
-      !password
+      !form.firstName.trim() ||
+      !form.surname.trim() ||
+      !form.email.trim() ||
+      !form.phone.trim() ||
+      !form.password
     ) {
       showAlert("Missing Fields", "Please fill all compulsory fields.");
       return false;
     }
 
-    if (!emailRegex.test(email.trim())) {
+    if (!emailRegex.test(form.email.trim())) {
       showAlert("Invalid Email", "Please enter a valid email address.");
       return false;
     }
 
     if (cleanPhone.length < 10 || cleanPhone.length > 15) {
-      showAlert("Invalid Phone Number", "Please enter a valid phone number.");
+      showAlert("Invalid Phone", "Please enter a valid phone number.");
       return false;
     }
 
-    if (password.length < 6) {
+    if (form.password.length < 6) {
       showAlert("Password Too Short", "Password must be at least 6 characters.");
       return false;
     }
 
-    if (password !== confirmPassword) {
+    if (form.password !== form.confirmPassword) {
       showAlert("Password Mismatch", "The two passwords do not match.");
       return false;
     }
 
-    if (role === "agent" && (!state.trim() || !lga.trim() || !address.trim())) {
+    if (
+      form.role === "agent" &&
+      (!form.state.trim() || !form.lga.trim() || !form.address.trim())
+    ) {
       showAlert(
-        "Agent Verification Missing",
-        "As an agent, State, LGA and Business Address are compulsory."
+        "Agent Details Required",
+        "For agent account, State, LGA and Business Address are required."
       );
       return false;
     }
@@ -161,18 +158,20 @@ const SignupScreen = ({ navigation }) => {
   };
 
   const resetForm = () => {
-    setFirstName("");
-    setSurname("");
-    setOtherName("");
-    setEmail("");
-    setPhone("");
-    setPassword("");
-    setConfirmPassword("");
-    setRole("user");
-    setState("");
-    setLga("");
-    setAddress("");
-    setSupervisorId("");
+    setForm({
+      firstName: "",
+      surname: "",
+      otherName: "",
+      email: "",
+      phone: "",
+      password: "",
+      confirmPassword: "",
+      role: "user",
+      state: "",
+      lga: "",
+      address: "",
+      supervisorCode: "",
+    });
     setImage(null);
   };
 
@@ -182,53 +181,76 @@ const SignupScreen = ({ navigation }) => {
     setLoading(true);
 
     try {
-      const registrationData = {
-        firstName: firstName.trim(),
-        surname: surname.trim(),
-        otherName: otherName.trim(),
-        name: `${firstName.trim()} ${surname.trim()}`.trim(),
-        fullName: `${surname.trim()} ${firstName.trim()} ${otherName.trim()}`
-          .replace(/\s+/g, " ")
-          .trim(),
-        email: email.trim().toLowerCase(),
-        phone: phone.trim(),
-        phoneNumber: phone.trim(),
-        password,
-        role: role.trim().toLowerCase(),
+      const cleanRole = form.role.trim().toLowerCase();
+      const fullName = `${form.surname.trim()} ${form.firstName.trim()} ${form.otherName.trim()}`
+        .replace(/\s+/g, " ")
+        .trim();
+
+      const payload = {
+        surname: form.surname.trim(),
+        firstName: form.firstName.trim(),
+        otherName: form.otherName.trim(),
+        name: `${form.firstName.trim()} ${form.surname.trim()}`.trim(),
+        fullName,
+        email: form.email.trim().toLowerCase(),
+        phone: form.phone.trim(),
+        phoneNumber: form.phone.trim(),
+        password: form.password,
+        role: cleanRole,
       };
 
-      if (role === "agent") {
-        registrationData.state = state.trim();
-        registrationData.lga = lga.trim();
-        registrationData.address = address.trim();
+      if (cleanRole === "agent") {
+        payload.state = form.state.trim();
+        payload.lga = form.lga.trim();
+        payload.address = form.address.trim();
+        payload.businessAddress = form.address.trim();
 
-        if (supervisorId.trim()) {
-          registrationData.supervisorId = supervisorId.toUpperCase().trim();
-          registrationData.referralCode = supervisorId.toUpperCase().trim();
+        const code = form.supervisorCode.trim().toUpperCase();
+
+        if (code) {
+          payload.referralCode = code;
+          payload.supervisorCode = code;
+          payload.supervisorReferralCode = code;
+
+          if (/^[0-9a-fA-F]{24}$/.test(code)) {
+            payload.supervisorId = code;
+          }
         }
 
         if (image) {
-          registrationData.businessImage = image;
-          registrationData.profileImage = image;
+          payload.businessImage = image;
+          payload.profileImage = image;
         }
       }
 
-      const response = await axios.post(REGISTER_URL, registrationData, {
-        headers: { "Content-Type": "application/json" },
+      const response = await axios.post(REGISTER_URL, payload, {
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
         timeout: 30000,
       });
 
-      const payload = response?.data || {};
-      const userPayload =
-        payload?.user || payload?.data?.user || payload?.data || {
-          ...registrationData,
+      const data = response?.data || {};
+
+      if (data?.success === false) {
+        showAlert("Registration Failed", data?.message || "Could not create account.");
+        return;
+      }
+
+      const user =
+        data?.user ||
+        data?.data?.user ||
+        data?.data ||
+        {
+          ...payload,
           password: undefined,
         };
 
-      const token = payload?.token || payload?.data?.token;
+      const token = data?.token || data?.data?.token;
 
-      await AsyncStorage.setItem("userData", JSON.stringify(userPayload));
-      await AsyncStorage.setItem("userRole", userPayload?.role || role);
+      await AsyncStorage.setItem("userData", JSON.stringify(user));
+      await AsyncStorage.setItem("userRole", user?.role || cleanRole);
 
       if (token) {
         await AsyncStorage.setItem("userToken", token);
@@ -244,13 +266,14 @@ const SignupScreen = ({ navigation }) => {
         },
       ]);
     } catch (error) {
-      const msg =
-        error?.response?.data?.message ||
-        error?.response?.data?.error ||
-        "Registration failed. Please check your connection and try again.";
-
       console.log("Signup Error:", error?.response?.data || error.message);
-      showAlert("Registration Failed", msg);
+
+      showAlert(
+        "Registration Failed",
+        error?.response?.data?.message ||
+          error?.response?.data?.error ||
+          "Registration failed. Please check your internet and try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -258,12 +281,12 @@ const SignupScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={styles.mainWrapper}
-      >
-        <StatusBar barStyle="dark-content" backgroundColor={COLORS.light} />
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.light} />
 
+      <KeyboardAvoidingView
+        style={styles.mainWrapper}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={[
@@ -272,6 +295,8 @@ const SignupScreen = ({ navigation }) => {
           ]}
           showsVerticalScrollIndicator
           keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled
+          bounces
         >
           <View style={[styles.card, isWeb && styles.webCard]}>
             <View style={styles.topBar}>
@@ -296,19 +321,18 @@ const SignupScreen = ({ navigation }) => {
 
             <View style={styles.roleContainer}>
               <TouchableOpacity
-                style={[styles.roleBtn, role === "user" && styles.activeRole]}
-                onPress={() => setRole("user")}
-                activeOpacity={0.86}
+                style={[styles.roleBtn, form.role === "user" && styles.activeRole]}
+                onPress={() => updateField("role", "user")}
               >
                 <Ionicons
                   name="person-outline"
                   size={18}
-                  color={role === "user" ? COLORS.white : COLORS.muted}
+                  color={form.role === "user" ? COLORS.white : COLORS.muted}
                 />
                 <Text
                   style={[
                     styles.roleBtnText,
-                    role === "user" && styles.activeRoleText,
+                    form.role === "user" && styles.activeRoleText,
                   ]}
                 >
                   Customer
@@ -316,22 +340,21 @@ const SignupScreen = ({ navigation }) => {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.roleBtn, role === "agent" && styles.activeRole]}
-                onPress={() => setRole("agent")}
-                activeOpacity={0.86}
+                style={[styles.roleBtn, form.role === "agent" && styles.activeRole]}
+                onPress={() => updateField("role", "agent")}
               >
                 <Ionicons
                   name="business-outline"
                   size={18}
-                  color={role === "agent" ? COLORS.white : COLORS.muted}
+                  color={form.role === "agent" ? COLORS.white : COLORS.muted}
                 />
                 <Text
                   style={[
                     styles.roleBtnText,
-                    role === "agent" && styles.activeRoleText,
+                    form.role === "agent" && styles.activeRoleText,
                   ]}
                 >
-                  Agent / Reseller
+                  Agent
                 </Text>
               </TouchableOpacity>
             </View>
@@ -339,130 +362,88 @@ const SignupScreen = ({ navigation }) => {
             <View style={styles.row}>
               <View style={styles.halfInputLeft}>
                 <Text style={styles.label}>Surname</Text>
-                <View style={styles.inputView}>
-                  <TextInput
-                    style={styles.inputText}
-                    placeholder="Compulsory"
-                    value={surname}
-                    onChangeText={setSurname}
-                    placeholderTextColor="#94A3B8"
-                  />
-                </View>
+                <Input
+                  placeholder="Compulsory"
+                  value={form.surname}
+                  onChangeText={(v) => updateField("surname", v)}
+                />
               </View>
 
               <View style={styles.halfInputRight}>
                 <Text style={styles.label}>First Name</Text>
-                <View style={styles.inputView}>
-                  <TextInput
-                    style={styles.inputText}
-                    placeholder="Compulsory"
-                    value={firstName}
-                    onChangeText={setFirstName}
-                    placeholderTextColor="#94A3B8"
-                  />
-                </View>
+                <Input
+                  placeholder="Compulsory"
+                  value={form.firstName}
+                  onChangeText={(v) => updateField("firstName", v)}
+                />
               </View>
             </View>
 
             <Text style={styles.label}>Middle Name Optional</Text>
-            <View style={styles.inputView}>
-              <TextInput
-                style={styles.inputText}
-                placeholder="Enter Middle Name"
-                value={otherName}
-                onChangeText={setOtherName}
-                placeholderTextColor="#94A3B8"
-              />
-            </View>
+            <Input
+              placeholder="Enter Middle Name"
+              value={form.otherName}
+              onChangeText={(v) => updateField("otherName", v)}
+            />
 
             <Text style={styles.label}>Email Address</Text>
-            <View style={styles.inputView}>
-              <TextInput
-                style={styles.inputText}
-                placeholder="example@gmail.com"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                value={email}
-                onChangeText={setEmail}
-                placeholderTextColor="#94A3B8"
-              />
-            </View>
+            <Input
+              placeholder="example@gmail.com"
+              value={form.email}
+              onChangeText={(v) => updateField("email", v)}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
 
             <Text style={styles.label}>Active Phone Number</Text>
-            <View style={styles.inputView}>
-              <TextInput
-                style={styles.inputText}
-                placeholder="080XXXXXXXX"
-                keyboardType="phone-pad"
-                value={phone}
-                onChangeText={setPhone}
-                placeholderTextColor="#94A3B8"
-              />
-            </View>
+            <Input
+              placeholder="080XXXXXXXX"
+              value={form.phone}
+              onChangeText={(v) => updateField("phone", v)}
+              keyboardType="phone-pad"
+            />
 
-            {role === "agent" && (
+            {form.role === "agent" && (
               <View style={styles.agentSection}>
-                <Text style={styles.agentInfoTitle}>
-                  Business Verification Details
-                </Text>
+                <Text style={styles.agentInfoTitle}>Agent Business Details</Text>
 
                 <Text style={styles.label}>Supervisor Referral Code Optional</Text>
-                <View style={styles.inputView}>
-                  <TextInput
-                    style={styles.inputText}
-                    placeholder="e.g. BD770"
-                    autoCapitalize="characters"
-                    value={supervisorId}
-                    onChangeText={setSupervisorId}
-                    placeholderTextColor="#94A3B8"
-                  />
-                </View>
+                <Input
+                  placeholder="e.g. BD770"
+                  value={form.supervisorCode}
+                  onChangeText={(v) => updateField("supervisorCode", v)}
+                  autoCapitalize="characters"
+                />
 
                 <Text style={styles.label}>Shop / Office Address</Text>
-                <View style={styles.inputView}>
-                  <TextInput
-                    style={styles.inputText}
-                    placeholder="Enter full business address"
-                    value={address}
-                    onChangeText={setAddress}
-                    placeholderTextColor="#94A3B8"
-                  />
-                </View>
+                <Input
+                  placeholder="Enter full business address"
+                  value={form.address}
+                  onChangeText={(v) => updateField("address", v)}
+                />
 
                 <View style={styles.row}>
                   <View style={styles.halfInputLeft}>
                     <Text style={styles.label}>State</Text>
-                    <View style={styles.inputView}>
-                      <TextInput
-                        style={styles.inputText}
-                        placeholder="e.g. Kano"
-                        value={state}
-                        onChangeText={setState}
-                        placeholderTextColor="#94A3B8"
-                      />
-                    </View>
+                    <Input
+                      placeholder="e.g. Kano"
+                      value={form.state}
+                      onChangeText={(v) => updateField("state", v)}
+                    />
                   </View>
 
                   <View style={styles.halfInputRight}>
                     <Text style={styles.label}>LGA</Text>
-                    <View style={styles.inputView}>
-                      <TextInput
-                        style={styles.inputText}
-                        placeholder="Local Govt"
-                        value={lga}
-                        onChangeText={setLga}
-                        placeholderTextColor="#94A3B8"
-                      />
-                    </View>
+                    <Input
+                      placeholder="Local Govt"
+                      value={form.lga}
+                      onChangeText={(v) => updateField("lga", v)}
+                    />
                   </View>
                 </View>
 
-                <TouchableOpacity
-                  style={styles.imagePicker}
-                  onPress={pickImage}
-                  activeOpacity={0.86}
-                >
+                <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
                   {image ? (
                     <Image source={{ uri: image }} style={styles.previewImage} />
                   ) : (
@@ -473,7 +454,7 @@ const SignupScreen = ({ navigation }) => {
                         color={COLORS.primary}
                       />
                       <Text style={styles.imagePickerText}>
-                        Upload Utility Bill or Shop Image
+                        Upload Utility Bill or Shop Image Optional
                       </Text>
                     </View>
                   )}
@@ -482,62 +463,37 @@ const SignupScreen = ({ navigation }) => {
             )}
 
             <Text style={styles.label}>Create Password</Text>
-            <View style={styles.passwordWrapper}>
-              <TextInput
-                secureTextEntry={!showPassword}
-                style={styles.passwordInput}
-                placeholder="Minimum of 6 characters"
-                value={password}
-                onChangeText={setPassword}
-                placeholderTextColor="#94A3B8"
-              />
-
-              <TouchableOpacity
-                onPress={() => setShowPassword(!showPassword)}
-                style={styles.eyeIcon}
-              >
-                <Ionicons
-                  name={showPassword ? "eye-off-outline" : "eye-outline"}
-                  size={20}
-                  color={COLORS.muted}
-                />
-              </TouchableOpacity>
-            </View>
+            <PasswordInput
+              value={form.password}
+              onChangeText={(v) => updateField("password", v)}
+              show={showPassword}
+              setShow={setShowPassword}
+              placeholder="Minimum of 6 characters"
+            />
 
             <Text style={styles.label}>Confirm Password</Text>
-            <View style={styles.passwordWrapper}>
-              <TextInput
-                secureTextEntry={!showConfirmPassword}
-                style={styles.passwordInput}
-                placeholder="Repeat your password"
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                placeholderTextColor="#94A3B8"
-              />
-
-              <TouchableOpacity
-                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                style={styles.eyeIcon}
-              >
-                <Ionicons
-                  name={showConfirmPassword ? "eye-off-outline" : "eye-outline"}
-                  size={20}
-                  color={COLORS.muted}
-                />
-              </TouchableOpacity>
-            </View>
+            <PasswordInput
+              value={form.confirmPassword}
+              onChangeText={(v) => updateField("confirmPassword", v)}
+              show={showConfirmPassword}
+              setShow={setShowConfirmPassword}
+              placeholder="Repeat your password"
+            />
 
             <TouchableOpacity
               style={[styles.signupBtn, loading && { opacity: 0.75 }]}
               onPress={handleSignup}
               disabled={loading}
-              activeOpacity={0.86}
             >
               {loading ? (
                 <ActivityIndicator color={COLORS.white} />
               ) : (
                 <>
-                  <Ionicons name="person-add-outline" size={20} color={COLORS.white} />
+                  <Ionicons
+                    name="person-add-outline"
+                    size={20}
+                    color={COLORS.white}
+                  />
                   <Text style={styles.signupText}>REGISTER ACCOUNT</Text>
                 </>
               )}
@@ -550,11 +506,56 @@ const SignupScreen = ({ navigation }) => {
               </TouchableOpacity>
             </View>
           </View>
+
+          <View style={{ height: 40 }} />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
+
+const Input = ({
+  value,
+  onChangeText,
+  placeholder,
+  keyboardType = "default",
+  autoCapitalize = "words",
+  autoCorrect = true,
+}) => (
+  <View style={styles.inputView}>
+    <TextInput
+      style={styles.inputText}
+      placeholder={placeholder}
+      value={value}
+      onChangeText={onChangeText}
+      placeholderTextColor="#94A3B8"
+      keyboardType={keyboardType}
+      autoCapitalize={autoCapitalize}
+      autoCorrect={autoCorrect}
+    />
+  </View>
+);
+
+const PasswordInput = ({ value, onChangeText, show, setShow, placeholder }) => (
+  <View style={styles.passwordWrapper}>
+    <TextInput
+      secureTextEntry={!show}
+      style={styles.passwordInput}
+      placeholder={placeholder}
+      value={value}
+      onChangeText={onChangeText}
+      placeholderTextColor="#94A3B8"
+    />
+
+    <TouchableOpacity onPress={() => setShow(!show)} style={styles.eyeIcon}>
+      <Ionicons
+        name={show ? "eye-off-outline" : "eye-outline"}
+        size={20}
+        color={COLORS.muted}
+      />
+    </TouchableOpacity>
+  </View>
+);
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.light },
@@ -562,20 +563,20 @@ const styles = StyleSheet.create({
   scrollView: { flex: 1, backgroundColor: COLORS.light },
   scrollContent: {
     flexGrow: 1,
-    width: "100%",
     paddingHorizontal: 16,
     paddingTop: Platform.OS === "android" ? 35 : 20,
-    paddingBottom: 80,
+    paddingBottom: 100,
+    width: "100%",
     backgroundColor: COLORS.light,
   },
   webScrollContent: {
     alignItems: "center",
-    paddingTop: 35,
-    paddingBottom: 90,
+    paddingTop: 40,
+    paddingBottom: 110,
   },
   card: {
     width: "100%",
-    maxWidth: 540,
+    maxWidth: 560,
     alignSelf: "center",
     backgroundColor: COLORS.white,
     borderRadius: 24,

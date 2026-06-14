@@ -15,10 +15,7 @@ import {
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import {
-  CommonActions,
-  DrawerActions,
-} from "@react-navigation/native";
+import { CommonActions, DrawerActions } from "@react-navigation/native";
 import BASE_URL from "../config/api";
 
 const COLORS = {
@@ -170,33 +167,34 @@ const SuperAdminDashboard = ({ navigation }) => {
   };
 
   const navigateToDashboard = async (screenName, role = null) => {
-  try {
-    if (role) {
-      await AsyncStorage.setItem("overrideRole", role);
-      await AsyncStorage.setItem("isSuperAdminOverride", "true");
-    }
+    try {
+      if (role) {
+        await AsyncStorage.setItem("overrideRole", role);
+        await AsyncStorage.setItem("isSuperAdminOverride", "true");
+      }
 
-    navigation.dispatch(
-      CommonActions.reset({
-        index: 0,
-        routes: [
-          {
-            name: "Main",
-            params: {
-              screen: screenName,
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [
+            {
+              name: "Main",
               params: {
-                fromSuperAdmin: true,
-                backScreen: "SuperAdminDashboard",
+                screen: screenName,
+                params: {
+                  fromSuperAdmin: true,
+                  backScreen: "SuperAdminDashboard",
+                },
               },
             },
-          },
-        ],
-      })
-    );
-  } catch {
-    Alert.alert("Navigation Error", `${screenName} is not registered.`);
-  }
-};
+          ],
+        })
+      );
+    } catch {
+      Alert.alert("Navigation Error", `${screenName} is not registered.`);
+    }
+  };
+
   const logout = async () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
       { text: "Cancel", style: "cancel" },
@@ -254,46 +252,6 @@ const SuperAdminDashboard = ({ navigation }) => {
       action: () => navigateToDashboard("UserManagement"),
     },
     {
-      title: "Admin",
-      value: "Open",
-      icon: "view-dashboard",
-      type: "mci",
-      color: "#0F766E",
-      action: () => navigateToDashboard("AdminDashboard", "admin"),
-    },
-    {
-      title: "Agent",
-      value: "Open",
-      icon: "account-tie-outline",
-      type: "mci",
-      color: COLORS.danger,
-      action: () => navigateToDashboard("AgentDashboard", "agent"),
-    },
-    {
-      title: "Support",
-      value: "Open",
-      icon: "headset",
-      type: "mci",
-      color: "#EA580C",
-      action: () => navigateToDashboard("SupportDashboard", "support"),
-    },
-    {
-      title: "Supervisor",
-      value: "Open",
-      icon: "account-supervisor-outline",
-      type: "mci",
-      color: COLORS.secondary,
-      action: () => navigateToDashboard("SupervisorDashboard", "supervisor"),
-    },
-    {
-      title: "Admins",
-      value: roleCounts.totalAdmins,
-      icon: "shield-account-outline",
-      type: "mci",
-      color: "#B91C1C",
-      action: () => navigateToDashboard("AdminUserControl"),
-    },
-    {
       title: "Revenue",
       value: formatMoney(stats?.finance?.totalRevenue),
       icon: "cash-multiple",
@@ -309,43 +267,111 @@ const SuperAdminDashboard = ({ navigation }) => {
       color: "#991B1B",
       action: () => navigateToDashboard("SalesHistory"),
     },
+    {
+      title: "Supervisors",
+      value: roleCounts.totalSupervisors,
+      icon: "account-supervisor-outline",
+      type: "mci",
+      color: COLORS.secondary,
+      action: () => navigateToDashboard("ManageAgents"),
+    },
+    {
+      title: "Create Sup.",
+      value: "Open",
+      icon: "account-plus-outline",
+      type: "mci",
+      color: "#2563EB",
+      action: () => navigateToDashboard("CreateSupervisorScreen"),
+    },
+    {
+      title: "Pricing",
+      value: "Open",
+      icon: "cash-cog",
+      type: "mci",
+      color: "#7C3AED",
+      action: () => navigateToDashboard("PricingSettings"),
+    },
+    {
+      title: "Issues",
+      value: "Open",
+      icon: "alert-circle-outline",
+      type: "ion",
+      color: COLORS.danger,
+      action: () => navigateToDashboard("IssueResolution"),
+    },
+    {
+      title: "Tracker",
+      value: "Open",
+      icon: "database-search-outline",
+      type: "mci",
+      color: "#EA580C",
+      action: () => navigateToDashboard("ServiceTracker"),
+    },
   ];
 
   const navigationCards = [
     {
-      title: "Super Admin",
-      icon: "view-dashboard-outline",
+      title: "Create Supervisor",
+      icon: "account-plus-outline",
       type: "mci",
-      color: COLORS.primary,
-      action: () => navigateToDashboard("SuperAdminDashboard", "superadmin"),
+      color: "#2563EB",
+      action: () => navigateToDashboard("CreateSupervisorScreen"),
     },
     {
-      title: "Admin",
+      title: "Service Tracker",
+      icon: "database-search-outline",
+      type: "mci",
+      color: "#EA580C",
+      action: () => navigateToDashboard("ServiceTracker"),
+    },
+    {
+      title: "Pricing Settings",
+      icon: "cash-cog",
+      type: "mci",
+      color: "#7C3AED",
+      action: () => navigateToDashboard("PricingSettings"),
+    },
+    {
+      title: "Manage Agents",
+      icon: "account-multiple-check-outline",
+      type: "mci",
+      color: COLORS.secondary,
+      action: () => navigateToDashboard("ManageAgents"),
+    },
+    {
+      title: "Issue Resolution",
+      icon: "alert-decagram-outline",
+      type: "mci",
+      color: COLORS.danger,
+      action: () => navigateToDashboard("IssueResolution"),
+    },
+    {
+      title: "Assign Target",
+      icon: "target",
+      type: "mci",
+      color: "#16A34A",
+      action: () => navigateToDashboard("AssignTarget"),
+    },
+    {
+      title: "Agent Management",
+      icon: "account-tie-outline",
+      type: "mci",
+      color: "#0F766E",
+      action: () => navigateToDashboard("AgentManagement"),
+    },
+    {
+      title: "User Management",
+      icon: "account-key-outline",
+      type: "mci",
+      color: COLORS.dark,
+      action: () => navigateToDashboard("UserManagement"),
+    },
+    {
+      title: "Admin Dashboard",
       icon: "view-dashboard",
       type: "mci",
       color: "#0F766E",
       action: () => navigateToDashboard("AdminDashboard", "admin"),
-    },
-    {
-      title: "User",
-      icon: "account-circle-outline",
-      type: "mci",
-      color: "#0284C7",
-      action: () => navigateToDashboard("Main", "user"),
-    },
-    {
-      title: "Agent",
-      icon: "account-tie-outline",
-      type: "mci",
-      color: COLORS.danger,
-      action: () => navigateToDashboard("AgentDashboard", "agent"),
-    },
-    {
-      title: "Supervisor",
-      icon: "account-supervisor-outline",
-      type: "mci",
-      color: COLORS.secondary,
-      action: () => navigateToDashboard("SupervisorDashboard", "supervisor"),
     },
     {
       title: "Support",
@@ -355,39 +381,11 @@ const SuperAdminDashboard = ({ navigation }) => {
       action: () => navigateToDashboard("SupportDashboard", "support"),
     },
     {
-      title: "Admin Control",
-      icon: "shield-account-outline",
+      title: "Supervisor",
+      icon: "account-supervisor-outline",
       type: "mci",
-      color: "#B91C1C",
-      action: () => navigateToDashboard("AdminUserControl"),
-    },
-    {
-      title: "Users",
-      icon: "account-group-outline",
-      type: "mci",
-      color: COLORS.dark,
-      action: () => navigateToDashboard("UserManagement"),
-    },
-    {
-      title: "Transactions",
-      icon: "receipt-text-outline",
-      type: "mci",
-      color: "#15803D",
-      action: () => navigateToDashboard("SalesHistory"),
-    },
-    {
-      title: "NIMC",
-      icon: "fingerprint",
-      type: "mci",
-      color: "#7C2D12",
-      action: () => navigateToDashboard("NIMCHistory"),
-    },
-    {
-      title: "BVN",
-      icon: "card-account-details-outline",
-      type: "mci",
-      color: "#6D28D9",
-      action: () => navigateToDashboard("BVNHistory"),
+      color: COLORS.secondary,
+      action: () => navigateToDashboard("SupervisorDashboard", "supervisor"),
     },
     {
       title: "Notifications",
@@ -400,7 +398,9 @@ const SuperAdminDashboard = ({ navigation }) => {
 
   const renderIcon = (item, size = 24, color = COLORS.white) => {
     if (item.type === "mci") {
-      return <MaterialCommunityIcons name={item.icon} size={size} color={color} />;
+      return (
+        <MaterialCommunityIcons name={item.icon} size={size} color={color} />
+      );
     }
 
     return <Ionicons name={item.icon} size={size} color={color} />;
@@ -465,8 +465,8 @@ const SuperAdminDashboard = ({ navigation }) => {
           <View style={{ flex: 1 }}>
             <Text style={styles.welcomeTitle}>Super Admin Access</Text>
             <Text style={styles.welcomeText}>
-              Manage all dashboards, users, roles, transactions and platform
-              activity records in real time.
+              Manage all dashboards, users, roles, pricing, targets, issues and
+              service tracker in real time.
             </Text>
           </View>
 
@@ -551,13 +551,17 @@ const SuperAdminDashboard = ({ navigation }) => {
                 >
                   <View style={styles.avatar}>
                     <Text style={styles.avatarText}>
-                      {(user?.name || user?.email || "U").charAt(0).toUpperCase()}
+                      {(user?.name || user?.email || "U")
+                        .charAt(0)
+                        .toUpperCase()}
                     </Text>
                   </View>
 
                   <View style={styles.userInfo}>
                     <Text style={styles.userName}>{user?.name || "No Name"}</Text>
-                    <Text style={styles.userEmail}>{user?.email || "No Email"}</Text>
+                    <Text style={styles.userEmail}>
+                      {user?.email || "No Email"}
+                    </Text>
                   </View>
 
                   <View style={styles.roleBadge}>
