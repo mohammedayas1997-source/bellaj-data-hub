@@ -146,13 +146,18 @@ const HomeScreen = ({ navigation }) => {
   };
 
   const goBack = () => {
-    if (navigation?.canGoBack?.()) {
-      navigation.goBack();
-      return;
-    }
+  if (route?.params?.fromSuperAdmin) {
+    navigation.navigate("SuperAdminDashboard");
+    return;
+  }
 
-    navigation.navigate("Main");
-  };
+  if (navigation.canGoBack?.()) {
+    navigation.goBack();
+    return;
+  }
+
+  navigation.navigate("Main");
+};
 
   const handleLogout = async () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
@@ -203,7 +208,7 @@ const HomeScreen = ({ navigation }) => {
   };
 
   const openWhatsApp = () => {
-    const phoneNumber = "+2349061244444";
+    const phoneNumber = "+2349075207281";
     const message = "Hello Bellaj Data Hub Support, I need assistance.";
 
     const appUrl = `whatsapp://send?phone=${phoneNumber}&text=${encodeURIComponent(

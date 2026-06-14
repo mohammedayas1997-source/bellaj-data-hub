@@ -10,11 +10,15 @@ import {
   Alert,
   Platform,
   useWindowDimensions,
+  StatusBar,
 } from "react-native";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { CommonActions } from "@react-navigation/native";
+import {
+  CommonActions,
+  DrawerActions,
+} from "@react-navigation/native";
 import BASE_URL from "../config/api";
 
 const COLORS = {
@@ -81,6 +85,7 @@ const SuperAdminDashboard = ({ navigation }) => {
 
   const normalizeStats = (payload) => {
     const data = payload?.data || payload || {};
+
     return {
       finance: {
         totalRevenue:
@@ -108,9 +113,9 @@ const SuperAdminDashboard = ({ navigation }) => {
       const headers = await getAuthHeaders();
 
       const requests = await Promise.allSettled([
-        axios.get(API_ENDPOINTS.dashboardStats, { headers }),
-        axios.get(API_ENDPOINTS.users, { headers }),
-        axios.get(API_ENDPOINTS.transactions, { headers }),
+        axios.get(API_ENDPOINTS.dashboardStats, { headers, timeout: 30000 }),
+        axios.get(API_ENDPOINTS.users, { headers, timeout: 30000 }),
+        axios.get(API_ENDPOINTS.transactions, { headers, timeout: 30000 }),
       ]);
 
       if (requests[0].status === "fulfilled") {
@@ -125,7 +130,7 @@ const SuperAdminDashboard = ({ navigation }) => {
         setTransactions(normalizeArray(requests[2].value.data, "transactions"));
       }
     } catch (error) {
-      console.log("Dashboard error:", error?.message);
+      Alert.alert("Connection Error", "Unable to load super admin dashboard.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -138,28 +143,30 @@ const SuperAdminDashboard = ({ navigation }) => {
   };
 
   const openMenu = () => {
-    const parent = navigation.getParent?.();
+    try {
+      navigation.dispatch(DrawerActions.openDrawer());
+    } catch {
+      const parent = navigation.getParent?.();
 
-    if (navigation.openDrawer) {
-      navigation.openDrawer();
-      return;
+      if (navigation.openDrawer) return navigation.openDrawer();
+      if (parent?.openDrawer) return parent.openDrawer();
+
+      navigation.navigate("Main", { screen: "SuperAdminDashboard" });
     }
-
-    if (parent?.openDrawer) {
-      parent.openDrawer();
-      return;
-    }
-
-    navigation.navigate("Main");
   };
 
   const goBack = () => {
-    if (navigation.canGoBack?.()) {
-      navigation.goBack();
-      return;
-    }
-
-    navigation.navigate("SuperAdminDashboard");
+    navigation.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [
+          {
+            name: "Main",
+            params: { screen: "SuperAdminDashboard" },
+          },
+        ],
+      })
+    );
   };
 
   const navigateToDashboard = async (screenName, role = null) => {
@@ -172,8 +179,9 @@ const SuperAdminDashboard = ({ navigation }) => {
       navigation.navigate(screenName, {
         fromSuperAdmin: true,
         backScreen: "SuperAdminDashboard",
+        parentScreen: "SuperAdminDashboard",
       });
-    } catch (error) {
+    } catch {
       Alert.alert("Navigation Error", `${screenName} is not registered.`);
     }
   };
@@ -225,45 +233,45 @@ const SuperAdminDashboard = ({ navigation }) => {
     };
   }, [stats, users]);
 
-  const statCards = [
+  const dashboardCards = [
     {
-      title: "Total Users",
+      title: "Users",
       value: roleCounts.totalUsers,
       icon: "account-group-outline",
       type: "mci",
-      bg: COLORS.primary,
+      color: COLORS.primary,
       action: () => navigateToDashboard("UserManagement"),
     },
     {
-      title: "Admin Dashboard",
+      title: "Admin",
       value: "Open",
       icon: "view-dashboard",
       type: "mci",
-      bg: "#0F766E",
+      color: "#0F766E",
       action: () => navigateToDashboard("AdminDashboard", "admin"),
     },
     {
-      title: "Agent Dashboard",
+      title: "Agent",
       value: "Open",
       icon: "account-tie-outline",
       type: "mci",
-      bg: COLORS.danger,
+      color: COLORS.danger,
       action: () => navigateToDashboard("AgentDashboard", "agent"),
     },
     {
-      title: "Support Dashboard",
+      title: "Support",
       value: "Open",
       icon: "headset",
       type: "mci",
-      bg: "#EA580C",
+      color: "#EA580C",
       action: () => navigateToDashboard("SupportDashboard", "support"),
     },
     {
-      title: "Supervisor Dashboard",
+      title: "Supervisor",
       value: "Open",
       icon: "account-supervisor-outline",
       type: "mci",
-      bg: COLORS.secondary,
+      color: COLORS.secondary,
       action: () => navigateToDashboard("SupervisorDashboard", "supervisor"),
     },
     {
@@ -271,7 +279,7 @@ const SuperAdminDashboard = ({ navigation }) => {
       value: roleCounts.totalAdmins,
       icon: "shield-account-outline",
       type: "mci",
-      bg: "#B91C1C",
+      color: "#B91C1C",
       action: () => navigateToDashboard("AdminUserControl"),
     },
     {
@@ -279,7 +287,7 @@ const SuperAdminDashboard = ({ navigation }) => {
       value: formatMoney(stats?.finance?.totalRevenue),
       icon: "cash-multiple",
       type: "mci",
-      bg: "#065F46",
+      color: "#065F46",
       action: () => navigateToDashboard("SalesHistory"),
     },
     {
@@ -287,114 +295,94 @@ const SuperAdminDashboard = ({ navigation }) => {
       value: stats?.finance?.successfulTransactions || transactions.length || 0,
       icon: "receipt-text-outline",
       type: "mci",
-      bg: "#991B1B",
+      color: "#991B1B",
       action: () => navigateToDashboard("SalesHistory"),
-    },
-    {
-      title: "Refresh",
-      value: "Reload",
-      icon: "refresh",
-      type: "mci",
-      bg: COLORS.dark,
-      action: fetchDashboard,
     },
   ];
 
   const navigationCards = [
     {
       title: "Super Admin",
-      subtitle: "Command Center",
       icon: "view-dashboard-outline",
       type: "mci",
-      bg: COLORS.primary,
+      color: COLORS.primary,
       action: () => navigateToDashboard("SuperAdminDashboard", "superadmin"),
     },
     {
-      title: "Admin Dashboard",
-      subtitle: "Admin operations",
+      title: "Admin",
       icon: "view-dashboard",
       type: "mci",
-      bg: "#0F766E",
+      color: "#0F766E",
       action: () => navigateToDashboard("AdminDashboard", "admin"),
     },
     {
-      title: "User Dashboard",
-      subtitle: "Open user area",
+      title: "User",
       icon: "account-circle-outline",
       type: "mci",
-      bg: "#0284C7",
+      color: "#0284C7",
       action: () => navigateToDashboard("Main", "user"),
     },
     {
-      title: "Agent Dashboard",
-      subtitle: "Open agent area",
+      title: "Agent",
       icon: "account-tie-outline",
       type: "mci",
-      bg: COLORS.danger,
+      color: COLORS.danger,
       action: () => navigateToDashboard("AgentDashboard", "agent"),
     },
     {
       title: "Supervisor",
-      subtitle: "Open supervisor area",
       icon: "account-supervisor-outline",
       type: "mci",
-      bg: COLORS.secondary,
+      color: COLORS.secondary,
       action: () => navigateToDashboard("SupervisorDashboard", "supervisor"),
     },
     {
       title: "Support",
-      subtitle: "Open support center",
       icon: "headset",
       type: "mci",
-      bg: "#EA580C",
+      color: "#EA580C",
       action: () => navigateToDashboard("SupportDashboard", "support"),
     },
     {
       title: "Admin Control",
-      subtitle: "Manage roles",
       icon: "shield-account-outline",
       type: "mci",
-      bg: "#B91C1C",
+      color: "#B91C1C",
       action: () => navigateToDashboard("AdminUserControl"),
     },
     {
       title: "Users",
-      subtitle: "Manage users",
       icon: "account-group-outline",
       type: "mci",
-      bg: COLORS.dark,
+      color: COLORS.dark,
       action: () => navigateToDashboard("UserManagement"),
     },
     {
       title: "Transactions",
-      subtitle: "Sales logs",
       icon: "receipt-text-outline",
       type: "mci",
-      bg: "#15803D",
+      color: "#15803D",
       action: () => navigateToDashboard("SalesHistory"),
     },
     {
       title: "NIMC",
-      subtitle: "History records",
       icon: "fingerprint",
       type: "mci",
-      bg: "#7C2D12",
+      color: "#7C2D12",
       action: () => navigateToDashboard("NIMCHistory"),
     },
     {
       title: "BVN",
-      subtitle: "History records",
       icon: "card-account-details-outline",
       type: "mci",
-      bg: "#6D28D9",
+      color: "#6D28D9",
       action: () => navigateToDashboard("BVNHistory"),
     },
     {
       title: "Notifications",
-      subtitle: "Message center",
       icon: "bell-outline",
       type: "mci",
-      bg: "#2563EB",
+      color: "#2563EB",
       action: () => navigateToDashboard("Notifications"),
     },
   ];
@@ -418,6 +406,8 @@ const SuperAdminDashboard = ({ navigation }) => {
 
   return (
     <View style={styles.screen}>
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
+
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerIconBtn} onPress={goBack}>
           <Ionicons name="arrow-back" size={24} color={COLORS.white} />
@@ -440,40 +430,59 @@ const SuperAdminDashboard = ({ navigation }) => {
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
+        nestedScrollEnabled
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[COLORS.primary]}
+            tintColor={COLORS.primary}
+          />
         }
         showsVerticalScrollIndicator
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.welcomeCard}>
-          <Text style={styles.welcomeTitle}>Super Admin Access</Text>
-          <Text style={styles.welcomeText}>
-            Manage admin, users, agents, supervisors, support, transactions and
-            platform activity records in real time.
-          </Text>
+          <View style={styles.welcomeIcon}>
+            <MaterialCommunityIcons
+              name="shield-crown-outline"
+              size={32}
+              color={COLORS.white}
+            />
+          </View>
+
+          <View style={{ flex: 1 }}>
+            <Text style={styles.welcomeTitle}>Super Admin Access</Text>
+            <Text style={styles.welcomeText}>
+              Manage all dashboards, users, roles, transactions and platform
+              activity records in real time.
+            </Text>
+          </View>
+
+          <TouchableOpacity style={styles.refreshBtn} onPress={fetchDashboard}>
+            <Ionicons name="refresh" size={20} color={COLORS.white} />
+          </TouchableOpacity>
         </View>
 
-        <View style={[styles.grid, isWeb && styles.webGrid]}>
-          {statCards.map((card, index) => (
+        <View style={styles.iconGrid}>
+          {dashboardCards.map((item, index) => (
             <TouchableOpacity
               key={index}
-              style={[
-                styles.statCard,
-                { backgroundColor: card.bg },
-                isWeb && styles.webStatCard,
-              ]}
+              style={[styles.iconCard, isWeb && styles.webIconCard]}
               activeOpacity={0.86}
-              onPress={card.action}
+              onPress={item.action}
             >
-              <View style={styles.statInfo}>
-                <Text style={styles.statTitle}>{card.title}</Text>
-                <Text style={styles.statValue}>{card.value}</Text>
+              <View style={[styles.iconBox, { backgroundColor: item.color }]}>
+                {renderIcon(item, 26, COLORS.white)}
               </View>
 
-              <View style={styles.statIconOuter}>
-                <View style={styles.statIconInner}>{renderIcon(card, 28)}</View>
-              </View>
+              <Text style={styles.iconTitle} numberOfLines={1}>
+                {item.title}
+              </Text>
+
+              <Text style={styles.iconValue} numberOfLines={1}>
+                {item.value}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -481,28 +490,24 @@ const SuperAdminDashboard = ({ navigation }) => {
         <View style={styles.navigationSection}>
           <Text style={styles.panelTitle}>Admin Navigation</Text>
 
-          <View style={[styles.navGrid, isWeb && styles.webNavGrid]}>
+          <View style={styles.iconGrid}>
             {navigationCards.map((item, index) => (
               <TouchableOpacity
                 key={index}
-                style={[styles.navCardBox, isWeb && styles.webNavCardBox]}
+                style={[styles.iconCard, isWeb && styles.webIconCard]}
                 onPress={item.action}
                 activeOpacity={0.86}
               >
-                <View style={[styles.navIconLarge, { backgroundColor: item.bg }]}>
-                  {renderIcon(item, 30, COLORS.white)}
+                <View style={[styles.iconBox, { backgroundColor: item.color }]}>
+                  {renderIcon(item, 26, COLORS.white)}
                 </View>
 
-                <Text style={styles.navCardTitle}>{item.title}</Text>
-                <Text style={styles.navCardSubtitle}>{item.subtitle}</Text>
+                <Text style={styles.iconTitle} numberOfLines={2}>
+                  {item.title}
+                </Text>
 
                 <View style={styles.openBadge}>
                   <Text style={styles.openBadgeText}>OPEN</Text>
-                  <Ionicons
-                    name="chevron-forward"
-                    size={14}
-                    color={COLORS.primary}
-                  />
                 </View>
               </TouchableOpacity>
             ))}
@@ -639,18 +644,33 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: {
     padding: 16,
-    paddingBottom: 80,
+    paddingBottom: 120,
     flexGrow: 1,
+    minHeight: "100%",
+    maxWidth: 1200,
+    width: "100%",
+    alignSelf: "center",
   },
   welcomeCard: {
     backgroundColor: COLORS.white,
-    borderRadius: 18,
+    borderRadius: 22,
     padding: 18,
     marginBottom: 16,
     borderLeftWidth: 5,
     borderLeftColor: COLORS.primary,
     borderWidth: 1,
     borderColor: COLORS.border,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  welcomeIcon: {
+    width: 58,
+    height: 58,
+    borderRadius: 20,
+    backgroundColor: COLORS.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 14,
   },
   welcomeTitle: { color: COLORS.dark, fontSize: 22, fontWeight: "900" },
   welcomeText: {
@@ -659,45 +679,56 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontWeight: "600",
   },
-  grid: { gap: 12, marginBottom: 18 },
-  webGrid: { flexDirection: "row", flexWrap: "wrap" },
-  statCard: {
-    borderRadius: 18,
-    padding: 18,
-    minHeight: 105,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  webStatCard: { width: "23.5%", minWidth: 220 },
-  statInfo: { flex: 1 },
-  statTitle: {
-    color: "rgba(255,255,255,0.82)",
-    fontSize: 12,
-    fontWeight: "900",
-    textTransform: "uppercase",
-  },
-  statValue: {
-    color: COLORS.white,
-    fontSize: 24,
-    fontWeight: "900",
-    marginTop: 6,
-  },
-  statIconOuter: {
-    width: 62,
-    height: 62,
-    borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.16)",
+  refreshBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 15,
+    backgroundColor: COLORS.secondary,
     alignItems: "center",
     justifyContent: "center",
   },
-  statIconInner: {
+  iconGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    rowGap: 12,
+    marginBottom: 18,
+  },
+  iconCard: {
+    width: "23.5%",
+    minHeight: 118,
+    backgroundColor: COLORS.white,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 8,
+  },
+  webIconCard: {
+    width: "23.5%",
+    minHeight: 128,
+  },
+  iconBox: {
     width: 48,
     height: 48,
-    borderRadius: 16,
-    backgroundColor: "rgba(255,255,255,0.18)",
+    borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
+    marginBottom: 8,
+  },
+  iconTitle: {
+    color: COLORS.dark,
+    fontSize: 10,
+    fontWeight: "900",
+    textAlign: "center",
+  },
+  iconValue: {
+    color: COLORS.primary,
+    fontSize: 13,
+    fontWeight: "900",
+    marginTop: 5,
+    textAlign: "center",
   },
   navigationSection: {
     backgroundColor: COLORS.white,
@@ -713,62 +744,16 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     marginBottom: 14,
   },
-  navGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    rowGap: 12,
-  },
-  webNavGrid: {
-    justifyContent: "flex-start",
-    columnGap: 12,
-  },
-  navCardBox: {
-    width: "48%",
-    backgroundColor: COLORS.light,
-    borderRadius: 20,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    minHeight: 150,
-  },
-  webNavCardBox: {
-    width: "23.5%",
-    minWidth: 220,
-  },
-  navIconLarge: {
-    width: 58,
-    height: 58,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-  },
-  navCardTitle: {
-    color: COLORS.dark,
-    fontSize: 14,
-    fontWeight: "900",
-  },
-  navCardSubtitle: {
-    color: COLORS.muted,
-    fontSize: 11,
-    fontWeight: "600",
-    marginTop: 4,
-  },
   openBadge: {
-    marginTop: "auto",
-    alignSelf: "flex-start",
+    marginTop: 7,
     backgroundColor: "#DCFCE7",
-    paddingHorizontal: 9,
-    paddingVertical: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 999,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
   },
   openBadgeText: {
     color: COLORS.primary,
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "900",
   },
   sectionGrid: { gap: 16 },
