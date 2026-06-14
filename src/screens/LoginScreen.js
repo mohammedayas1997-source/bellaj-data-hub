@@ -75,24 +75,50 @@ const LoginScreen = ({ navigation }) => {
   const getUserPayload = (data) => data?.user || data?.data?.user || data?.data || {};
 
   const redirectUser = (role) => {
-    const normalizedRole = String(role || "user").trim().toLowerCase();
+  const normalizedRole = String(role || "user").trim().toLowerCase();
 
-    const routeMap = {
-      superadmin: "SuperAdminDashboard",
-      admin: "AdminDashboard",
-      leader: "LeaderDashboard",
-      support: "SupportDashboard",
-      supervisor: "SupervisorDashboard",
-      agent: "AgentDashboard",
-    };
+  const drawerScreens = {
+    superadmin: "SuperAdminDashboard",
+    admin: "AdminDashboard",
+    leader: "LeaderDashboard",
+    support: "SupportDashboard",
+    supervisor: "SupervisorDashboard",
+    agent: "AgentDashboard",
+  };
 
+  const targetScreen = drawerScreens[normalizedRole];
+
+  if (targetScreen) {
     navigation.dispatch(
       CommonActions.reset({
         index: 0,
-        routes: [{ name: routeMap[normalizedRole] || "Main" }],
+        routes: [
+          {
+            name: "Main",
+            params: {
+              screen: targetScreen,
+            },
+          },
+        ],
       })
     );
-  };
+    return;
+  }
+
+  navigation.dispatch(
+    CommonActions.reset({
+      index: 0,
+      routes: [
+        {
+          name: "Main",
+          params: {
+            screen: "Dashboard",
+          },
+        },
+      ],
+    })
+  );
+};
 
   const checkLoginStatus = async () => {
     try {

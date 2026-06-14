@@ -12,7 +12,11 @@ import {
   useWindowDimensions,
   StatusBar,
 } from "react-native";
-import { useNavigation, CommonActions } from "@react-navigation/native";
+import {
+  useNavigation,
+  CommonActions,
+  DrawerActions,
+} from "@react-navigation/native";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -64,6 +68,7 @@ const AdminDashboard = () => {
   const { isDarkMode } = useContext(ThemeContext);
 
   const COLORS = isDarkMode ? DARK : LIGHT;
+  const styles = getStyles(COLORS);
   const isWeb = width >= 768;
 
   const [loading, setLoading] = useState(true);
@@ -163,29 +168,23 @@ const AdminDashboard = () => {
   };
 
   const openMenu = () => {
-    const parent = navigation.getParent?.();
+    try {
+      navigation.dispatch(DrawerActions.openDrawer());
+    } catch {
+      const parent = navigation.getParent?.();
 
-    if (navigation.openDrawer) return navigation.openDrawer();
-    if (parent?.openDrawer) return parent.openDrawer();
+      if (navigation.openDrawer) return navigation.openDrawer();
+      if (parent?.openDrawer) return parent.openDrawer();
 
-    Alert.alert(
-      "Menu Error",
-      "AdminDashboard must be inside DrawerNavigator for CustomDrawerContent menu to open."
-    );
+      navigation.navigate("Main", { screen: "AdminDashboard" });
+    }
   };
 
   const safeNavigate = (screenName) => {
-    try {
-      navigation.navigate(screenName, {
-        fromAdminDashboard: true,
-        backScreen: "AdminDashboard",
-      });
-    } catch {
-      Alert.alert(
-        "Navigation Error",
-        `${screenName} is not registered in App.js.`
-      );
-    }
+    navigation.navigate(screenName, {
+      fromAdminDashboard: true,
+      backScreen: "AdminDashboard",
+    });
   };
 
   const logout = async () => {
@@ -221,7 +220,7 @@ const AdminDashboard = () => {
   const cards = useMemo(
     () => [
       {
-        title: "Total Users",
+        title: "Users",
         value: stats.users,
         icon: "account-group-outline",
         type: "mci",
@@ -229,7 +228,7 @@ const AdminDashboard = () => {
         screen: "UserManagement",
       },
       {
-        title: "Total Sales",
+        title: "Sales",
         value: formatMoney(stats.sales),
         icon: "cash-multiple",
         type: "mci",
@@ -245,7 +244,7 @@ const AdminDashboard = () => {
         screen: "SalesHistory",
       },
       {
-        title: "Issue Resolution",
+        title: "Issues",
         value: stats.reports,
         icon: "alert-circle-outline",
         type: "ion",
@@ -253,7 +252,7 @@ const AdminDashboard = () => {
         screen: "IssueResolution",
       },
       {
-        title: "Pricing Settings",
+        title: "Pricing",
         value: "Open",
         icon: "cash-cog",
         type: "mci",
@@ -261,7 +260,7 @@ const AdminDashboard = () => {
         screen: "PricingSettings",
       },
       {
-        title: "NIMC Requests",
+        title: "NIMC",
         value: stats.nimc,
         icon: "fingerprint",
         type: "mci",
@@ -269,7 +268,7 @@ const AdminDashboard = () => {
         screen: "NIMCRequests",
       },
       {
-        title: "BVN Requests",
+        title: "BVN",
         value: stats.bvn,
         icon: "card-account-details-outline",
         type: "mci",
@@ -277,7 +276,7 @@ const AdminDashboard = () => {
         screen: "BvnRequests",
       },
       {
-        title: "Notifications",
+        title: "Notify",
         value: "Open",
         icon: "bell-outline",
         type: "ion",
@@ -290,80 +289,70 @@ const AdminDashboard = () => {
 
   const menuCards = [
     {
-      title: "Admin Dashboard",
-      subtitle: "Admin operations center",
+      title: "Dashboard",
       icon: "view-dashboard-outline",
       type: "mci",
       color: COLORS.primary,
       action: () => safeNavigate("AdminDashboard"),
     },
     {
-      title: "All Users",
-      subtitle: "Manage platform users",
+      title: "Users",
       icon: "account-group-outline",
       type: "mci",
       color: COLORS.primary,
       action: () => safeNavigate("UserManagement"),
     },
     {
-      title: "Sales Logs",
-      subtitle: "Revenue and transactions",
+      title: "Sales",
       icon: "cash-multiple",
       type: "mci",
       color: COLORS.secondary,
       action: () => safeNavigate("SalesHistory"),
     },
     {
-      title: "Pricing Settings",
-      subtitle: "Update NIMC, BVN and service prices",
+      title: "Pricing",
       icon: "cash-cog",
       type: "mci",
       color: "#7C3AED",
       action: () => safeNavigate("PricingSettings"),
     },
     {
-      title: "Issue Resolution",
-      subtitle: "Resolve customer issues",
+      title: "Issues",
       icon: "alert-circle-outline",
       type: "ion",
       color: COLORS.danger,
       action: () => safeNavigate("IssueResolution"),
     },
     {
-      title: "NIMC Requests",
-      subtitle: "Manage NIMC requests",
+      title: "NIMC",
       icon: "fingerprint",
       type: "mci",
       color: "#2563EB",
       action: () => safeNavigate("NIMCRequests"),
     },
     {
-      title: "BVN Requests",
-      subtitle: "Manage BVN requests",
+      title: "BVN",
       icon: "card-account-details-outline",
       type: "mci",
       color: "#D97706",
       action: () => safeNavigate("BvnRequests"),
     },
     {
-      title: "Support Dashboard",
-      subtitle: "Open support center",
+      title: "Support",
       icon: "headset",
       type: "mci",
       color: "#EA580C",
       action: () => safeNavigate("SupportDashboard"),
     },
     {
-      title: "Supervisor Dashboard",
-      subtitle: "Open supervisor panel",
+      title: "Supervisor",
       icon: "account-supervisor-outline",
       type: "mci",
       color: "#2563EB",
       action: () => safeNavigate("SupervisorDashboard"),
     },
     {
-      title: "Notifications",
-      subtitle: "Message center",
+      title: "Notify",
       icon: "bell-outline",
       type: "ion",
       color: "#0EA5E9",
@@ -371,11 +360,17 @@ const AdminDashboard = () => {
     },
     {
       title: "Settings",
-      subtitle: "App preferences and dark mode",
       icon: "settings-outline",
       type: "ion",
       color: "#334155",
       action: () => safeNavigate("Settings"),
+    },
+    {
+      title: "Targets",
+      icon: "target",
+      type: "mci",
+      color: "#16A34A",
+      action: () => safeNavigate("AssignTarget"),
     },
   ];
 
@@ -389,8 +384,6 @@ const AdminDashboard = () => {
     return <Ionicons name={item.icon} size={size} color={color} />;
   };
 
-  const styles = getStyles(COLORS, isWeb);
-
   if (loading) {
     return (
       <View style={styles.loaderContainer}>
@@ -402,10 +395,7 @@ const AdminDashboard = () => {
 
   return (
     <View style={styles.screen}>
-      <StatusBar
-        barStyle="light-content"
-        backgroundColor={COLORS.primary}
-      />
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
 
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerIconBtn} onPress={openMenu}>
@@ -425,6 +415,7 @@ const AdminDashboard = () => {
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
+        nestedScrollEnabled
         showsVerticalScrollIndicator
         keyboardShouldPersistTaps="handled"
         refreshControl={
@@ -448,8 +439,7 @@ const AdminDashboard = () => {
           <View style={{ flex: 1 }}>
             <Text style={styles.heroTitle}>Live Operations Center</Text>
             <Text style={styles.heroText}>
-              Monitor users, sales, requests, pricing, issues and platform
-              controls in real time.
+              Monitor users, sales, requests, pricing, issues and platform controls.
             </Text>
           </View>
 
@@ -458,34 +448,25 @@ const AdminDashboard = () => {
           </TouchableOpacity>
         </View>
 
-        <View style={[styles.grid, isWeb && styles.webGrid]}>
+        <View style={styles.statGrid}>
           {cards.map((item, index) => (
             <TouchableOpacity
               key={index}
-              style={[
-                styles.card,
-                { borderLeftColor: item.color },
-                isWeb && styles.webCard,
-              ]}
+              style={[styles.statBox, isWeb && styles.webStatBox]}
               onPress={() => safeNavigate(item.screen)}
               activeOpacity={0.86}
             >
-              <View style={[styles.iconBox, { backgroundColor: item.color }]}>
-                {renderIcon(item, 26, COLORS.white)}
+              <View style={[styles.statIconBox, { backgroundColor: item.color }]}>
+                {renderIcon(item, 24, COLORS.white)}
               </View>
 
-              <View style={styles.cardTextBox}>
-                <Text style={styles.cardTitle}>{item.title}</Text>
-                <Text style={styles.cardCount}>{item.value}</Text>
-              </View>
+              <Text style={styles.statTitle} numberOfLines={1}>
+                {item.title}
+              </Text>
 
-              <View style={styles.arrowBox}>
-                <Ionicons
-                  name="chevron-forward"
-                  size={18}
-                  color={COLORS.muted}
-                />
-              </View>
+              <Text style={styles.statValue} numberOfLines={1}>
+                {item.value}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -493,34 +474,21 @@ const AdminDashboard = () => {
         <View style={styles.navigationSection}>
           <Text style={styles.panelTitle}>Admin Navigation</Text>
 
-          <View style={[styles.navGrid, isWeb && styles.webNavGrid]}>
+          <View style={styles.iconGrid}>
             {menuCards.map((item, index) => (
               <TouchableOpacity
                 key={index}
-                style={[styles.navCardBox, isWeb && styles.webNavCardBox]}
+                style={[styles.iconNavBox, isWeb && styles.webIconNavBox]}
                 onPress={item.action}
                 activeOpacity={0.86}
               >
-                <View
-                  style={[
-                    styles.navIconLarge,
-                    { backgroundColor: item.color },
-                  ]}
-                >
-                  {renderIcon(item, 30, COLORS.white)}
+                <View style={[styles.navIconBox, { backgroundColor: item.color }]}>
+                  {renderIcon(item, 26, COLORS.white)}
                 </View>
 
-                <Text style={styles.navCardTitle}>{item.title}</Text>
-                <Text style={styles.navCardSubtitle}>{item.subtitle}</Text>
-
-                <View style={styles.openBadge}>
-                  <Text style={styles.openBadgeText}>OPEN</Text>
-                  <Ionicons
-                    name="chevron-forward"
-                    size={14}
-                    color={COLORS.secondary}
-                  />
-                </View>
+                <Text style={styles.iconNavText} numberOfLines={2}>
+                  {item.title}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -555,14 +523,6 @@ const AdminDashboard = () => {
 
           <QuickAction
             COLORS={COLORS}
-            icon="target"
-            title="Assign Supervisor Targets"
-            color={COLORS.secondary}
-            onPress={() => safeNavigate("AssignTarget")}
-          />
-
-          <QuickAction
-            COLORS={COLORS}
             icon="headset"
             title="Audit Support Logs"
             color={COLORS.secondary}
@@ -575,44 +535,48 @@ const AdminDashboard = () => {
 };
 
 const QuickAction = ({ COLORS, icon, title, color, onPress }) => (
-  <TouchableOpacity style={getQuickStyles(COLORS).actionBtn} onPress={onPress}>
-    <View style={[getQuickStyles(COLORS).smallIconBox, { backgroundColor: color }]}>
+  <TouchableOpacity
+    style={[
+      stylesQuick.actionBtn,
+      { backgroundColor: COLORS.soft, borderColor: COLORS.border },
+    ]}
+    onPress={onPress}
+  >
+    <View style={[stylesQuick.smallIconBox, { backgroundColor: color }]}>
       <MaterialCommunityIcons name={icon} size={22} color={COLORS.white} />
     </View>
 
-    <Text style={getQuickStyles(COLORS).actionText}>{title}</Text>
+    <Text style={[stylesQuick.actionText, { color: COLORS.text }]}>
+      {title}
+    </Text>
 
     <Ionicons name="chevron-forward" size={20} color={COLORS.muted} />
   </TouchableOpacity>
 );
 
-const getQuickStyles = (COLORS) =>
-  StyleSheet.create({
-    actionBtn: {
-      backgroundColor: COLORS.soft,
-      padding: 14,
-      borderRadius: 18,
-      marginBottom: 10,
-      flexDirection: "row",
-      alignItems: "center",
-      borderWidth: 1,
-      borderColor: COLORS.border,
-    },
-    smallIconBox: {
-      width: 42,
-      height: 42,
-      borderRadius: 15,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    actionText: {
-      flex: 1,
-      fontSize: 15,
-      color: COLORS.text,
-      fontWeight: "800",
-      marginLeft: 12,
-    },
-  });
+const stylesQuick = StyleSheet.create({
+  actionBtn: {
+    padding: 14,
+    borderRadius: 18,
+    marginBottom: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+  },
+  smallIconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  actionText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "800",
+    marginLeft: 12,
+  },
+});
 
 const getStyles = (COLORS) =>
   StyleSheet.create({
@@ -657,8 +621,9 @@ const getStyles = (COLORS) =>
     container: { flex: 1 },
     content: {
       padding: 16,
-      paddingBottom: 100,
+      paddingBottom: 140,
       flexGrow: 1,
+      minHeight: "100%",
       maxWidth: 1200,
       width: "100%",
       alignSelf: "center",
@@ -696,7 +661,7 @@ const getStyles = (COLORS) =>
       marginRight: 14,
     },
     heroTitle: {
-      fontSize: 23,
+      fontSize: 22,
       fontWeight: "900",
       color: COLORS.text,
     },
@@ -715,58 +680,49 @@ const getStyles = (COLORS) =>
       alignItems: "center",
       justifyContent: "center",
     },
-    grid: {
-      gap: 12,
-      marginBottom: 18,
-    },
-    webGrid: {
+    statGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
+      justifyContent: "space-between",
+      rowGap: 12,
+      marginBottom: 18,
     },
-    card: {
+    statBox: {
+      width: "23.5%",
+      minHeight: 116,
       backgroundColor: COLORS.card,
-      padding: 15,
-      borderRadius: 20,
-      flexDirection: "row",
-      alignItems: "center",
-      borderLeftWidth: 5,
+      borderRadius: 18,
+      padding: 10,
       borderWidth: 1,
       borderColor: COLORS.border,
-    },
-    webCard: {
-      width: "48.5%",
-      minWidth: 280,
-    },
-    iconBox: {
-      width: 52,
-      height: 52,
-      borderRadius: 18,
-      justifyContent: "center",
       alignItems: "center",
-      marginRight: 12,
+      justifyContent: "center",
     },
-    cardTextBox: { flex: 1 },
-    cardTitle: {
-      fontSize: 12,
+    webStatBox: {
+      width: "23.5%",
+      minHeight: 128,
+    },
+    statIconBox: {
+      width: 44,
+      height: 44,
+      borderRadius: 16,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 8,
+    },
+    statTitle: {
+      fontSize: 10,
       color: COLORS.subText,
       fontWeight: "900",
+      textAlign: "center",
       textTransform: "uppercase",
     },
-    cardCount: {
-      fontSize: 22,
+    statValue: {
+      fontSize: 14,
       fontWeight: "900",
       color: COLORS.text,
       marginTop: 5,
-    },
-    arrowBox: {
-      width: 32,
-      height: 32,
-      borderRadius: 12,
-      backgroundColor: COLORS.soft,
-      alignItems: "center",
-      justifyContent: "center",
-      borderWidth: 1,
-      borderColor: COLORS.border,
+      textAlign: "center",
     },
     navigationSection: {
       backgroundColor: COLORS.card,
@@ -782,63 +738,40 @@ const getStyles = (COLORS) =>
       fontWeight: "900",
       marginBottom: 14,
     },
-    navGrid: {
+    iconGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
       justifyContent: "space-between",
       rowGap: 12,
     },
-    webNavGrid: {
-      justifyContent: "flex-start",
-      columnGap: 12,
-    },
-    navCardBox: {
-      width: "48%",
+    iconNavBox: {
+      width: "23.5%",
+      minHeight: 112,
       backgroundColor: COLORS.soft,
-      borderRadius: 22,
-      padding: 14,
+      borderRadius: 18,
       borderWidth: 1,
       borderColor: COLORS.border,
-      minHeight: 158,
-    },
-    webNavCardBox: {
-      width: "23.5%",
-      minWidth: 220,
-    },
-    navIconLarge: {
-      width: 58,
-      height: 58,
-      borderRadius: 20,
       alignItems: "center",
       justifyContent: "center",
-      marginBottom: 12,
+      padding: 8,
     },
-    navCardTitle: {
-      color: COLORS.text,
-      fontSize: 14,
-      fontWeight: "900",
+    webIconNavBox: {
+      width: "23.5%",
+      minHeight: 125,
     },
-    navCardSubtitle: {
-      color: COLORS.subText,
-      fontSize: 11,
-      fontWeight: "600",
-      marginTop: 4,
-    },
-    openBadge: {
-      marginTop: "auto",
-      alignSelf: "flex-start",
-      backgroundColor: isDarkBadge(COLORS) ? "#064E3B" : "#DCFCE7",
-      paddingHorizontal: 9,
-      paddingVertical: 5,
-      borderRadius: 999,
-      flexDirection: "row",
+    navIconBox: {
+      width: 46,
+      height: 46,
+      borderRadius: 16,
       alignItems: "center",
-      gap: 3,
+      justifyContent: "center",
+      marginBottom: 8,
     },
-    openBadgeText: {
-      color: COLORS.secondary,
+    iconNavText: {
+      color: COLORS.text,
       fontSize: 10,
       fontWeight: "900",
+      textAlign: "center",
     },
     quickSection: {
       backgroundColor: COLORS.card,
@@ -854,7 +787,5 @@ const getStyles = (COLORS) =>
       marginBottom: 14,
     },
   });
-
-const isDarkBadge = (COLORS) => COLORS.light === "#020617";
 
 export default AdminDashboard;
