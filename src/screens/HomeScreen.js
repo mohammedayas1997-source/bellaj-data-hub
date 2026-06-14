@@ -24,7 +24,10 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
-import { CommonActions } from "@react-navigation/native";
+import {
+  CommonActions,
+  DrawerActions,
+} from "@react-navigation/native";
 import { ThemeContext } from "../context/ThemeContext";
 import BASE_URL from "../config/api";
 
@@ -48,7 +51,7 @@ const API_ENDPOINTS = {
   notifications: `${BASE_URL}/notifications/unread`,
 };
 
-const HomeScreen = ({ navigation }) => {
+const HomeScreen = ({ navigation, route }) => {
   const { isDarkMode } = useContext(ThemeContext);
 
   const [userData, setUserData] = useState(null);
@@ -61,20 +64,20 @@ const HomeScreen = ({ navigation }) => {
     fetchUserData();
   }, []);
 
-  const getAuthHeaders = async () => {
+  async function getAuthHeaders() {
     const token =
       (await AsyncStorage.getItem("userToken")) ||
       (await AsyncStorage.getItem("token")) ||
       (await AsyncStorage.getItem("adminToken"));
 
     return token ? { Authorization: `Bearer ${token}` } : null;
-  };
+  }
 
   const normalizeUser = (payload) => {
     return payload?.data?.user || payload?.data || payload?.user || payload || null;
   };
 
-  const fetchUserData = async () => {
+  async function fetchUserData() {
     try {
       setLoading(true);
 
@@ -91,9 +94,9 @@ const HomeScreen = ({ navigation }) => {
       }
 
       const [profileRes, walletRes, notificationRes] = await Promise.allSettled([
-        axios.get(API_ENDPOINTS.profile, { headers }),
-        axios.get(API_ENDPOINTS.wallet, { headers }),
-        axios.get(API_ENDPOINTS.notifications, { headers }),
+        axios.get(API_ENDPOINTS.profile, { headers, timeout: 30000 }),
+        axios.get(API_ENDPOINTS.wallet, { headers, timeout: 30000 }),
+        axios.get(API_ENDPOINTS.notifications, { headers, timeout: 30000 }),
       ]);
 
       let profile = null;
@@ -122,7 +125,7 @@ const HomeScreen = ({ navigation }) => {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -130,34 +133,43 @@ const HomeScreen = ({ navigation }) => {
   };
 
   const openMenu = () => {
-    const parent = navigation?.getParent?.();
+    try {
+      navigation.dispatch(DrawerActions.openDrawer());
+    } catch {
+      const parent = navigation?.getParent?.();
 
-    if (navigation?.openDrawer) {
-      navigation.openDrawer();
-      return;
+      if (navigation?.openDrawer) return navigation.openDrawer();
+      if (parent?.openDrawer) return parent.openDrawer();
+
+      navigation.navigate("Main");
     }
-
-    if (parent?.openDrawer) {
-      parent.openDrawer();
-      return;
-    }
-
-    navigation.navigate("Main");
   };
 
   const goBack = () => {
-  if (route?.params?.fromSuperAdmin) {
-    navigation.navigate("SuperAdminDashboard");
-    return;
-  }
+    const backScreen = route?.params?.backScreen;
 
-  if (navigation.canGoBack?.()) {
-    navigation.goBack();
-    return;
-  }
+    if (route?.params?.fromSuperAdmin || backScreen === "SuperAdminDashboard") {
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [
+            {
+              name: "Main",
+              params: { screen: "SuperAdminDashboard" },
+            },
+          ],
+        })
+      );
+      return;
+    }
 
-  navigation.navigate("Main");
-};
+    if (navigation.canGoBack?.()) {
+      navigation.goBack();
+      return;
+    }
+
+    navigation.navigate("Main", { screen: "Dashboard" });
+  };
 
   const handleLogout = async () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
@@ -189,7 +201,11 @@ const HomeScreen = ({ navigation }) => {
 
   const safeNavigate = (screenName, params = {}) => {
     try {
-      navigation.navigate(screenName, params);
+      navigation.navigate(screenName, {
+        ...params,
+        fromHome: true,
+        backScreen: "Dashboard",
+      });
     } catch {
       Alert.alert("Navigation Error", `${screenName} is not registered.`);
     }
@@ -231,9 +247,7 @@ const HomeScreen = ({ navigation }) => {
     );
   }, [userData]);
 
-  const walletBalance = Number(
-    userData?.walletBalance || userData?.balance || 0
-  );
+  const walletBalance = Number(userData?.walletBalance || userData?.balance || 0);
 
   const accounts =
     userData?.virtualAccounts ||
@@ -250,8 +264,7 @@ const HomeScreen = ({ navigation }) => {
   const bankName =
     userData?.bankName || userData?.bank || accounts?.[0]?.bankName || "Wema Bank";
 
-  const accountName =
-    userData?.accountName || accounts?.[0]?.accountName || userName;
+  const accountName = userData?.accountName || accounts?.[0]?.accountName || userName;
 
   if (loading) {
     return (
@@ -340,11 +353,13 @@ const HomeScreen = ({ navigation }) => {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator
           keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
               colors={[COLORS.primary]}
+              tintColor={COLORS.primary}
             />
           }
         >
@@ -362,14 +377,10 @@ const HomeScreen = ({ navigation }) => {
             <View style={styles.balanceContainer}>
               <Text style={styles.currency}>₦</Text>
               <Text style={styles.balanceText}>
-                {isBalanceVisible
-                  ? walletBalance.toLocaleString()
-                  : "****"}
+                {isBalanceVisible ? walletBalance.toLocaleString() : "****"}
               </Text>
 
-              <TouchableOpacity
-                onPress={() => setIsBalanceVisible(!isBalanceVisible)}
-              >
+              <TouchableOpacity onPress={() => setIsBalanceVisible(!isBalanceVisible)}>
                 <Ionicons
                   name={isBalanceVisible ? "eye-outline" : "eye-off-outline"}
                   size={24}
@@ -517,17 +528,8 @@ const TrustItem = ({ icon, title, sub, color, bg }) => (
 
 const TabItem = ({ icon, label, active, onPress }) => (
   <TouchableOpacity style={styles.tabItem} onPress={onPress}>
-    <Ionicons
-      name={icon}
-      size={24}
-      color={active ? COLORS.primary : "#94A3B8"}
-    />
-    <Text
-      style={[
-        styles.tabLabel,
-        { color: active ? COLORS.primary : "#94A3B8" },
-      ]}
-    >
+    <Ionicons name={icon} size={24} color={active ? COLORS.primary : "#94A3B8"} />
+    <Text style={[styles.tabLabel, { color: active ? COLORS.primary : "#94A3B8" }]}>
       {label}
     </Text>
   </TouchableOpacity>
@@ -704,7 +706,7 @@ const styles = StyleSheet.create({
   },
   bankBox: {
     backgroundColor: COLORS.white,
-    width: width * 0.88,
+    width: "100%",
     padding: 16,
     borderRadius: 20,
     flexDirection: "row",
