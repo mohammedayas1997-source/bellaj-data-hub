@@ -8,18 +8,15 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": false,
-
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.bellajdatahub.app"
     },
-
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
@@ -27,22 +24,22 @@
       },
       "package": "com.bellajdatahub.app",
       "edgeToEdgeEnabled": true,
-      "permissions": ["INTERNET"],
-      "usesCleartextTraffic": true
+      "permissions": [
+        "INTERNET"
+      ]
+     
     },
-
     "web": {
       "favicon": "./assets/favicon.png"
     },
-
     "extra": {
       "eas": {
-        "projectId": "84b7adc6-0b27-4dd2-abbd-d119de52bc66"
+        "projectId": "c2dcf106-76cb-441b-9979-834bda4c6f5f"
       }
     },
-
-    "owner": "ayas8724",
-
-    "plugins": []
+    "owner": "ayas6124",
+    "plugins": [
+      "expo-font"
+    ]
   }
 }
