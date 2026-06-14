@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useContext, useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -10,14 +10,16 @@ import {
   Alert,
   Platform,
   useWindowDimensions,
+  StatusBar,
 } from "react-native";
 import { useNavigation, CommonActions } from "@react-navigation/native";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import BASE_URL from "../config/api";
+import { ThemeContext } from "../context/ThemeContext";
 
-const COLORS = {
+const LIGHT = {
   primary: "#E60000",
   secondary: "#0B5E3C",
   dark: "#0F172A",
@@ -26,6 +28,25 @@ const COLORS = {
   muted: "#64748B",
   border: "#E2E8F0",
   danger: "#DC2626",
+  card: "#FFFFFF",
+  soft: "#F8FAFC",
+  text: "#0F172A",
+  subText: "#64748B",
+};
+
+const DARK = {
+  primary: "#E60000",
+  secondary: "#22C55E",
+  dark: "#020617",
+  white: "#FFFFFF",
+  light: "#020617",
+  muted: "#94A3B8",
+  border: "#1E293B",
+  danger: "#EF4444",
+  card: "#0F172A",
+  soft: "#111827",
+  text: "#F8FAFC",
+  subText: "#CBD5E1",
 };
 
 const API_ENDPOINTS = {
@@ -40,6 +61,9 @@ const API_ENDPOINTS = {
 const AdminDashboard = () => {
   const navigation = useNavigation();
   const { width } = useWindowDimensions();
+  const { isDarkMode } = useContext(ThemeContext);
+
+  const COLORS = isDarkMode ? DARK : LIGHT;
   const isWeb = width >= 768;
 
   const [loading, setLoading] = useState(true);
@@ -91,12 +115,12 @@ const AdminDashboard = () => {
       const headers = await getAuthHeaders();
 
       const results = await Promise.allSettled([
-        axios.get(API_ENDPOINTS.users, { headers }),
-        axios.get(API_ENDPOINTS.nimcRequests, { headers }),
-        axios.get(API_ENDPOINTS.bvnRequests, { headers }),
-        axios.get(API_ENDPOINTS.allReports, { headers }),
-        axios.get(API_ENDPOINTS.salesStats, { headers }),
-        axios.get(API_ENDPOINTS.transactions, { headers }),
+        axios.get(API_ENDPOINTS.users, { headers, timeout: 30000 }),
+        axios.get(API_ENDPOINTS.nimcRequests, { headers, timeout: 30000 }),
+        axios.get(API_ENDPOINTS.bvnRequests, { headers, timeout: 30000 }),
+        axios.get(API_ENDPOINTS.allReports, { headers, timeout: 30000 }),
+        axios.get(API_ENDPOINTS.salesStats, { headers, timeout: 30000 }),
+        axios.get(API_ENDPOINTS.transactions, { headers, timeout: 30000 }),
       ]);
 
       const usersRes =
@@ -146,7 +170,7 @@ const AdminDashboard = () => {
 
     Alert.alert(
       "Menu Error",
-      "AdminDashboard must be inside DrawerNavigator for menu to work."
+      "AdminDashboard must be inside DrawerNavigator for CustomDrawerContent menu to open."
     );
   };
 
@@ -261,7 +285,7 @@ const AdminDashboard = () => {
         screen: "Notifications",
       },
     ],
-    [stats]
+    [stats, isDarkMode]
   );
 
   const menuCards = [
@@ -321,7 +345,6 @@ const AdminDashboard = () => {
       color: "#D97706",
       action: () => safeNavigate("BvnRequests"),
     },
-    
     {
       title: "Support Dashboard",
       subtitle: "Open support center",
@@ -348,7 +371,7 @@ const AdminDashboard = () => {
     },
     {
       title: "Settings",
-      subtitle: "App preferences",
+      subtitle: "App preferences and dark mode",
       icon: "settings-outline",
       type: "ion",
       color: "#334155",
@@ -366,6 +389,8 @@ const AdminDashboard = () => {
     return <Ionicons name={item.icon} size={size} color={color} />;
   };
 
+  const styles = getStyles(COLORS, isWeb);
+
   if (loading) {
     return (
       <View style={styles.loaderContainer}>
@@ -377,6 +402,11 @@ const AdminDashboard = () => {
 
   return (
     <View style={styles.screen}>
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor={COLORS.primary}
+      />
+
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerIconBtn} onPress={openMenu}>
           <Ionicons name="menu" size={26} color={COLORS.white} />
@@ -402,10 +432,19 @@ const AdminDashboard = () => {
             refreshing={refreshing}
             onRefresh={onRefresh}
             colors={[COLORS.primary]}
+            tintColor={COLORS.primary}
           />
         }
       >
         <View style={styles.heroCard}>
+          <View style={styles.heroIconBox}>
+            <MaterialCommunityIcons
+              name="view-dashboard-outline"
+              size={34}
+              color={COLORS.white}
+            />
+          </View>
+
           <View style={{ flex: 1 }}>
             <Text style={styles.heroTitle}>Live Operations Center</Text>
             <Text style={styles.heroText}>
@@ -431,13 +470,21 @@ const AdminDashboard = () => {
               onPress={() => safeNavigate(item.screen)}
               activeOpacity={0.86}
             >
+              <View style={[styles.iconBox, { backgroundColor: item.color }]}>
+                {renderIcon(item, 26, COLORS.white)}
+              </View>
+
               <View style={styles.cardTextBox}>
                 <Text style={styles.cardTitle}>{item.title}</Text>
                 <Text style={styles.cardCount}>{item.value}</Text>
               </View>
 
-              <View style={[styles.iconCircle, { backgroundColor: item.color }]}>
-                {renderIcon(item, 24, COLORS.white)}
+              <View style={styles.arrowBox}>
+                <Ionicons
+                  name="chevron-forward"
+                  size={18}
+                  color={COLORS.muted}
+                />
               </View>
             </TouchableOpacity>
           ))}
@@ -482,306 +529,332 @@ const AdminDashboard = () => {
         <View style={styles.quickSection}>
           <Text style={styles.sectionTitle}>Service Configuration</Text>
 
-          <TouchableOpacity
-            style={styles.actionBtn}
+          <QuickAction
+            COLORS={COLORS}
+            icon="cash-cog"
+            title="Pricing Settings"
+            color="#7C3AED"
             onPress={() => safeNavigate("PricingSettings")}
-          >
-            <MaterialCommunityIcons
-              name="cash-cog"
-              size={22}
-              color="#7C3AED"
-            />
-            <Text style={styles.actionText}>Pricing Settings</Text>
-            <Ionicons name="chevron-forward" size={20} color={COLORS.muted} />
-          </TouchableOpacity>
+          />
 
-          <TouchableOpacity
-            style={styles.actionBtn}
+          <QuickAction
+            COLORS={COLORS}
+            icon="server-outline"
+            title="Manage Data & Airtime Plans"
+            color={COLORS.secondary}
             onPress={() => safeNavigate("DataPlans")}
-          >
-            <MaterialCommunityIcons
-              name="server-outline"
-              size={22}
-              color={COLORS.secondary}
-            />
-            <Text style={styles.actionText}>Manage Data & Airtime Plans</Text>
-            <Ionicons name="chevron-forward" size={20} color={COLORS.muted} />
-          </TouchableOpacity>
+          />
 
-          <TouchableOpacity
-            style={styles.actionBtn}
+          <QuickAction
+            COLORS={COLORS}
+            icon="television-classic"
+            title="Configure Cable TV & Utility Rates"
+            color={COLORS.secondary}
             onPress={() => safeNavigate("CableTvPlans")}
-          >
-            <MaterialCommunityIcons
-              name="television-classic"
-              size={22}
-              color={COLORS.secondary}
-            />
-            <Text style={styles.actionText}>
-              Configure Cable TV & Utility Rates
-            </Text>
-            <Ionicons name="chevron-forward" size={20} color={COLORS.muted} />
-          </TouchableOpacity>
+          />
 
-          <TouchableOpacity
-            style={styles.actionBtn}
+          <QuickAction
+            COLORS={COLORS}
+            icon="target"
+            title="Assign Supervisor Targets"
+            color={COLORS.secondary}
             onPress={() => safeNavigate("AssignTarget")}
-          >
-            <MaterialCommunityIcons
-              name="target"
-              size={22}
-              color={COLORS.secondary}
-            />
-            <Text style={styles.actionText}>Assign Supervisor Targets</Text>
-            <Ionicons name="chevron-forward" size={20} color={COLORS.muted} />
-          </TouchableOpacity>
+          />
 
-          <TouchableOpacity
-            style={styles.actionBtn}
+          <QuickAction
+            COLORS={COLORS}
+            icon="headset"
+            title="Audit Support Logs"
+            color={COLORS.secondary}
             onPress={() => safeNavigate("SupportActivities")}
-          >
-            <MaterialCommunityIcons
-              name="headset"
-              size={22}
-              color={COLORS.secondary}
-            />
-            <Text style={styles.actionText}>Audit Support Logs</Text>
-            <Ionicons name="chevron-forward" size={20} color={COLORS.muted} />
-          </TouchableOpacity>
+          />
         </View>
       </ScrollView>
     </View>
   );
 };
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: COLORS.light },
-  header: {
-    backgroundColor: COLORS.primary,
-    paddingTop: Platform.OS === "android" ? 42 : 22,
-    paddingBottom: 16,
-    paddingHorizontal: 12,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  headerIconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    backgroundColor: "rgba(255,255,255,0.16)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 10,
-  },
-  headerTextBox: { flex: 1 },
-  headerTitle: { color: COLORS.white, fontSize: 20, fontWeight: "900" },
-  headerSubtitle: {
-    color: "#FFE4E4",
-    marginTop: 3,
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  logoutBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    backgroundColor: COLORS.dark,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  container: { flex: 1 },
-  content: {
-    padding: 16,
-    paddingBottom: 100,
-    flexGrow: 1,
-  },
-  loaderContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: COLORS.light,
-  },
-  loaderText: {
-    color: COLORS.primary,
-    fontWeight: "800",
-    marginTop: 12,
-  },
-  heroCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 22,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderLeftWidth: 5,
-    borderLeftColor: COLORS.primary,
-    marginBottom: 16,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  heroTitle: {
-    fontSize: 23,
-    fontWeight: "900",
-    color: COLORS.dark,
-  },
-  heroText: {
-    color: COLORS.muted,
-    marginTop: 6,
-    fontWeight: "600",
-    lineHeight: 20,
-    paddingRight: 12,
-  },
-  refreshButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 15,
-    backgroundColor: COLORS.secondary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  grid: {
-    gap: 12,
-    marginBottom: 18,
-  },
-  webGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-  },
-  card: {
-    backgroundColor: COLORS.white,
-    padding: 16,
-    borderRadius: 18,
-    flexDirection: "row",
-    alignItems: "center",
-    borderLeftWidth: 5,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  webCard: {
-    width: "48.5%",
-    minWidth: 280,
-  },
-  cardTextBox: { flex: 1 },
-  cardTitle: {
-    fontSize: 13,
-    color: COLORS.muted,
-    fontWeight: "800",
-    textTransform: "uppercase",
-  },
-  cardCount: {
-    fontSize: 22,
-    fontWeight: "900",
-    color: COLORS.dark,
-    marginTop: 5,
-  },
-  iconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  navigationSection: {
-    backgroundColor: COLORS.white,
-    borderRadius: 24,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    marginBottom: 18,
-  },
-  panelTitle: {
-    color: COLORS.dark,
-    fontSize: 18,
-    fontWeight: "900",
-    marginBottom: 14,
-  },
-  navGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    rowGap: 12,
-  },
-  webNavGrid: {
-    justifyContent: "flex-start",
-    columnGap: 12,
-  },
-  navCardBox: {
-    width: "48%",
-    backgroundColor: COLORS.light,
-    borderRadius: 20,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    minHeight: 150,
-  },
-  webNavCardBox: {
-    width: "23.5%",
-    minWidth: 220,
-  },
-  navIconLarge: {
-    width: 58,
-    height: 58,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-  },
-  navCardTitle: {
-    color: COLORS.dark,
-    fontSize: 14,
-    fontWeight: "900",
-  },
-  navCardSubtitle: {
-    color: COLORS.muted,
-    fontSize: 11,
-    fontWeight: "600",
-    marginTop: 4,
-  },
-  openBadge: {
-    marginTop: "auto",
-    alignSelf: "flex-start",
-    backgroundColor: "#DCFCE7",
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    borderRadius: 999,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-  },
-  openBadgeText: {
-    color: COLORS.secondary,
-    fontSize: 10,
-    fontWeight: "900",
-  },
-  quickSection: {
-    backgroundColor: COLORS.white,
-    borderRadius: 22,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "900",
-    color: COLORS.dark,
-    marginBottom: 14,
-  },
-  actionBtn: {
-    backgroundColor: COLORS.light,
-    padding: 15,
-    borderRadius: 16,
-    marginBottom: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  actionText: {
-    flex: 1,
-    fontSize: 15,
-    color: "#334155",
-    fontWeight: "800",
-    marginLeft: 10,
-  },
-});
+const QuickAction = ({ COLORS, icon, title, color, onPress }) => (
+  <TouchableOpacity style={getQuickStyles(COLORS).actionBtn} onPress={onPress}>
+    <View style={[getQuickStyles(COLORS).smallIconBox, { backgroundColor: color }]}>
+      <MaterialCommunityIcons name={icon} size={22} color={COLORS.white} />
+    </View>
+
+    <Text style={getQuickStyles(COLORS).actionText}>{title}</Text>
+
+    <Ionicons name="chevron-forward" size={20} color={COLORS.muted} />
+  </TouchableOpacity>
+);
+
+const getQuickStyles = (COLORS) =>
+  StyleSheet.create({
+    actionBtn: {
+      backgroundColor: COLORS.soft,
+      padding: 14,
+      borderRadius: 18,
+      marginBottom: 10,
+      flexDirection: "row",
+      alignItems: "center",
+      borderWidth: 1,
+      borderColor: COLORS.border,
+    },
+    smallIconBox: {
+      width: 42,
+      height: 42,
+      borderRadius: 15,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    actionText: {
+      flex: 1,
+      fontSize: 15,
+      color: COLORS.text,
+      fontWeight: "800",
+      marginLeft: 12,
+    },
+  });
+
+const getStyles = (COLORS) =>
+  StyleSheet.create({
+    screen: { flex: 1, backgroundColor: COLORS.light },
+    header: {
+      backgroundColor: COLORS.primary,
+      paddingTop: Platform.OS === "android" ? 42 : 22,
+      paddingBottom: 16,
+      paddingHorizontal: 12,
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    headerIconBtn: {
+      width: 42,
+      height: 42,
+      borderRadius: 15,
+      backgroundColor: "rgba(255,255,255,0.16)",
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: 10,
+    },
+    headerTextBox: { flex: 1 },
+    headerTitle: {
+      color: COLORS.white,
+      fontSize: 20,
+      fontWeight: "900",
+    },
+    headerSubtitle: {
+      color: "#FFE4E4",
+      marginTop: 3,
+      fontSize: 12,
+      fontWeight: "600",
+    },
+    logoutBtn: {
+      width: 42,
+      height: 42,
+      borderRadius: 15,
+      backgroundColor: COLORS.dark,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    container: { flex: 1 },
+    content: {
+      padding: 16,
+      paddingBottom: 100,
+      flexGrow: 1,
+      maxWidth: 1200,
+      width: "100%",
+      alignSelf: "center",
+    },
+    loaderContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      backgroundColor: COLORS.light,
+    },
+    loaderText: {
+      color: COLORS.primary,
+      fontWeight: "800",
+      marginTop: 12,
+    },
+    heroCard: {
+      backgroundColor: COLORS.card,
+      borderRadius: 24,
+      padding: 18,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      borderLeftWidth: 5,
+      borderLeftColor: COLORS.primary,
+      marginBottom: 16,
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    heroIconBox: {
+      width: 58,
+      height: 58,
+      borderRadius: 20,
+      backgroundColor: COLORS.primary,
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: 14,
+    },
+    heroTitle: {
+      fontSize: 23,
+      fontWeight: "900",
+      color: COLORS.text,
+    },
+    heroText: {
+      color: COLORS.subText,
+      marginTop: 6,
+      fontWeight: "600",
+      lineHeight: 20,
+      paddingRight: 12,
+    },
+    refreshButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 15,
+      backgroundColor: COLORS.secondary,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    grid: {
+      gap: 12,
+      marginBottom: 18,
+    },
+    webGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+    },
+    card: {
+      backgroundColor: COLORS.card,
+      padding: 15,
+      borderRadius: 20,
+      flexDirection: "row",
+      alignItems: "center",
+      borderLeftWidth: 5,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+    },
+    webCard: {
+      width: "48.5%",
+      minWidth: 280,
+    },
+    iconBox: {
+      width: 52,
+      height: 52,
+      borderRadius: 18,
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: 12,
+    },
+    cardTextBox: { flex: 1 },
+    cardTitle: {
+      fontSize: 12,
+      color: COLORS.subText,
+      fontWeight: "900",
+      textTransform: "uppercase",
+    },
+    cardCount: {
+      fontSize: 22,
+      fontWeight: "900",
+      color: COLORS.text,
+      marginTop: 5,
+    },
+    arrowBox: {
+      width: 32,
+      height: 32,
+      borderRadius: 12,
+      backgroundColor: COLORS.soft,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+      borderColor: COLORS.border,
+    },
+    navigationSection: {
+      backgroundColor: COLORS.card,
+      borderRadius: 24,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      marginBottom: 18,
+    },
+    panelTitle: {
+      color: COLORS.text,
+      fontSize: 18,
+      fontWeight: "900",
+      marginBottom: 14,
+    },
+    navGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      justifyContent: "space-between",
+      rowGap: 12,
+    },
+    webNavGrid: {
+      justifyContent: "flex-start",
+      columnGap: 12,
+    },
+    navCardBox: {
+      width: "48%",
+      backgroundColor: COLORS.soft,
+      borderRadius: 22,
+      padding: 14,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      minHeight: 158,
+    },
+    webNavCardBox: {
+      width: "23.5%",
+      minWidth: 220,
+    },
+    navIconLarge: {
+      width: 58,
+      height: 58,
+      borderRadius: 20,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 12,
+    },
+    navCardTitle: {
+      color: COLORS.text,
+      fontSize: 14,
+      fontWeight: "900",
+    },
+    navCardSubtitle: {
+      color: COLORS.subText,
+      fontSize: 11,
+      fontWeight: "600",
+      marginTop: 4,
+    },
+    openBadge: {
+      marginTop: "auto",
+      alignSelf: "flex-start",
+      backgroundColor: isDarkBadge(COLORS) ? "#064E3B" : "#DCFCE7",
+      paddingHorizontal: 9,
+      paddingVertical: 5,
+      borderRadius: 999,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 3,
+    },
+    openBadgeText: {
+      color: COLORS.secondary,
+      fontSize: 10,
+      fontWeight: "900",
+    },
+    quickSection: {
+      backgroundColor: COLORS.card,
+      borderRadius: 24,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+    },
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: "900",
+      color: COLORS.text,
+      marginBottom: 14,
+    },
+  });
+
+const isDarkBadge = (COLORS) => COLORS.light === "#020617";
 
 export default AdminDashboard;
