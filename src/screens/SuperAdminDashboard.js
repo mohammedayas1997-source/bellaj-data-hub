@@ -234,7 +234,7 @@ const SuperAdminDashboard = ({ navigation }) => {
     fetchDashboard();
   };
 
-  const executeDirectNavigation = async (screenName, overrideRole = null) => {
+const executeDirectNavigation = async (screenName, overrideRole = null) => {
     setSidebarOpen(false);
 
     try {
@@ -243,18 +243,39 @@ const SuperAdminDashboard = ({ navigation }) => {
         await AsyncStorage.setItem("isSuperAdminOverride", "true");
       }
 
-      navigation.navigate(screenName, {
-        fromSuperAdmin: true,
-        backScreen: "SuperAdminDashboard",
+      // Safe navigation check: gwada sunan kai tsaye, idan ya kasa gwada nested stack
+      try {
+        navigation.navigate(screenName, {
+          fromSuperAdmin: true,
+          backScreen: "SuperAdminDashboard",
+        });
+        return;
+      } catch {
+        // Idan babu shi kai tsaye, gwada kiran allon a cikin 'Main'
+      }
+
+      navigation.navigate("Main", {
+        screen: screenName,
+        params: {
+          fromSuperAdmin: true,
+          backScreen: "SuperAdminDashboard",
+        },
       });
     } catch {
-      Alert.alert(
-        "Module Offline",
-        `Screen component for '${screenName}' is currently pending route activation.`
-      );
+      // Idan sunan yana da kalmar 'Screen' a karshe
+      try {
+        navigation.navigate(`${screenName}Screen`, {
+          fromSuperAdmin: true,
+          backScreen: "SuperAdminDashboard",
+        });
+      } catch {
+        Alert.alert(
+          "Module Offline",
+          `Screen component '${screenName}' is currently pending route activation in AppNavigator.`
+        );
+      }
     }
   };
-
   const handleCreateSupervisor = async () => {
     if (!supForm.fullName || !supForm.email || !supForm.password) {
       Alert.alert("Validation Error", "Full Name, Email and Password are required.");
