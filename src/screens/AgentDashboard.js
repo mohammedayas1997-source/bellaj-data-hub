@@ -14,6 +14,7 @@ import {
   RefreshControl,
   Modal,
   SafeAreaView,
+  Switch,
   useWindowDimensions,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
@@ -40,8 +41,6 @@ const COLORS = {
   accent: "#2563EB",
   purple: "#7C3AED",
   orange: "#EA580C",
-  card: "#FFFFFF",
-  soft: "#F1F5F9",
   sidebarBg: "#062819",
   sidebarBorder: "#0c3b26",
 };
@@ -57,17 +56,14 @@ const AgentDashboard = ({ navigation, route }) => {
   const [isBalanceVisible, setIsBalanceVisible] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // Biometrics & Fingerprint Setup State
-  const [isBiometricActive, setIsBiometricActive] = useState(false);
-  const [biometricSettingUp, setBiometricSettingUp] = useState(false);
+  // Fingerprint State
+  const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const [biometricSupported, setBiometricSupported] = useState(false);
 
-  // Modals & Navigation
+  // Modals
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
   const [logoutProcessing, setLogoutProcessing] = useState(false);
-
-  // Real-Time Transaction Ledger Activity
-  const [recentTransactions, setRecentTransactions] = useState([]);
 
   const [performance, setPerformance] = useState({
     totalGB: 0,
@@ -89,7 +85,7 @@ const AgentDashboard = ({ navigation, route }) => {
         Accept: "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      timeout: 20000,
+      timeout: 25000,
     };
   };
 
@@ -100,7 +96,6 @@ const AgentDashboard = ({ navigation, route }) => {
     const data = payload?.data || payload || [];
     if (Array.isArray(data)) return data;
     if (Array.isArray(data?.notifications)) return data.notifications;
-    if (Array.isArray(data?.transactions)) return data.transactions;
     return [];
   };
 
@@ -110,63 +105,59 @@ const AgentDashboard = ({ navigation, route }) => {
         const res = await axios.get(url, config);
         if (res?.data) return res.data;
       } catch {
-        // Fallback chain
+        // Continue to fallback
       }
     }
     return null;
   };
 
-  const checkBiometricStatus = async () => {
+  // Check and Load Fingerprint Setting
+  const checkBiometricSetup = useCallback(async () => {
     try {
-      const isEnabled = await AsyncStorage.getItem("useBiometricLogin");
-      setIsBiometricActive(isEnabled === "true");
+      const compatible = await LocalAuthentication.hasHardwareAsync();
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+      setBiometricSupported(compatible && enrolled);
+
+      const savedPref = await AsyncStorage.getItem("useBiometricLogin");
+      setBiometricEnabled(savedPref === "true");
     } catch {
-      setIsBiometricActive(false);
+      setBiometricSupported(false);
     }
-  };
+  }, []);
 
-  const toggleFingerprintSetup = async () => {
-    try {
-      setBiometricSettingUp(true);
-      const hasHardware = await LocalAuthentication.hasHardwareAsync();
-      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+  const toggleFingerprintSetting = async (value) => {
+    if (value) {
+      try {
+        const hasHardware = await LocalAuthentication.hasHardwareAsync();
+        const isEnrolled = await LocalAuthentication.isEnrolledAsync();
 
-      if (!hasHardware || !isEnrolled) {
-        Alert.alert(
-          "Fingerprint Not Available",
-          "Your phone does not support fingerprint or face recognition, or no security print is registered in your phone settings."
-        );
-        return;
-      }
+        if (!hasHardware || !isEnrolled) {
+          Alert.alert(
+            "Fingerprint Not Ready",
+            "Please register a fingerprint or face scan on your phone settings first."
+          );
+          return;
+        }
 
-      if (isBiometricActive) {
-        // Turn Off Fingerprint Login
-        await AsyncStorage.removeItem("useBiometricLogin");
-        setIsBiometricActive(false);
-        Alert.alert("Success", "Fingerprint login has been turned off.");
-      } else {
-        // Verify User Fingerprint Before Enabling
-        const result = await LocalAuthentication.authenticateAsync({
-          promptMessage: "Scan your fingerprint to link to your account",
-          fallbackLabel: "Cancel",
-          disableDeviceFallback: false,
+        const auth = await LocalAuthentication.authenticateAsync({
+          promptMessage: "Confirm Fingerprint for Bellaj Login",
+          fallbackLabel: "Use Password",
         });
 
-        if (result.success) {
+        if (auth.success) {
           await AsyncStorage.setItem("useBiometricLogin", "true");
-          setIsBiometricActive(true);
-          Alert.alert(
-            "Fingerprint Enabled",
-            "Your fingerprint is now set up. You can now use your finger to log in anytime."
-          );
+          setBiometricEnabled(true);
+          Alert.alert("Success", "Fingerprint Login has been turned ON.");
         } else {
-          Alert.alert("Failed", "Fingerprint could not be verified. Try again.");
+          setBiometricEnabled(false);
         }
+      } catch {
+        Alert.alert("Error", "Could not complete biometric setup.");
       }
-    } catch (e) {
-      Alert.alert("Notice", "Failed to update fingerprint settings.");
-    } finally {
-      setBiometricSettingUp(false);
+    } else {
+      await AsyncStorage.setItem("useBiometricLogin", "false");
+      setBiometricEnabled(false);
+      Alert.alert("Notice", "Fingerprint Login has been turned OFF.");
     }
   };
 
@@ -175,7 +166,6 @@ const AgentDashboard = ({ navigation, route }) => {
       setLoading(true);
       const config = await getHeaders();
 
-      // Read local cache first so it never appears blank
       const cachedUserData = await AsyncStorage.getItem("userData");
       if (cachedUserData) {
         try {
@@ -183,7 +173,7 @@ const AgentDashboard = ({ navigation, route }) => {
         } catch {}
       }
 
-      await checkBiometricStatus();
+      await checkBiometricSetup();
 
       const profileEndpoints = [
         `${BASE_URL}/auth/me`,
@@ -202,19 +192,13 @@ const AgentDashboard = ({ navigation, route }) => {
         `${BASE_URL}/notifications`,
         `${BASE_URL}/user/notifications`,
       ];
-      const txEndpoints = [
-        `${BASE_URL}/agent/transactions`,
-        `${BASE_URL}/transactions`,
-        `${BASE_URL}/user/transactions`,
-      ];
 
-      const [profileRes, perfRes, supRes, notificationRes, txRes] =
+      const [profileRes, perfRes, supRes, notificationRes] =
         await Promise.allSettled([
           fetchWithFallback(profileEndpoints, config),
           fetchWithFallback(perfEndpoints, config),
           fetchWithFallback(supEndpoints, config),
           fetchWithFallback(notifEndpoints, config),
-          fetchWithFallback(txEndpoints, config),
         ]);
 
       if (profileRes.status === "fulfilled" && profileRes.value) {
@@ -235,18 +219,13 @@ const AgentDashboard = ({ navigation, route }) => {
         const list = normalizeList(notificationRes.value);
         setUnreadCount(list.filter((item) => !item?.isRead && !item?.read).length);
       }
-
-      if (txRes.status === "fulfilled" && txRes.value) {
-        const rawTxs = normalizeList(txRes.value);
-        setRecentTransactions(rawTxs.slice(0, 10));
-      }
     } catch {
-      // Retain state
+      // Keep UI functional
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [checkBiometricSetup]);
 
   useEffect(() => {
     loadDashboard();
@@ -268,7 +247,7 @@ const AgentDashboard = ({ navigation, route }) => {
         ...params,
       });
     } catch {
-      Alert.alert("Notice", `The screen '${screenName}' is opening.`);
+      Alert.alert("Notice", `Screen '${screenName}' is opening.`);
     }
   };
 
@@ -315,7 +294,7 @@ const AgentDashboard = ({ navigation, route }) => {
     if (Platform.OS === "android") {
       ToastAndroid.show("Copied to clipboard", ToastAndroid.SHORT);
     } else {
-      Alert.alert("Copied", "Account number copied to clipboard.");
+      Alert.alert("Copied", "Account number copied.");
     }
   };
 
@@ -345,43 +324,43 @@ const AgentDashboard = ({ navigation, route }) => {
       : 0;
 
   const quickServices = [
-    { icon: "wifi", label: "Buy Data", screen: "BuyData", color: COLORS.primary },
-    { icon: "phone-alt", label: "Buy Airtime", screen: "BuyAirtime", color: COLORS.secondary },
-    { icon: "bolt", label: "Pay Light Bill", screen: "Electricity", color: "#EAB308" },
+    { icon: "wifi", label: "Data", screen: "BuyData", color: COLORS.primary },
+    { icon: "phone-alt", label: "Airtime", screen: "BuyAirtime", color: COLORS.secondary },
+    { icon: "bolt", label: "Electricity", screen: "Electricity", color: "#EAB308" },
     { icon: "tv", label: "Cable TV", screen: "Cable", color: COLORS.purple },
-    { icon: "id-card", label: "Check NIN", screen: "NIMC", color: COLORS.accent },
-    { icon: "fingerprint", label: "Change NIN", screen: "NIMCModification", color: "#EC4899" },
-    { icon: "user-shield", label: "Check BVN", screen: "BVNScreen", color: COLORS.muted },
-    { icon: "shield-alt", label: "Validate NIN", screen: "NINValidation", color: COLORS.secondary },
-    { icon: "history", label: "Sales Log", screen: "SalesHistory", color: COLORS.orange },
+    { icon: "id-card", label: "NIMC Form", screen: "NIMC", color: COLORS.accent },
+    { icon: "fingerprint", label: "NIMC Edit", screen: "NIMCModification", color: "#EC4899" },
+    { icon: "user-shield", label: "BVN Check", screen: "BVNScreen", color: COLORS.muted },
+    { icon: "shield-alt", label: "NIN Verify", screen: "NINValidation", color: COLORS.secondary },
+    { icon: "history", label: "History", screen: "SalesHistory", color: COLORS.orange },
   ];
 
-  // Simplified English for Easy Reading in Sidebar
+  // Easy Simple English Sidebar Navigation
   const sidebarNavGroups = [
     {
-      group: "Selling & Money",
+      group: "Main Work",
       routes: [
-        { title: "Sell to Customer", icon: "cart-plus", action: () => safeNavigate("NewSale") },
-        { title: "Add Money to Wallet", icon: "wallet-plus-outline", action: () => safeNavigate("FundWallet") },
-        { title: "My Sales History", icon: "history", action: () => safeNavigate("SalesHistory") },
-        { title: "My Wallet History", icon: "receipt-text-outline", action: () => safeNavigate("WalletDashboard") },
+        { title: "Sell (New Order)", icon: "cart-plus", action: () => safeNavigate("NewSale") },
+        { title: "Add Money (Wallet)", icon: "wallet-plus-outline", action: () => safeNavigate("FundWallet") },
+        { title: "My Sales Records", icon: "history", action: () => safeNavigate("SalesHistory") },
+        { title: "Wallet Money History", icon: "receipt-text-outline", action: () => safeNavigate("SalesHistory") },
       ],
     },
     {
-      group: "Everyday Services",
+      group: "Services to Sell",
       routes: [
-        { title: "Buy Data & Airtime", icon: "cellphone-wireless", action: () => safeNavigate("BuyData") },
-        { title: "NIN National ID Services", icon: "fingerprint", action: () => safeNavigate("NIMC") },
-        { title: "BVN Bank Check", icon: "card-account-details-outline", action: () => safeNavigate("BVNScreen") },
-        { title: "Pay Electricity Bill", icon: "flash-outline", action: () => safeNavigate("Electricity") },
+        { title: "Sell Data & Airtime", icon: "cellphone-wireless", action: () => safeNavigate("BuyData") },
+        { title: "NIMC / NIN Work", icon: "fingerprint", action: () => safeNavigate("NIMC") },
+        { title: "BVN Verification", icon: "card-account-details-outline", action: () => safeNavigate("BVNScreen") },
+        { title: "Pay Light Bills", icon: "flash-outline", action: () => safeNavigate("Electricity") },
       ],
     },
     {
-      group: "Account & Help",
+      group: "Account & Security",
       routes: [
-        { title: "My Messages & Alerts", icon: "bell-outline", action: () => safeNavigate("Notifications") },
+        { title: "Messages & News", icon: "bell-outline", action: () => safeNavigate("Notifications") },
         { title: "My Profile Details", icon: "account-circle-outline", action: () => safeNavigate("Profile") },
-        { title: "Chat with Customer Care", icon: "headset", action: openWhatsApp },
+        { title: "Talk to Support (WhatsApp)", icon: "headset", action: openWhatsApp },
       ],
     },
   ];
@@ -394,7 +373,7 @@ const AgentDashboard = ({ navigation, route }) => {
         </View>
         <View style={{ flex: 1, marginLeft: 12 }}>
           <Text style={styles.sidebarBrandTitle}>Bellaj Data Hub</Text>
-          <Text style={styles.sidebarBrandTag}>Agent Quick Menu</Text>
+          <Text style={styles.sidebarBrandTag}>Agent Menu</Text>
         </View>
         {!isWeb && (
           <TouchableOpacity
@@ -413,9 +392,37 @@ const AgentDashboard = ({ navigation, route }) => {
         >
           <MaterialCommunityIcons name="view-dashboard" size={20} color={COLORS.white} />
           <Text style={[styles.sidebarMenuText, styles.sidebarMenuTextActive]}>
-            Home Dashboard
+            Home (Dashboard)
           </Text>
         </TouchableOpacity>
+
+        {/* FINGERPRINT LOGIN SETUP SECTION IN SIDEBAR */}
+        <View style={styles.biometricSection}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <MaterialCommunityIcons
+              name="fingerprint"
+              size={22}
+              color={biometricEnabled ? COLORS.secondary : "#CBD5E1"}
+            />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.biometricTitle}>Fingerprint Login</Text>
+              <Text style={styles.biometricSubText}>
+                {biometricSupported
+                  ? biometricEnabled
+                    ? "Active for quick login"
+                    : "Turn ON to login with finger"
+                  : "Not set on phone"}
+              </Text>
+            </View>
+            <Switch
+              value={biometricEnabled}
+              onValueChange={toggleFingerprintSetting}
+              trackColor={{ false: "#334155", true: COLORS.secondary }}
+              thumbColor={COLORS.white}
+              disabled={!biometricSupported}
+            />
+          </View>
+        </View>
 
         {sidebarNavGroups.map((section, sIdx) => (
           <View key={sIdx} style={styles.sidebarSection}>
@@ -451,7 +458,7 @@ const AgentDashboard = ({ navigation, route }) => {
           }}
         >
           <Ionicons name="power" size={18} color="#FCA5A5" />
-          <Text style={styles.sidebarLogoutText}>Log Out of App</Text>
+          <Text style={styles.sidebarLogoutText}>Logout (Sign Out)</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -497,7 +504,7 @@ const AgentDashboard = ({ navigation, route }) => {
             </TouchableOpacity>
 
             <View style={styles.headerTextBox}>
-              <Text style={styles.headerTitle}>Agent Work Station</Text>
+              <Text style={styles.headerTitle}>Agent Dashboard</Text>
               <Text style={styles.headerSubtitle}>
                 Welcome, {agentName}
               </Text>
@@ -526,7 +533,7 @@ const AgentDashboard = ({ navigation, route }) => {
           {loading && !userData ? (
             <View style={styles.loaderContainer}>
               <ActivityIndicator size="large" color={COLORS.primary} />
-              <Text style={styles.loaderText}>Loading Your Dashboard...</Text>
+              <Text style={styles.loaderText}>Loading your dashboard...</Text>
             </View>
           ) : (
             <ScrollView
@@ -548,7 +555,7 @@ const AgentDashboard = ({ navigation, route }) => {
                 <View style={styles.walletTop}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                     <MaterialCommunityIcons name="wallet-outline" size={18} color="#BBF7D0" />
-                    <Text style={styles.walletLabel}>My Main Balance</Text>
+                    <Text style={styles.walletLabel}>Your Wallet Money</Text>
                   </View>
                   <TouchableOpacity onPress={() => safeNavigate("SalesHistory")}>
                     <Text style={styles.historyText}>
@@ -597,94 +604,51 @@ const AgentDashboard = ({ navigation, route }) => {
                     activeOpacity={0.88}
                   >
                     <Ionicons name="logo-whatsapp" size={18} color="#22C55E" />
-                    <Text style={styles.actionBtnText}>HELP CHAT</Text>
+                    <Text style={styles.actionBtnText}>HELP</Text>
                   </TouchableOpacity>
                 </View>
               </View>
 
-              {/* Fingerprint Lock Setup Card */}
-              <View style={styles.fingerprintCard}>
-                <View style={styles.fingerprintInfo}>
-                  <View
-                    style={[
-                      styles.fingerprintIconCircle,
-                      { backgroundColor: isBiometricActive ? "#DCFCE7" : "#FEE2E2" },
-                    ]}
-                  >
-                    <Ionicons
-                      name="finger-print"
-                      size={24}
-                      color={isBiometricActive ? COLORS.secondary : COLORS.danger}
-                    />
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={styles.fingerprintTitle}>Fingerprint Login</Text>
-                    <Text style={styles.fingerprintDesc}>
-                      {isBiometricActive
-                        ? "Active: You can log in using your fingerprint."
-                        : "Turn on fingerprint to log in faster next time."}
-                    </Text>
-                  </View>
-                </View>
-
-                <TouchableOpacity
-                  style={[
-                    styles.fingerprintToggleBtn,
-                    { backgroundColor: isBiometricActive ? COLORS.danger : COLORS.secondary },
-                  ]}
-                  onPress={toggleFingerprintSetup}
-                  disabled={biometricSettingUp}
-                >
-                  {biometricSettingUp ? (
-                    <ActivityIndicator size="small" color={COLORS.white} />
-                  ) : (
-                    <Text style={styles.fingerprintToggleBtnText}>
-                      {isBiometricActive ? "Turn Off" : "Set Up Now"}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-
-              {/* Performance Metrics Cards */}
+              {/* Performance Cards */}
               <View style={styles.statsGrid}>
                 <View style={[styles.statCard, { borderLeftColor: COLORS.primary }]}>
-                  <Text style={styles.statLabel}>Data Dispatched</Text>
+                  <Text style={styles.statLabel}>Data Sold</Text>
                   <Text style={styles.statValue}>
                     {Number(performance.totalGB || 0).toLocaleString()} <Text style={styles.statUnit}>GB</Text>
                   </Text>
                 </View>
 
                 <View style={[styles.statCard, { borderLeftColor: COLORS.secondary }]}>
-                  <Text style={styles.statLabel}>Total Sales Made</Text>
+                  <Text style={styles.statLabel}>Total Sales</Text>
                   <Text style={styles.statValue}>
                     ₦{Number(currentSales || 0).toLocaleString()}
                   </Text>
                 </View>
 
                 <View style={[styles.statCard, { borderLeftColor: COLORS.orange }]}>
-                  <Text style={styles.statLabel}>My Profit (Commission)</Text>
+                  <Text style={styles.statLabel}>Your Commission</Text>
                   <Text style={[styles.statValue, { color: COLORS.orange }]}>
                     ₦{Number(performance.commissionsEarned || 0).toLocaleString()}
                   </Text>
                 </View>
 
                 <View style={[styles.statCard, { borderLeftColor: COLORS.purple }]}>
-                  <Text style={styles.statLabel}>Extra Bonus Earned</Text>
+                  <Text style={styles.statLabel}>Bonus Earned</Text>
                   <Text style={[styles.statValue, { color: COLORS.purple }]}>
                     ₦{Number(performance.bonusEarned || 0).toLocaleString()}
                   </Text>
                 </View>
               </View>
 
-              {/* Target Card */}
+              {/* Monthly Target Progress */}
               <View style={styles.targetCard}>
                 <View style={styles.targetHeader}>
                   <View>
-                    <Text style={styles.targetLabel}>Sales Goal For This Month</Text>
+                    <Text style={styles.targetLabel}>Month Target</Text>
                     <Text style={styles.targetValue}>₦{targetSales.toLocaleString()}</Text>
                   </View>
                   <View style={{ alignItems: "flex-end" }}>
-                    <Text style={styles.targetLabel}>Work Done</Text>
+                    <Text style={styles.targetLabel}>Target Reached</Text>
                     <Text style={styles.percentageText}>{achievementPercentage}%</Text>
                   </View>
                 </View>
@@ -703,38 +667,36 @@ const AgentDashboard = ({ navigation, route }) => {
 
                 <View style={styles.targetRowAlt}>
                   <Text style={styles.progressSubText}>
-                    Sold so far: <Text style={styles.boldText}>₦{currentSales.toLocaleString()}</Text>
+                    Sold: <Text style={styles.boldText}>₦{currentSales.toLocaleString()}</Text>
                   </Text>
                   <Text style={styles.remainingText}>
-                    Left to complete: <Text style={styles.boldTextRed}>₦{remainingToTarget.toLocaleString()}</Text>
+                    Remaining: <Text style={styles.boldTextRed}>₦{remainingToTarget.toLocaleString()}</Text>
                   </Text>
                 </View>
               </View>
 
-              {/* Bank Virtual Account */}
-              <Text style={styles.sectionLabel}>Your Transfer Account to Add Money</Text>
+              {/* Bank Account Details */}
+              <Text style={styles.sectionLabel}>Bank Account for Wallet Funding</Text>
               <View style={styles.bankCardsWrapper}>
                 {userData?.accountNumber && userData?.accountNumber !== "Initialization Pending" ? (
                   <BankCard
-                    bank={userData.bankName || "Wema Bank (Fast Transfer)"}
+                    bank={userData.bankName || "Wema Bank"}
                     acc={userData.accountNumber}
                     code="BD"
                     onCopy={() => copyToClipboard(userData.accountNumber)}
                   />
                 ) : (
                   <BankCard
-                    bank="Bank Account Loading"
-                    acc="Generating account number..."
+                    bank="Bank Account Generating"
+                    acc="Please wait a moment..."
                     code="POS"
-                    onCopy={() =>
-                      Alert.alert("Account Loading", "Your bank account number is preparing. Pull down to refresh.")
-                    }
+                    onCopy={() => Alert.alert("Wait", "Account number is loading.")}
                   />
                 )}
               </View>
 
-              {/* POS Services Grid */}
-              <Text style={styles.sectionLabel}>Services You Can Sell Now</Text>
+              {/* Services Grid */}
+              <Text style={styles.sectionLabel}>Services to Sell</Text>
               <View style={styles.servicesContainer}>
                 <View style={styles.grid}>
                   {quickServices.map((service, index) => (
@@ -753,72 +715,11 @@ const AgentDashboard = ({ navigation, route }) => {
                 </View>
               </View>
 
-              {/* Recent Sales History Log */}
-              <View style={styles.historySection}>
-                <View style={styles.historyHeader}>
-                  <Text style={styles.sectionTitle}>Recent Sales & Activity</Text>
-                  <TouchableOpacity onPress={() => safeNavigate("SalesHistory")}>
-                    <Text style={styles.seeAllText}>See Full List</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {recentTransactions.length === 0 ? (
-                  <View style={styles.emptyHistoryBox}>
-                    <Ionicons name="receipt-outline" size={32} color={COLORS.muted} />
-                    <Text style={styles.emptyHistoryTitle}>No Sales Yet</Text>
-                    <Text style={styles.emptyHistoryText}>
-                      When you sell data or airtime, the details will show here right away.
-                    </Text>
-                  </View>
-                ) : (
-                  recentTransactions.map((tx, idx) => (
-                    <View key={tx?._id || idx} style={styles.txRow}>
-                      <View style={styles.txIconCircle}>
-                        <MaterialCommunityIcons
-                          name={
-                            tx?.service === "AIRTIME"
-                              ? "phone"
-                              : tx?.service === "ELECTRICITY"
-                              ? "flash"
-                              : "wifi"
-                          }
-                          size={18}
-                          color={COLORS.primary}
-                        />
-                      </View>
-                      <View style={{ flex: 1, marginLeft: 10 }}>
-                        <Text style={styles.txTitle}>
-                          {tx?.type || tx?.service || "Data Sale"}
-                        </Text>
-                        <Text style={styles.txDate}>
-                          {tx?.createdAt
-                            ? new Date(tx.createdAt).toLocaleDateString()
-                            : "Today"}
-                        </Text>
-                      </View>
-                      <View style={{ alignItems: "flex-end" }}>
-                        <Text style={styles.txAmount}>
-                          ₦{Number(tx?.amount || 0).toLocaleString()}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.txStatus,
-                            { color: tx?.status === "failed" ? COLORS.danger : COLORS.secondary },
-                          ]}
-                        >
-                          {tx?.status || "Success"}
-                        </Text>
-                      </View>
-                    </View>
-                  ))
-                )}
-              </View>
-
-              {/* Regional Supervisor Card */}
+              {/* Assigned Supervisor */}
               <View style={styles.supervisorCard}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 }}>
                   <MaterialCommunityIcons name="shield-account" size={22} color={COLORS.secondary} />
-                  <Text style={styles.sectionTitle}>My Team Leader (Supervisor)</Text>
+                  <Text style={styles.sectionTitle}>Your Supervisor</Text>
                 </View>
 
                 {supervisor ? (
@@ -828,7 +729,7 @@ const AgentDashboard = ({ navigation, route }) => {
                         {supervisor?.name || supervisor?.fullName || "Supervisor"}
                       </Text>
                       <Text style={styles.supPhone}>
-                        {supervisor?.phone || supervisor?.email || "No phone number available"}
+                        {supervisor?.phone || supervisor?.email || "No phone number"}
                       </Text>
                     </View>
                     {supervisor?.phone ? (
@@ -843,7 +744,7 @@ const AgentDashboard = ({ navigation, route }) => {
                   </View>
                 ) : (
                   <Text style={styles.infoText}>
-                    You are working directly with Head Office. No individual supervisor assigned to your account.
+                    Direct Account (No individual supervisor assigned).
                   </Text>
                 )}
               </View>
@@ -864,9 +765,9 @@ const AgentDashboard = ({ navigation, route }) => {
             <View style={styles.modalIconWrap}>
               <Ionicons name="power" size={30} color={COLORS.danger} />
             </View>
-            <Text style={styles.modalHeading}>Do You Want to Log Out?</Text>
+            <Text style={styles.modalHeading}>Leave Account?</Text>
             <Text style={styles.modalSubheading}>
-              You will be signed out of your agent account. You can log back in with your password or fingerprint.
+              Are you sure you want to log out from this device?
             </Text>
 
             <View style={styles.modalActionRow}>
@@ -886,7 +787,7 @@ const AgentDashboard = ({ navigation, route }) => {
                 {logoutProcessing ? (
                   <ActivityIndicator size="small" color={COLORS.white} />
                 ) : (
-                  <Text style={styles.modalConfirmText}>Yes, Log Out</Text>
+                  <Text style={styles.modalConfirmText}>Log Out</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -965,12 +866,25 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.12)",
   },
   sidebarScroll: { flex: 1, paddingHorizontal: 14, paddingTop: 14 },
-  sidebarSection: { marginTop: 18 },
+
+  biometricSection: {
+    backgroundColor: "rgba(255,255,255,0.06)",
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  biometricTitle: { color: COLORS.white, fontWeight: "800", fontSize: 13 },
+  biometricSubText: { color: "#94A3B8", fontSize: 10, marginTop: 2 },
+
+  sidebarSection: { marginTop: 14 },
   sidebarSectionTitle: {
     color: "#64748B",
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "900",
-    letterSpacing: 0.5,
+    letterSpacing: 1,
     marginBottom: 8,
     textTransform: "uppercase",
     paddingHorizontal: 8,
@@ -1033,7 +947,7 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     color: "#DCFCE7",
     marginTop: 2,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "600",
   },
   notificationBtn: {
@@ -1141,57 +1055,6 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     fontSize: 11,
   },
-
-  // Fingerprint Box Styles
-  fingerprintCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    marginBottom: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  fingerprintInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-    marginRight: 10,
-  },
-  fingerprintIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  fingerprintTitle: {
-    color: COLORS.dark,
-    fontSize: 14,
-    fontWeight: "800",
-  },
-  fingerprintDesc: {
-    color: COLORS.muted,
-    fontSize: 11,
-    marginTop: 2,
-    lineHeight: 16,
-  },
-  fingerprintToggleBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    minWidth: 90,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  fingerprintToggleBtnText: {
-    color: COLORS.white,
-    fontSize: 12,
-    fontWeight: "800",
-  },
-
   statsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -1304,82 +1167,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontWeight: "800",
   },
-
-  // Sales History Log Component
-  historySection: {
-    backgroundColor: COLORS.white,
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    marginBottom: 16,
-  },
-  historyHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  seeAllText: {
-    color: COLORS.accent,
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  emptyHistoryBox: {
-    padding: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  emptyHistoryTitle: {
-    color: COLORS.dark,
-    fontSize: 13,
-    fontWeight: "800",
-    marginTop: 6,
-  },
-  emptyHistoryText: {
-    color: COLORS.muted,
-    fontSize: 11,
-    textAlign: "center",
-    marginTop: 4,
-    lineHeight: 16,
-  },
-  txRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F1F5F9",
-  },
-  txIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: "#DCFCE7",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  txTitle: {
-    color: COLORS.dark,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  txDate: {
-    color: COLORS.muted,
-    fontSize: 10,
-    marginTop: 2,
-  },
-  txAmount: {
-    color: COLORS.primary,
-    fontSize: 13,
-    fontWeight: "900",
-  },
-  txStatus: {
-    fontSize: 10,
-    fontWeight: "800",
-    textTransform: "uppercase",
-    marginTop: 2,
-  },
-
   supervisorCard: {
     backgroundColor: COLORS.white,
     padding: 14,
