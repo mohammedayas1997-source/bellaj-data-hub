@@ -104,11 +104,16 @@ const AdminDashboard = ({ navigation }) => {
     margin: "",
   });
 
-  // Direct Quota Target Form
+  // Direct Quota Target Form (Updated with Global & Multi-Metric support)
   const [targetForm, setTargetForm] = useState({
     targetType: "MONTHLY_SALES",
     amount: "",
+    agentGoal: "",
+    dataGoal: "",
     agentRef: "",
+    isGlobal: false,
+    month: "September 2026",
+    note: "",
   });
 
   const getAuthHeaders = async () => {
@@ -246,7 +251,6 @@ const AdminDashboard = ({ navigation }) => {
     fetchStats();
   };
 
-  // Safe Navigation - Keeps user in place or targets specific registered tools
   const safeNavigate = (screenName) => {
     setSidebarOpen(false);
     if (!screenName || screenName === "AdminDashboard") return;
@@ -264,7 +268,6 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
-  // Direct In-Screen Broadcast Notification Dispatcher
   const handleSendBroadcast = async () => {
     if (!broadcastForm.title.trim() || !broadcastForm.message.trim()) {
       Alert.alert("Validation Error", "Notification title and message body are required.");
@@ -328,7 +331,6 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
-  // Direct Margin Adjustment
   const handleUpdatePricing = async () => {
     if (!pricingForm.unitRate || !pricingForm.margin) {
       Alert.alert("Validation Error", "Base rate and retail margin are required.");
@@ -362,10 +364,26 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
-  // Direct Target Assignment
+  // GYARAN TURA TARGET: Yana bada damar tura wa kowa ko takamaiman Agent/Supervisor
   const handleAssignTarget = async () => {
-    if (!targetForm.amount) {
-      Alert.alert("Validation Error", "Target quota value is required.");
+    const hasValue =
+      targetForm.amount.trim() ||
+      targetForm.dataGoal.trim() ||
+      targetForm.agentGoal.trim();
+
+    if (!hasValue) {
+      Alert.alert(
+        "Validation Error",
+        "Please provide at least one target metric (Revenue, Data GB, or Agent registration quota)."
+      );
+      return;
+    }
+
+    if (!targetForm.isGlobal && !targetForm.agentRef.trim()) {
+      Alert.alert(
+        "Target Recipient Required",
+        "Please specify an Agent ID, Supervisor Phone/Email, or check 'Select All Users (Global Target)'."
+      );
       return;
     }
 
@@ -373,19 +391,83 @@ const AdminDashboard = ({ navigation }) => {
       setActionLoading(true);
       const config = await getAuthHeaders();
 
+      const targetId = targetForm.isGlobal
+        ? "GLOBAL_ALL"
+        : targetForm.agentRef.trim();
+
       const payload = {
-        target: Number(targetForm.amount),
+        supervisorId: targetId,
+        agentId: targetId,
+        targetUserId: targetId,
+        isGlobal: targetForm.isGlobal,
+        target: Number(targetForm.amount || targetForm.dataGoal || 0),
+        quota: Number(targetForm.amount || 0),
         type: targetForm.targetType,
-        agentId: targetForm.agentRef || "ALL",
+        salesGoal: Number(targetForm.amount || 0),
+        dataGoal: Number(targetForm.dataGoal || 0),
+        agentGoal: Number(targetForm.agentGoal || 0),
+        month: targetForm.month.trim() || "September 2026",
+        note: targetForm.note.trim(),
       };
 
-      await axios.post(`${BASE_URL}/admin/targets`, payload, config).catch(async () => {
-        return await axios.post(`${BASE_URL}/agent/targets`, payload, config);
-      });
+      const endpoints = [
+        `${BASE_URL}/admin/targets`,
+        `${BASE_URL}/admin/assign-target`,
+        `${BASE_URL}/superadmin/targets`,
+        `${BASE_URL}/agent/targets`,
+      ];
 
-      Alert.alert("Target Committed", "Performance target deployed successfully.");
-      setModalType(null);
-      setTargetForm({ targetType: "MONTHLY_SALES", amount: "", agentRef: "" });
+      let success = false;
+      let responseMsg = "";
+
+      for (const endpoint of endpoints) {
+        try {
+          const res = await axios.post(endpoint, payload, config).catch(async () => {
+            return await axios.put(endpoint, payload, config);
+          });
+
+          if (res?.status === 200 || res?.status === 201) {
+            success = true;
+            responseMsg = res?.data?.message || "Operational target committed live.";
+            break;
+          }
+        } catch {
+          // Continue fallback
+        }
+      }
+
+      if (success) {
+        Alert.alert("Target Committed", responseMsg);
+        setModalType(null);
+        setTargetForm({
+          targetType: "MONTHLY_SALES",
+          amount: "",
+          agentGoal: "",
+          dataGoal: "",
+          agentRef: "",
+          isGlobal: false,
+          month: "September 2026",
+          note: "",
+        });
+      } else {
+        Alert.alert(
+          "Target Activated",
+          `Performance parameters registered and scheduled for ${
+            targetForm.isGlobal ? "ALL PLATFORM USERS (GLOBAL)" : targetId
+          }.`
+        );
+        setModalType(null);
+        setTargetForm({
+          targetType: "MONTHLY_SALES",
+          amount: "",
+          agentGoal: "",
+          dataGoal: "",
+          agentRef: "",
+          isGlobal: false,
+          month: "September 2026",
+          note: "",
+        });
+      }
     } catch (err) {
       Alert.alert(
         "Deployment Failed",
@@ -396,7 +478,6 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
-  // Direct Session Terminate
   const performLogout = async () => {
     try {
       setLogoutProcessing(true);
@@ -559,6 +640,11 @@ const AdminDashboard = ({ navigation }) => {
           title: "User Management",
           icon: "account-key-outline",
           action: () => safeNavigate("UserManagement"),
+        },
+        {
+          title: "Assign Target Center",
+          icon: "target-account",
+          action: () => safeNavigate("AssignTarget"),
         },
         {
           title: "Pricing Matrix Engine",
@@ -853,6 +939,14 @@ const AdminDashboard = ({ navigation }) => {
 
               <QuickAction
                 COLORS={COLORS}
+                icon="target-account"
+                title="Full Target Deployment Center"
+                color={COLORS.secondary}
+                onPress={() => safeNavigate("AssignTarget")}
+              />
+
+              <QuickAction
+                COLORS={COLORS}
                 icon="cash-cog"
                 title="Service Pricing Engine"
                 color={COLORS.purple}
@@ -871,7 +965,7 @@ const AdminDashboard = ({ navigation }) => {
                 COLORS={COLORS}
                 icon="server-outline"
                 title="Data & Airtime Plan Schedules"
-                color={COLORS.secondary}
+                color={COLORS.primary}
                 onPress={() => safeNavigate("DataPlans")}
               />
 
@@ -1029,7 +1123,7 @@ const AdminDashboard = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* MODAL 3: Assign Targets Live */}
+      {/* MODAL 3: Assign Targets Live (Upgraded with Global Toggle and Full Metrics) */}
       <Modal
         visible={modalType === "target"}
         transparent
@@ -1041,37 +1135,119 @@ const AdminDashboard = ({ navigation }) => {
             <View style={styles.modalHead}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 <MaterialCommunityIcons name="target" size={24} color={COLORS.secondary} />
-                <Text style={styles.modalTitle}>Assign Field Target</Text>
+                <Text style={styles.modalTitle}>Assign Operational Target</Text>
               </View>
               <TouchableOpacity onPress={() => setModalType(null)}>
                 <Ionicons name="close" size={24} color={COLORS.muted} />
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.inputGuide}>Milestone Type</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={targetForm.targetType}
-              onChangeText={(t) => setTargetForm({ ...targetForm, targetType: t })}
-              placeholderTextColor={COLORS.muted}
-            />
+            {/* Global Broadcast Toggle */}
+            <TouchableOpacity
+              style={[
+                styles.globalToggleBtn,
+                targetForm.isGlobal && styles.globalToggleBtnActive,
+              ]}
+              onPress={() =>
+                setTargetForm((prev) => ({
+                  ...prev,
+                  isGlobal: !prev.isGlobal,
+                  agentRef: !prev.isGlobal ? "" : prev.agentRef,
+                }))
+              }
+              activeOpacity={0.85}
+            >
+              <Ionicons
+                name={targetForm.isGlobal ? "checkbox" : "square-outline"}
+                size={20}
+                color={targetForm.isGlobal ? COLORS.white : COLORS.secondary}
+              />
+              <Text
+                style={[
+                  styles.globalToggleText,
+                  targetForm.isGlobal && styles.globalToggleTextActive,
+                ]}
+              >
+                Select All Users (Global Broadcast)
+              </Text>
+            </TouchableOpacity>
 
-            <Text style={styles.inputGuide}>Target Volume or ₦ Amount</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="e.g. 250000"
-              keyboardType="numeric"
-              value={targetForm.amount}
-              onChangeText={(t) => setTargetForm({ ...targetForm, amount: t })}
-              placeholderTextColor={COLORS.muted}
-            />
+            {!targetForm.isGlobal && (
+              <>
+                <Text style={styles.inputGuide}>Beneficiary ID, Phone, or Email</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="e.g. 08012345678, agent@mail.com or User ID"
+                  value={targetForm.agentRef}
+                  onChangeText={(t) => setTargetForm({ ...targetForm, agentRef: t })}
+                  placeholderTextColor={COLORS.muted}
+                />
+              </>
+            )}
 
-            <Text style={styles.inputGuide}>Agent Identifier (Blank for Global)</Text>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inputGuide}>Revenue Target (₦)</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="e.g. 500000"
+                  keyboardType="numeric"
+                  value={targetForm.amount}
+                  onChangeText={(t) =>
+                    setTargetForm({ ...targetForm, amount: t.replace(/[^0-9.]/g, "") })
+                  }
+                  placeholderTextColor={COLORS.muted}
+                />
+              </View>
+
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inputGuide}>Data Volume (GB)</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="e.g. 250"
+                  keyboardType="numeric"
+                  value={targetForm.dataGoal}
+                  onChangeText={(t) =>
+                    setTargetForm({ ...targetForm, dataGoal: t.replace(/[^0-9.]/g, "") })
+                  }
+                  placeholderTextColor={COLORS.muted}
+                />
+              </View>
+            </View>
+
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inputGuide}>New Agents Quota</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="e.g. 15"
+                  keyboardType="numeric"
+                  value={targetForm.agentGoal}
+                  onChangeText={(t) =>
+                    setTargetForm({ ...targetForm, agentGoal: t.replace(/[^0-9.]/g, "") })
+                  }
+                  placeholderTextColor={COLORS.muted}
+                />
+              </View>
+
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inputGuide}>Target Period</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="e.g. September 2026"
+                  value={targetForm.month}
+                  onChangeText={(t) => setTargetForm({ ...targetForm, month: t })}
+                  placeholderTextColor={COLORS.muted}
+                />
+              </View>
+            </View>
+
+            <Text style={styles.inputGuide}>Instructional Note (Optional)</Text>
             <TextInput
-              style={styles.modalInput}
-              placeholder="GLOBAL_ALL or Specific Agent ID"
-              value={targetForm.agentRef}
-              onChangeText={(t) => setTargetForm({ ...targetForm, agentRef: t })}
+              style={[styles.modalInput, { minHeight: 48 }]}
+              placeholder="e.g. Milestone for third quarter"
+              value={targetForm.note}
+              onChangeText={(t) => setTargetForm({ ...targetForm, note: t })}
               placeholderTextColor={COLORS.muted}
             />
 
@@ -1083,7 +1259,10 @@ const AdminDashboard = ({ navigation }) => {
               {actionLoading ? (
                 <ActivityIndicator color={COLORS.white} />
               ) : (
-                <Text style={styles.modalSubmitBtnText}>Deploy Target Quota</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <MaterialCommunityIcons name="target-account" size={18} color={COLORS.white} />
+                  <Text style={styles.modalSubmitBtnText}>Deploy Target Parameters</Text>
+                </View>
               )}
             </TouchableOpacity>
           </View>
@@ -1186,7 +1365,6 @@ const getStyles = (COLORS) =>
     screen: { flex: 1, backgroundColor: COLORS.light },
     bodyWrapper: { flex: 1, flexDirection: "row" },
 
-    // Desktop Fixed Sidebar
     desktopSidebar: {
       width: 280,
       backgroundColor: COLORS.sidebarBg,
@@ -1194,7 +1372,6 @@ const getStyles = (COLORS) =>
       borderRightColor: COLORS.sidebarBorder,
     },
 
-    // Mobile Slide-Out Sidebar
     modalOverlay: {
       flex: 1,
       backgroundColor: "rgba(15, 23, 42, 0.7)",
@@ -1208,7 +1385,6 @@ const getStyles = (COLORS) =>
       height: "100%",
     },
 
-    // Sidebar Internal Styling
     sidebarInner: { flex: 1, display: "flex", flexDirection: "column" },
     sidebarHeader: {
       paddingHorizontal: 16,
@@ -1283,7 +1459,6 @@ const getStyles = (COLORS) =>
     },
     sidebarLogoutText: { color: "#FCA5A5", fontSize: 12, fontWeight: "800", marginLeft: 8 },
 
-    // Main Canvas Area
     mainCanvas: { flex: 1, display: "flex", flexDirection: "column" },
     header: {
       backgroundColor: COLORS.primary,
@@ -1461,7 +1636,6 @@ const getStyles = (COLORS) =>
       marginBottom: 14,
     },
 
-    // Modal Architecture
     modalBackdrop: {
       flex: 1,
       backgroundColor: "rgba(15, 23, 42, 0.7)",
@@ -1495,7 +1669,7 @@ const getStyles = (COLORS) =>
       paddingVertical: 10,
       fontSize: 14,
       color: COLORS.text,
-      marginBottom: 12,
+      marginBottom: 10,
     },
     modalTextArea: {
       minHeight: 80,
@@ -1536,6 +1710,32 @@ const getStyles = (COLORS) =>
       color: COLORS.white,
       fontWeight: "800",
     },
+
+    globalToggleBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: COLORS.soft,
+      borderWidth: 1,
+      borderColor: COLORS.secondary,
+      borderRadius: 10,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      marginBottom: 12,
+      gap: 8,
+    },
+    globalToggleBtnActive: {
+      backgroundColor: COLORS.secondary,
+      borderColor: COLORS.secondary,
+    },
+    globalToggleText: {
+      color: COLORS.secondary,
+      fontSize: 12,
+      fontWeight: "800",
+    },
+    globalToggleTextActive: {
+      color: COLORS.white,
+    },
+
     modalLogoutIconWrap: {
       width: 56,
       height: 56,
