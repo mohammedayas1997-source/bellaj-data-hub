@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useMemo, useState } from "react";
+import React, { useContext, useEffect, useMemo, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -7,10 +7,10 @@ import {
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
-  Alert,
   Platform,
   useWindowDimensions,
   StatusBar,
+  Modal,
 } from "react-native";
 import { CommonActions, DrawerActions } from "@react-navigation/native";
 import axios from "axios";
@@ -20,8 +20,8 @@ import BASE_URL from "../config/api";
 import { ThemeContext } from "../context/ThemeContext";
 
 const LIGHT = {
-  primary: "#E60000",
-  secondary: "#0B5E3C",
+  primary: "#0B5E3C",
+  secondary: "#16A34A",
   dark: "#0F172A",
   white: "#FFFFFF",
   light: "#F8FAFC",
@@ -29,13 +29,14 @@ const LIGHT = {
   border: "#E2E8F0",
   danger: "#DC2626",
   card: "#FFFFFF",
-  soft: "#F8FAFC",
+  soft: "#F1F5F9",
   text: "#0F172A",
   subText: "#64748B",
+  accent: "#2563EB",
 };
 
 const DARK = {
-  primary: "#E60000",
+  primary: "#16A34A",
   secondary: "#22C55E",
   dark: "#020617",
   white: "#FFFFFF",
@@ -44,18 +45,10 @@ const DARK = {
   border: "#1E293B",
   danger: "#EF4444",
   card: "#0F172A",
-  soft: "#111827",
+  soft: "#1E293B",
   text: "#F8FAFC",
   subText: "#CBD5E1",
-};
-
-const API_ENDPOINTS = {
-  users: `${BASE_URL}/admin/users`,
-  nimcRequests: `${BASE_URL}/admin/nimc-requests`,
-  bvnRequests: `${BASE_URL}/admin/bvn-requests`,
-  allReports: `${BASE_URL}/admin/reports`,
-  salesStats: `${BASE_URL}/admin/sales-stats`,
-  transactions: `${BASE_URL}/admin/transactions`,
+  accent: "#38BDF8",
 };
 
 const AdminDashboard = ({ navigation, route }) => {
@@ -68,6 +61,8 @@ const AdminDashboard = ({ navigation, route }) => {
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [logoutModalVisible, setLogoutModalVisible] = useState(false);
+  const [logoutProcessing, setLogoutProcessing] = useState(false);
 
   const [stats, setStats] = useState({
     users: 0,
@@ -78,17 +73,20 @@ const AdminDashboard = ({ navigation, route }) => {
     transactions: 0,
   });
 
-  useEffect(() => {
-    fetchStats();
-  }, []);
-
   const getAuthHeaders = async () => {
     const token =
       (await AsyncStorage.getItem("userToken")) ||
       (await AsyncStorage.getItem("adminToken")) ||
       (await AsyncStorage.getItem("token"));
 
-    return token ? { Authorization: `Bearer ${token}` } : {};
+    return {
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      timeout: 35000,
+    };
   };
 
   const getArray = (payload, key) => {
@@ -104,58 +102,106 @@ const AdminDashboard = ({ navigation, route }) => {
   const getCount = (payload, key) => {
     if (typeof payload?.count === "number") return payload.count;
     if (typeof payload?.total === "number") return payload.total;
+    if (typeof payload?.totalUsers === "number") return payload.totalUsers;
     if (typeof payload?.data?.count === "number") return payload.data.count;
     if (typeof payload?.data?.total === "number") return payload.data.total;
     return getArray(payload, key).length;
   };
 
-  const fetchStats = async () => {
+  const fetchWithFallback = async (endpoints, config) => {
+    for (const url of endpoints) {
+      try {
+        const res = await axios.get(url, config);
+        if (res?.data) return res.data;
+      } catch {
+        // Continue loop to backup path
+      }
+    }
+    return null;
+  };
+
+  const fetchStats = useCallback(async () => {
     try {
       setLoading(true);
-      const headers = await getAuthHeaders();
+      const config = await getAuthHeaders();
 
-      const results = await Promise.allSettled([
-        axios.get(API_ENDPOINTS.users, { headers, timeout: 30000 }),
-        axios.get(API_ENDPOINTS.nimcRequests, { headers, timeout: 30000 }),
-        axios.get(API_ENDPOINTS.bvnRequests, { headers, timeout: 30000 }),
-        axios.get(API_ENDPOINTS.allReports, { headers, timeout: 30000 }),
-        axios.get(API_ENDPOINTS.salesStats, { headers, timeout: 30000 }),
-        axios.get(API_ENDPOINTS.transactions, { headers, timeout: 30000 }),
-      ]);
+      const userEndpoints = [
+        `${BASE_URL}/admin/users`,
+        `${BASE_URL}/superadmin/users`,
+        `${BASE_URL}/users`,
+      ];
+      const nimcEndpoints = [
+        `${BASE_URL}/admin/nimc-requests`,
+        `${BASE_URL}/nimc/requests`,
+        `${BASE_URL}/admin/nimc`,
+      ];
+      const bvnEndpoints = [
+        `${BASE_URL}/admin/bvn-requests`,
+        `${BASE_URL}/bvn/requests`,
+        `${BASE_URL}/admin/bvn`,
+      ];
+      const reportEndpoints = [
+        `${BASE_URL}/admin/reports`,
+        `${BASE_URL}/reports`,
+        `${BASE_URL}/support/reports`,
+      ];
+      const salesEndpoints = [
+        `${BASE_URL}/admin/sales-stats`,
+        `${BASE_URL}/admin/dashboard-stats`,
+        `${BASE_URL}/superadmin/stats`,
+      ];
+      const txEndpoints = [
+        `${BASE_URL}/admin/transactions`,
+        `${BASE_URL}/superadmin/transactions`,
+        `${BASE_URL}/transactions`,
+      ];
 
-      const usersRes =
-        results[0].status === "fulfilled" ? results[0].value.data : {};
-      const nimcRes =
-        results[1].status === "fulfilled" ? results[1].value.data : {};
-      const bvnRes =
-        results[2].status === "fulfilled" ? results[2].value.data : {};
-      const reportsRes =
-        results[3].status === "fulfilled" ? results[3].value.data : {};
-      const salesRes =
-        results[4].status === "fulfilled" ? results[4].value.data : {};
-      const txRes =
-        results[5].status === "fulfilled" ? results[5].value.data : {};
+      const [usersRes, nimcRes, bvnRes, reportsRes, salesRes, txRes] =
+        await Promise.allSettled([
+          fetchWithFallback(userEndpoints, config),
+          fetchWithFallback(nimcEndpoints, config),
+          fetchWithFallback(bvnEndpoints, config),
+          fetchWithFallback(reportEndpoints, config),
+          fetchWithFallback(salesEndpoints, config),
+          fetchWithFallback(txEndpoints, config),
+        ]);
+
+      const uData = usersRes.status === "fulfilled" ? usersRes.value : null;
+      const nData = nimcRes.status === "fulfilled" ? nimcRes.value : null;
+      const bData = bvnRes.status === "fulfilled" ? bvnRes.value : null;
+      const rData = reportsRes.status === "fulfilled" ? reportsRes.value : null;
+      const sData = salesRes.status === "fulfilled" ? salesRes.value : null;
+      const tData = txRes.status === "fulfilled" ? txRes.value : null;
+
+      const extractedSales =
+        sData?.finance?.totalRevenue ??
+        sData?.totalRevenue ??
+        sData?.totalSales ??
+        sData?.data?.finance?.totalRevenue ??
+        sData?.data?.totalRevenue ??
+        sData?.data?.totalSales ??
+        sData?.total ??
+        0;
 
       setStats({
-        users: getCount(usersRes, "users"),
-        nimc: getCount(nimcRes, "nimcRequests"),
-        bvn: getCount(bvnRes, "bvnRequests"),
-        reports: getCount(reportsRes, "reports"),
-        sales:
-          salesRes?.total ||
-          salesRes?.data?.total ||
-          salesRes?.totalSales ||
-          salesRes?.data?.totalSales ||
-          0,
-        transactions: getCount(txRes, "transactions"),
+        users: getCount(uData, "users"),
+        nimc: getCount(nData, "nimcRequests"),
+        bvn: getCount(bData, "bvnRequests"),
+        reports: getCount(rData, "reports"),
+        sales: Number(extractedSales || 0),
+        transactions: getCount(tData, "transactions"),
       });
     } catch {
-      Alert.alert("Connection Error", "Failed to load live dashboard data.");
+      // Retain state gracefully
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -200,10 +246,8 @@ const AdminDashboard = ({ navigation, route }) => {
       navigation.dispatch(DrawerActions.openDrawer());
     } catch {
       const parent = navigation.getParent?.();
-
       if (navigation.openDrawer) return navigation.openDrawer();
       if (parent?.openDrawer) return parent.openDrawer();
-
       navigation.navigate("Main", { screen: "AdminDashboard" });
     }
   };
@@ -222,32 +266,56 @@ const AdminDashboard = ({ navigation, route }) => {
     });
   };
 
-  const logout = async () => {
-    Alert.alert("Logout", "Are you sure you want to logout?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Logout",
-        style: "destructive",
-        onPress: async () => {
-          await AsyncStorage.multiRemove([
-            "userToken",
-            "adminToken",
-            "token",
-            "userData",
-            "userRole",
-            "overrideRole",
-            "isSuperAdminOverride",
-          ]);
+  const performLogout = async () => {
+    try {
+      setLogoutProcessing(true);
+      await AsyncStorage.multiRemove([
+        "userToken",
+        "adminToken",
+        "token",
+        "userData",
+        "userRole",
+        "overrideRole",
+        "isSuperAdminOverride",
+      ]);
 
-          navigation.dispatch(
+      setLogoutModalVisible(false);
+
+      try {
+        navigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{ name: "Login" }],
+          })
+        );
+        return;
+      } catch {
+        // Fallback
+      }
+
+      const parentNav = navigation.getParent?.();
+      if (parentNav) {
+        try {
+          parentNav.dispatch(
             CommonActions.reset({
               index: 0,
               routes: [{ name: "Login" }],
             })
           );
-        },
-      },
-    ]);
+          return;
+        } catch {
+          // Fallback
+        }
+      }
+
+      navigation.navigate("Login");
+    } catch {
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        window.location.reload();
+      }
+    } finally {
+      setLogoutProcessing(false);
+    }
   };
 
   const formatMoney = (amount) => `₦${Number(amount || 0).toLocaleString()}`;
@@ -319,7 +387,7 @@ const AdminDashboard = ({ navigation, route }) => {
         screen: "Notifications",
       },
     ],
-    [stats, isDarkMode]
+    [stats, COLORS]
   );
 
   const menuCards = [
@@ -415,7 +483,6 @@ const AdminDashboard = ({ navigation, route }) => {
         <MaterialCommunityIcons name={item.icon} size={size} color={color} />
       );
     }
-
     return <Ionicons name={item.icon} size={size} color={color} />;
   };
 
@@ -423,14 +490,17 @@ const AdminDashboard = ({ navigation, route }) => {
     return (
       <View style={styles.loaderContainer}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loaderText}>Loading Admin Dashboard...</Text>
+        <Text style={styles.loaderText}>Establishing Secure Management Console...</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.screen}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
+      <StatusBar
+        barStyle={isDarkMode ? "light-content" : "light-content"}
+        backgroundColor={COLORS.primary}
+      />
 
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerIconBtn} onPress={goBack}>
@@ -442,12 +512,16 @@ const AdminDashboard = ({ navigation, route }) => {
         </TouchableOpacity>
 
         <View style={styles.headerTextBox}>
-          <Text style={styles.headerTitle}>Bellaj Admin Panel</Text>
-          <Text style={styles.headerSubtitle}>Management & Systems Control</Text>
+          <Text style={styles.headerTitle}>Bellaj Admin Console</Text>
+          <Text style={styles.headerSubtitle}>Real-Time Systems Authority</Text>
         </View>
 
-        <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
-          <Ionicons name="log-out-outline" size={21} color={COLORS.white} />
+        <TouchableOpacity
+          style={styles.logoutBtn}
+          onPress={() => setLogoutModalVisible(true)}
+          accessibilityLabel="Terminate Session"
+        >
+          <Ionicons name="power" size={20} color={COLORS.white} />
         </TouchableOpacity>
       </View>
 
@@ -455,7 +529,7 @@ const AdminDashboard = ({ navigation, route }) => {
         style={styles.container}
         contentContainerStyle={styles.content}
         nestedScrollEnabled
-        showsVerticalScrollIndicator
+        showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
@@ -478,12 +552,12 @@ const AdminDashboard = ({ navigation, route }) => {
           <View style={{ flex: 1 }}>
             <Text style={styles.heroTitle}>Live Operations Center</Text>
             <Text style={styles.heroText}>
-              Monitor users, sales, requests, pricing, issues and platform controls.
+              Audit subscriber records, transaction settlements, identity verification queues, and active telecom rates in real time.
             </Text>
           </View>
 
           <TouchableOpacity style={styles.refreshButton} onPress={fetchStats}>
-            <Ionicons name="refresh" size={20} color={COLORS.white} />
+            <Ionicons name="sync" size={20} color={COLORS.white} />
           </TouchableOpacity>
         </View>
 
@@ -511,7 +585,7 @@ const AdminDashboard = ({ navigation, route }) => {
         </View>
 
         <View style={styles.navigationSection}>
-          <Text style={styles.panelTitle}>Admin Navigation</Text>
+          <Text style={styles.panelTitle}>Administrative Navigation Matrix</Text>
 
           <View style={styles.iconGrid}>
             {menuCards.map((item, index) => (
@@ -522,7 +596,7 @@ const AdminDashboard = ({ navigation, route }) => {
                 activeOpacity={0.86}
               >
                 <View style={[styles.navIconBox, { backgroundColor: item.color }]}>
-                  {renderIcon(item, 26, COLORS.white)}
+                  {renderIcon(item, 24, COLORS.white)}
                 </View>
 
                 <Text style={styles.iconNavText} numberOfLines={2}>
@@ -534,12 +608,12 @@ const AdminDashboard = ({ navigation, route }) => {
         </View>
 
         <View style={styles.quickSection}>
-          <Text style={styles.sectionTitle}>Service Configuration</Text>
+          <Text style={styles.sectionTitle}>Master Service Channels</Text>
 
           <QuickAction
             COLORS={COLORS}
             icon="cash-cog"
-            title="Pricing Settings"
+            title="Service Pricing Engine"
             color="#7C3AED"
             onPress={() => safeNavigate("PricingSettings")}
           />
@@ -547,7 +621,7 @@ const AdminDashboard = ({ navigation, route }) => {
           <QuickAction
             COLORS={COLORS}
             icon="server-outline"
-            title="Manage Data & Airtime Plans"
+            title="Data & Airtime Plan Schedules"
             color={COLORS.secondary}
             onPress={() => safeNavigate("DataPlans")}
           />
@@ -555,7 +629,7 @@ const AdminDashboard = ({ navigation, route }) => {
           <QuickAction
             COLORS={COLORS}
             icon="television-classic"
-            title="Configure Cable TV & Utility Rates"
+            title="Utility & Cable TV Rates"
             color={COLORS.secondary}
             onPress={() => safeNavigate("CableTvPlans")}
           />
@@ -563,12 +637,55 @@ const AdminDashboard = ({ navigation, route }) => {
           <QuickAction
             COLORS={COLORS}
             icon="headset"
-            title="Audit Support Logs"
-            color={COLORS.secondary}
+            title="Support Desk Audit Logs"
+            color={COLORS.primary}
             onPress={() => safeNavigate("SupportActivities")}
           />
         </View>
       </ScrollView>
+
+      {/* Universal Logout Confirmation Modal */}
+      <Modal
+        visible={logoutModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !logoutProcessing && setLogoutModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalBox}>
+            <View style={styles.modalIconWrap}>
+              <Ionicons name="power" size={32} color={COLORS.danger} />
+            </View>
+
+            <Text style={styles.modalHeading}>Sign Out of Console?</Text>
+            <Text style={styles.modalSubheading}>
+              Your current administrative token and active workspace will be terminated safely.
+            </Text>
+
+            <View style={styles.modalActionRow}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                disabled={logoutProcessing}
+                onPress={() => setLogoutModalVisible(false)}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalConfirmBtn}
+                disabled={logoutProcessing}
+                onPress={performLogout}
+              >
+                {logoutProcessing ? (
+                  <ActivityIndicator size="small" color={COLORS.white} />
+                ) : (
+                  <Text style={styles.modalConfirmText}>Confirm Logout</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -580,6 +697,7 @@ const QuickAction = ({ COLORS, icon, title, color, onPress }) => (
       { backgroundColor: COLORS.soft, borderColor: COLORS.border },
     ]}
     onPress={onPress}
+    activeOpacity={0.82}
   >
     <View style={[stylesQuick.smallIconBox, { backgroundColor: color }]}>
       <MaterialCommunityIcons name={icon} size={22} color={COLORS.white} />
@@ -596,7 +714,7 @@ const QuickAction = ({ COLORS, icon, title, color, onPress }) => (
 const stylesQuick = StyleSheet.create({
   actionBtn: {
     padding: 14,
-    borderRadius: 18,
+    borderRadius: 16,
     marginBottom: 10,
     flexDirection: "row",
     alignItems: "center",
@@ -605,13 +723,13 @@ const stylesQuick = StyleSheet.create({
   smallIconBox: {
     width: 42,
     height: 42,
-    borderRadius: 15,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
   actionText: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "800",
     marginLeft: 12,
   },
@@ -622,17 +740,17 @@ const getStyles = (COLORS) =>
     screen: { flex: 1, backgroundColor: COLORS.light },
     header: {
       backgroundColor: COLORS.primary,
-      paddingTop: Platform.OS === "android" ? 42 : 22,
+      paddingTop: Platform.OS === "android" ? 44 : 20,
       paddingBottom: 16,
-      paddingHorizontal: 12,
+      paddingHorizontal: 16,
       flexDirection: "row",
       alignItems: "center",
     },
     headerIconBtn: {
-      width: 42,
-      height: 42,
-      borderRadius: 15,
-      backgroundColor: "rgba(255,255,255,0.16)",
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: "rgba(255,255,255,0.18)",
       alignItems: "center",
       justifyContent: "center",
       marginRight: 10,
@@ -640,29 +758,28 @@ const getStyles = (COLORS) =>
     headerTextBox: { flex: 1 },
     headerTitle: {
       color: COLORS.white,
-      fontSize: 20,
+      fontSize: 18,
       fontWeight: "900",
     },
     headerSubtitle: {
-      color: "#FFE4E4",
-      marginTop: 3,
+      color: "#DCFCE7",
+      marginTop: 2,
       fontSize: 12,
       fontWeight: "600",
     },
     logoutBtn: {
-      width: 42,
-      height: 42,
-      borderRadius: 15,
-      backgroundColor: COLORS.dark,
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: COLORS.danger,
       alignItems: "center",
       justifyContent: "center",
     },
     container: { flex: 1 },
     content: {
       padding: 16,
-      paddingBottom: 140,
+      paddingBottom: 80,
       flexGrow: 1,
-      minHeight: "100%",
       maxWidth: 1200,
       width: "100%",
       alignSelf: "center",
@@ -676,12 +793,12 @@ const getStyles = (COLORS) =>
     loaderText: {
       color: COLORS.primary,
       fontWeight: "800",
-      marginTop: 12,
+      marginTop: 14,
     },
     heroCard: {
       backgroundColor: COLORS.card,
-      borderRadius: 24,
-      padding: 18,
+      borderRadius: 20,
+      padding: 16,
       borderWidth: 1,
       borderColor: COLORS.border,
       borderLeftWidth: 5,
@@ -691,30 +808,30 @@ const getStyles = (COLORS) =>
       alignItems: "center",
     },
     heroIconBox: {
-      width: 58,
-      height: 58,
-      borderRadius: 20,
+      width: 52,
+      height: 52,
+      borderRadius: 14,
       backgroundColor: COLORS.primary,
       alignItems: "center",
       justifyContent: "center",
-      marginRight: 14,
+      marginRight: 12,
     },
     heroTitle: {
-      fontSize: 22,
+      fontSize: 18,
       fontWeight: "900",
       color: COLORS.text,
     },
     heroText: {
       color: COLORS.subText,
-      marginTop: 6,
+      marginTop: 4,
       fontWeight: "600",
-      lineHeight: 20,
-      paddingRight: 12,
+      lineHeight: 18,
+      fontSize: 12,
     },
     refreshButton: {
-      width: 44,
-      height: 44,
-      borderRadius: 15,
+      width: 40,
+      height: 40,
+      borderRadius: 12,
       backgroundColor: COLORS.secondary,
       alignItems: "center",
       justifyContent: "center",
@@ -728,9 +845,9 @@ const getStyles = (COLORS) =>
     },
     statBox: {
       width: "23.5%",
-      minHeight: 116,
+      minHeight: 114,
       backgroundColor: COLORS.card,
-      borderRadius: 18,
+      borderRadius: 16,
       padding: 10,
       borderWidth: 1,
       borderColor: COLORS.border,
@@ -739,12 +856,12 @@ const getStyles = (COLORS) =>
     },
     webStatBox: {
       width: "23.5%",
-      minHeight: 128,
+      minHeight: 124,
     },
     statIconBox: {
-      width: 44,
-      height: 44,
-      borderRadius: 16,
+      width: 42,
+      height: 42,
+      borderRadius: 12,
       alignItems: "center",
       justifyContent: "center",
       marginBottom: 8,
@@ -757,15 +874,15 @@ const getStyles = (COLORS) =>
       textTransform: "uppercase",
     },
     statValue: {
-      fontSize: 14,
+      fontSize: 13,
       fontWeight: "900",
       color: COLORS.text,
-      marginTop: 5,
+      marginTop: 4,
       textAlign: "center",
     },
     navigationSection: {
       backgroundColor: COLORS.card,
-      borderRadius: 24,
+      borderRadius: 20,
       padding: 16,
       borderWidth: 1,
       borderColor: COLORS.border,
@@ -773,7 +890,7 @@ const getStyles = (COLORS) =>
     },
     panelTitle: {
       color: COLORS.text,
-      fontSize: 18,
+      fontSize: 16,
       fontWeight: "900",
       marginBottom: 14,
     },
@@ -781,13 +898,13 @@ const getStyles = (COLORS) =>
       flexDirection: "row",
       flexWrap: "wrap",
       justifyContent: "space-between",
-      rowGap: 12,
+      rowGap: 10,
     },
     iconNavBox: {
       width: "23.5%",
-      minHeight: 112,
+      minHeight: 108,
       backgroundColor: COLORS.soft,
-      borderRadius: 18,
+      borderRadius: 14,
       borderWidth: 1,
       borderColor: COLORS.border,
       alignItems: "center",
@@ -796,34 +913,107 @@ const getStyles = (COLORS) =>
     },
     webIconNavBox: {
       width: "23.5%",
-      minHeight: 125,
+      minHeight: 120,
     },
     navIconBox: {
-      width: 46,
-      height: 46,
-      borderRadius: 16,
+      width: 42,
+      height: 42,
+      borderRadius: 12,
       alignItems: "center",
       justifyContent: "center",
-      marginBottom: 8,
+      marginBottom: 6,
     },
     iconNavText: {
       color: COLORS.text,
       fontSize: 10,
-      fontWeight: "900",
+      fontWeight: "800",
       textAlign: "center",
     },
     quickSection: {
       backgroundColor: COLORS.card,
-      borderRadius: 24,
+      borderRadius: 20,
       padding: 16,
       borderWidth: 1,
       borderColor: COLORS.border,
     },
     sectionTitle: {
-      fontSize: 18,
+      fontSize: 16,
       fontWeight: "900",
       color: COLORS.text,
       marginBottom: 14,
+    },
+    modalBackdrop: {
+      flex: 1,
+      backgroundColor: "rgba(15, 23, 42, 0.7)",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 16,
+    },
+    modalBox: {
+      width: "100%",
+      maxWidth: 380,
+      backgroundColor: COLORS.card,
+      borderRadius: 20,
+      padding: 22,
+      alignItems: "center",
+      borderWidth: 1,
+      borderColor: COLORS.border,
+    },
+    modalIconWrap: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: "#FEE2E2",
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 14,
+    },
+    modalHeading: {
+      fontSize: 18,
+      fontWeight: "900",
+      color: COLORS.text,
+      marginBottom: 6,
+      textAlign: "center",
+    },
+    modalSubheading: {
+      fontSize: 13,
+      color: COLORS.subText,
+      textAlign: "center",
+      marginBottom: 20,
+      lineHeight: 18,
+    },
+    modalActionRow: {
+      flexDirection: "row",
+      width: "100%",
+      gap: 10,
+    },
+    modalCancelBtn: {
+      flex: 1,
+      backgroundColor: COLORS.soft,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      borderRadius: 12,
+      paddingVertical: 12,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    modalCancelText: {
+      color: COLORS.text,
+      fontWeight: "800",
+      fontSize: 14,
+    },
+    modalConfirmBtn: {
+      flex: 1,
+      backgroundColor: COLORS.danger,
+      borderRadius: 12,
+      paddingVertical: 12,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    modalConfirmText: {
+      color: COLORS.white,
+      fontWeight: "900",
+      fontSize: 14,
     },
   });
 
