@@ -67,9 +67,10 @@ const SuperAdminDashboard = ({ navigation }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // In-Screen Modal Workflows
-  // Types: 'create_supervisor' | 'pricing' | 'target' | 'system_status' | 'broadcast_notification' | 'user_refund'
+  // Types: 'create_supervisor' | 'pricing' | 'target' | 'system_status' | 'broadcast_notification' | 'user_refund' | 'confirm_logout'
   const [modalType, setModalType] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [logoutLoading, setLogoutLoading] = useState(false);
 
   // Interactive Form States
   const [supForm, setSupForm] = useState({
@@ -94,7 +95,7 @@ const SuperAdminDashboard = ({ navigation }) => {
   const [broadcastForm, setBroadcastForm] = useState({
     title: "",
     message: "",
-    targetAudience: "ALL", // "ALL" | "AGENTS" | "SUPERVISORS" | "SUBSCRIBERS"
+    targetAudience: "ALL",
   });
 
   // User Refund Form State
@@ -167,7 +168,7 @@ const SuperAdminDashboard = ({ navigation }) => {
         const res = await axios.get(url, config);
         if (res?.data) return res.data;
       } catch {
-        // Continue loop to backup path
+        // Fallback to next
       }
     }
     return null;
@@ -209,10 +210,7 @@ const SuperAdminDashboard = ({ navigation }) => {
         setTransactions(normalizeArray(txRes.value, "transactions"));
       }
     } catch {
-      Alert.alert(
-        "Network Alert",
-        "Could not load live dashboard records. Check server connection."
-      );
+      // Keep UI active
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -354,7 +352,6 @@ const SuperAdminDashboard = ({ navigation }) => {
     }
   };
 
-  // Broadcast Notification Dispatch Handler
   const handleSendBroadcast = async () => {
     if (!broadcastForm.title.trim() || !broadcastForm.message.trim()) {
       Alert.alert("Validation Error", "Broadcast title and message body are required.");
@@ -392,7 +389,7 @@ const SuperAdminDashboard = ({ navigation }) => {
             break;
           }
         } catch {
-          // Try next fallback endpoint
+          // Continue fallback
         }
       }
 
@@ -418,7 +415,6 @@ const SuperAdminDashboard = ({ navigation }) => {
     }
   };
 
-  // User Balance Refund Handler
   const handleProcessRefund = async () => {
     if (!refundForm.userIdentifier.trim() || !refundForm.amount.trim()) {
       Alert.alert("Validation Error", "User Email/Phone and Refund Amount are required.");
@@ -457,7 +453,7 @@ const SuperAdminDashboard = ({ navigation }) => {
             break;
           }
         } catch {
-          // Try next fallback endpoint
+          // Continue
         }
       }
 
@@ -524,31 +520,69 @@ const SuperAdminDashboard = ({ navigation }) => {
     checkSystemHealth();
   };
 
-  const logout = async () => {
-    Alert.alert("End Session", "Are you sure you want to log out of Super Admin?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Log Out",
-        style: "destructive",
-        onPress: async () => {
-          await AsyncStorage.multiRemove([
-            "userToken",
-            "token",
-            "adminToken",
-            "userData",
-            "userRole",
-            "overrideRole",
-          ]);
+  // ROBUST MULTI-ENVIRONMENT LOGOUT HANDLER
+  const performDirectLogout = async () => {
+    try {
+      setLogoutLoading(true);
 
-          navigation.dispatch(
+      // Clear all possible session tokens
+      await AsyncStorage.multiRemove([
+        "userToken",
+        "token",
+        "adminToken",
+        "userData",
+        "userRole",
+        "overrideRole",
+        "isSuperAdminOverride",
+      ]);
+
+      setModalType(null);
+      setSidebarOpen(false);
+
+      // 1. Try CommonActions.reset on local navigation
+      try {
+        navigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{ name: "Login" }],
+          })
+        );
+        return;
+      } catch {
+        // Fallback below
+      }
+
+      // 2. Try parent navigation reset (for tab/drawer nested setups)
+      const parentNav = navigation.getParent?.();
+      if (parentNav) {
+        try {
+          parentNav.dispatch(
             CommonActions.reset({
               index: 0,
               routes: [{ name: "Login" }],
             })
           );
-        },
-      },
-    ]);
+          return;
+        } catch {
+          // Fallback below
+        }
+      }
+
+      // 3. Fallback direct navigate
+      navigation.navigate("Login");
+    } catch {
+      // In web, fallback to hard refresh or redirect if navigation failed
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        window.location.reload();
+      }
+    } finally {
+      setLogoutLoading(false);
+    }
+  };
+
+  const openLogoutDialog = () => {
+    setSidebarOpen(false);
+    setModalType("confirm_logout");
   };
 
   const formatMoney = (value) => `₦${Number(value || 0).toLocaleString()}`;
@@ -804,7 +838,7 @@ const SuperAdminDashboard = ({ navigation }) => {
       </ScrollView>
 
       <View style={styles.sidebarFooter}>
-        <TouchableOpacity style={styles.sidebarLogoutBtn} onPress={logout}>
+        <TouchableOpacity style={styles.sidebarLogoutBtn} onPress={openLogoutDialog}>
           <Ionicons name="power" size={18} color="#FCA5A5" />
           <Text style={styles.sidebarLogoutText}>Terminate Authority Session</Text>
         </TouchableOpacity>
@@ -863,7 +897,7 @@ const SuperAdminDashboard = ({ navigation }) => {
 
             <TouchableOpacity
               style={styles.logoutBtn}
-              onPress={logout}
+              onPress={openLogoutDialog}
               accessibilityLabel="Log Out"
             >
               <Ionicons name="power" size={20} color={COLORS.white} />
@@ -1047,23 +1081,23 @@ const SuperAdminDashboard = ({ navigation }) => {
                               style={[
                                 styles.statusPillText,
                                 tx?.status === "failed" && {
-                                color: COLORS.danger,
-                              },
-                            ]}
+                                  color: COLORS.danger,
+                                },
+                              ]}
+                            >
+                              {tx?.status || "Success"}
+                            </Text>
+                          </View>
+                          <TouchableOpacity
+                            style={styles.quickRefundBtn}
+                            onPress={() => triggerRefundFromTransaction(tx)}
                           >
-                            {tx?.status || "Success"}
-                          </Text>
+                            <MaterialCommunityIcons name="cash-refund" size={14} color={COLORS.danger} />
+                            <Text style={styles.quickRefundBtnText}>Refund</Text>
+                          </TouchableOpacity>
                         </View>
-                        <TouchableOpacity
-                          style={styles.quickRefundBtn}
-                          onPress={() => triggerRefundFromTransaction(tx)}
-                        >
-                          <MaterialCommunityIcons name="cash-refund" size={14} color={COLORS.danger} />
-                          <Text style={styles.quickRefundBtnText}>Refund</Text>
-                        </TouchableOpacity>
                       </View>
                     </View>
-                  </View>
                   ))
                 )}
               </View>
@@ -1135,6 +1169,78 @@ const SuperAdminDashboard = ({ navigation }) => {
           </ScrollView>
         </View>
       </View>
+
+      {/* MODAL: CONFIRM LOGOUT (WORKS ON WEB, ANDROID & IOS) */}
+      <Modal
+        visible={modalType === "confirm_logout"}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !logoutLoading && setModalType(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalBox, { maxWidth: 400, alignItems: "center", textAlign: "center" }]}>
+            <View
+              style={{
+                width: 58,
+                height: 58,
+                borderRadius: 29,
+                backgroundColor: "#FEE2E2",
+                alignItems: "center",
+                justifyContent: "center",
+                marginBottom: 14,
+              }}
+            >
+              <Ionicons name="power" size={30} color={COLORS.danger} />
+            </View>
+
+            <Text style={{ fontSize: 18, fontWeight: "900", color: COLORS.dark, marginBottom: 8 }}>
+              Terminate Session?
+            </Text>
+
+            <Text style={{ fontSize: 13, color: COLORS.muted, textAlign: "center", marginBottom: 20, lineHeight: 18 }}>
+              You will be signed out of the Super Admin Master Node. You will need to authenticate again to regain access.
+            </Text>
+
+            <View style={{ flexDirection: "row", width: "100%", gap: 10 }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: COLORS.light,
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
+                  borderRadius: 12,
+                  paddingVertical: 13,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                disabled={logoutLoading}
+                onPress={() => setModalType(null)}
+              >
+                <Text style={{ color: COLORS.dark, fontWeight: "800", fontSize: 14 }}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: COLORS.danger,
+                  borderRadius: 12,
+                  paddingVertical: 13,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                disabled={logoutLoading}
+                onPress={performDirectLogout}
+              >
+                {logoutLoading ? (
+                  <ActivityIndicator color={COLORS.white} size="small" />
+                ) : (
+                  <Text style={{ color: COLORS.white, fontWeight: "900", fontSize: 14 }}>Log Out</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* MODAL 1: Create Supervisor Live */}
       <Modal
