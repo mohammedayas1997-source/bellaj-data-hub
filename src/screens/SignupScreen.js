@@ -13,12 +13,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
+  Modal,
   useWindowDimensions,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import * as ImagePicker from "expo-image-picker";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { CommonActions } from "@react-navigation/native";
 import BASE_URL from "../config/api";
 
 const COLORS = {
@@ -57,22 +59,22 @@ const SignupScreen = ({ navigation }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  // Success Screen State
+  const [successModalVisible, setSuccessModalVisible] = useState(false);
+  const [registeredUser, setRegisteredUser] = useState(null);
+
   const REGISTER_URL = `${BASE_URL}/auth/register`;
 
   const updateField = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const showAlert = (title, message, buttons = []) => {
+  const showAlert = (title, message) => {
     if (Platform.OS === "web") {
       window.alert(`${title}\n\n${message}`);
-      if (buttons?.[0]?.onPress) buttons[0].onPress();
       return;
     }
-
-    Alert.alert(title, message, buttons.length ? buttons : undefined, {
-      cancelable: false,
-    });
+    Alert.alert(title, message);
   };
 
   const goBack = () => {
@@ -84,7 +86,6 @@ const SignupScreen = ({ navigation }) => {
     try {
       if (Platform.OS !== "web") {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
         if (status !== "granted") {
           showAlert("Permission Denied", "Image upload permission is required.");
           return;
@@ -157,22 +158,20 @@ const SignupScreen = ({ navigation }) => {
     return true;
   };
 
-  const resetForm = () => {
-    setForm({
-      firstName: "",
-      surname: "",
-      otherName: "",
-      email: "",
-      phone: "",
-      password: "",
-      confirmPassword: "",
-      role: "user",
-      state: "",
-      lga: "",
-      address: "",
-      supervisorCode: "",
-    });
-    setImage(null);
+  const handleProceedAfterSuccess = () => {
+    setSuccessModalVisible(false);
+    
+    // Tabbatar an koma Login ko Dashboard lafiya
+    try {
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: "Login" }],
+        })
+      );
+    } catch {
+      navigation.navigate("Login");
+    }
   };
 
   const handleSignup = async () => {
@@ -206,12 +205,10 @@ const SignupScreen = ({ navigation }) => {
         payload.businessAddress = form.address.trim();
 
         const code = form.supervisorCode.trim().toUpperCase();
-
         if (code) {
           payload.referralCode = code;
           payload.supervisorCode = code;
           payload.supervisorReferralCode = code;
-
           if (/^[0-9a-fA-F]{24}$/.test(code)) {
             payload.supervisorId = code;
           }
@@ -257,22 +254,16 @@ const SignupScreen = ({ navigation }) => {
         await AsyncStorage.setItem("token", token);
       }
 
-      resetForm();
-
-      showAlert("Success", "Account created successfully!", [
-        {
-          text: "Continue",
-          onPress: () => navigation.replace("Success"),
-        },
-      ]);
+      // Adana bayanan mai rijista sannan nuna Success Screen
+      setRegisteredUser(user);
+      setSuccessModalVisible(true);
     } catch (error) {
       console.log("Signup Error:", error?.response?.data || error.message);
-
       showAlert(
         "Registration Failed",
         error?.response?.data?.message ||
           error?.response?.data?.error ||
-          "Registration failed. Please check your internet and try again."
+          "Registration failed. Please check your network and try again."
       );
     } finally {
       setLoading(false);
@@ -293,10 +284,8 @@ const SignupScreen = ({ navigation }) => {
             styles.scrollContent,
             isWeb && styles.webScrollContent,
           ]}
-          showsVerticalScrollIndicator
+          showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          nestedScrollEnabled
-          bounces
         >
           <View style={[styles.card, isWeb && styles.webCard]}>
             <View style={styles.topBar}>
@@ -506,10 +495,62 @@ const SignupScreen = ({ navigation }) => {
               </TouchableOpacity>
             </View>
           </View>
-
-          <View style={{ height: 40 }} />
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* FULL LIVE SUCCESS SCREEN MODAL */}
+      <Modal
+        visible={successModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={handleProceedAfterSuccess}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.successCard, isWeb && { maxWidth: 440 }]}>
+            <View style={styles.successIconCircle}>
+              <Ionicons name="checkmark-circle" size={58} color={COLORS.secondary} />
+            </View>
+
+            <Text style={styles.successHeading}>Registration Successful!</Text>
+            
+            <Text style={styles.successSubtext}>
+              Welcome to Bellaj Data Hub,{" "}
+              <Text style={{ fontWeight: "900", color: COLORS.dark }}>
+                {registeredUser?.firstName || form.firstName}
+              </Text>
+              ! Your {form.role === "agent" ? "Agent" : "Customer"} account has been setup and activated live.
+            </Text>
+
+            <View style={styles.accountDetailsBox}>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailKey}>Registered Email:</Text>
+                <Text style={styles.detailVal}>{registeredUser?.email || form.email}</Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailKey}>Phone Number:</Text>
+                <Text style={styles.detailVal}>{registeredUser?.phone || form.phone}</Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailKey}>Account Status:</Text>
+                <Text style={[styles.detailVal, { color: COLORS.secondary, fontWeight: "900" }]}>
+                  ACTIVE
+                </Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.proceedBtn}
+              onPress={handleProceedAfterSuccess}
+              activeOpacity={0.88}
+            >
+              <Text style={styles.proceedBtnText}>LOGIN TO DASHBOARD</Text>
+              <Ionicons name="arrow-forward" size={18} color={COLORS.white} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -565,14 +606,14 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: 16,
     paddingTop: Platform.OS === "android" ? 35 : 20,
-    paddingBottom: 100,
+    paddingBottom: 60,
     width: "100%",
     backgroundColor: COLORS.light,
   },
   webScrollContent: {
     alignItems: "center",
     paddingTop: 40,
-    paddingBottom: 110,
+    paddingBottom: 80,
   },
   card: {
     width: "100%",
@@ -814,6 +855,86 @@ const styles = StyleSheet.create({
     color: COLORS.secondary,
     fontWeight: "900",
     fontSize: 13,
+  },
+
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.75)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 16,
+  },
+  successCard: {
+    width: "100%",
+    maxWidth: 420,
+    backgroundColor: COLORS.white,
+    borderRadius: 24,
+    padding: 24,
+    alignItems: "center",
+  },
+  successIconCircle: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: COLORS.softGreen,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  successHeading: {
+    fontSize: 20,
+    fontWeight: "900",
+    color: COLORS.dark,
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  successSubtext: {
+    fontSize: 13,
+    color: COLORS.muted,
+    textAlign: "center",
+    lineHeight: 18,
+    marginBottom: 18,
+  },
+  accountDetailsBox: {
+    width: "100%",
+    backgroundColor: COLORS.light,
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 20,
+  },
+  detailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 6,
+  },
+  detailKey: {
+    color: COLORS.muted,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  detailVal: {
+    color: COLORS.dark,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  proceedBtn: {
+    width: "100%",
+    backgroundColor: COLORS.secondary,
+    borderRadius: 14,
+    paddingVertical: 15,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  proceedBtnText: {
+    color: COLORS.white,
+    fontWeight: "900",
+    fontSize: 13,
+    letterSpacing: 0.5,
   },
 });
 
