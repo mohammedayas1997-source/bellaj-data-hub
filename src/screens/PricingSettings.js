@@ -31,6 +31,17 @@ const COLORS = {
   danger: "#DC2626",
   accent: "#2563EB",
   purple: "#7C3AED",
+  orange: "#EA580C",
+};
+
+const DEFAULT_TIERS = {
+  "500MB": "150",
+  "1GB": "280",
+  "2GB": "560",
+  "3GB": "840",
+  "5GB": "1400",
+  "10GB": "2800",
+  ratePerGb: "280",
 };
 
 const DEFAULT_PRICING = {
@@ -55,44 +66,32 @@ const DEFAULT_PRICING = {
     electricityCharge: "0",
   },
   dataPlans: {
-    mtn: {
-      "500MB": "150",
-      "1GB": "280",
-      "2GB": "560",
-      "3GB": "840",
-      "5GB": "1400",
-      "10GB": "2800",
-      ratePerGb: "280",
+    sme: {
+      mtn: { ...DEFAULT_TIERS, ratePerGb: "275" },
+      airtel: { ...DEFAULT_TIERS, ratePerGb: "285" },
+      glo: { ...DEFAULT_TIERS, ratePerGb: "260" },
+      "9mobile": { ...DEFAULT_TIERS, ratePerGb: "300" },
     },
-    airtel: {
-      "500MB": "160",
-      "1GB": "290",
-      "2GB": "580",
-      "3GB": "870",
-      "5GB": "1450",
-      "10GB": "2900",
-      ratePerGb: "290",
+    gifting: {
+      mtn: { ...DEFAULT_TIERS, ratePerGb: "310" },
+      airtel: { ...DEFAULT_TIERS, ratePerGb: "320" },
+      glo: { ...DEFAULT_TIERS, ratePerGb: "290" },
+      "9mobile": { ...DEFAULT_TIERS, ratePerGb: "330" },
     },
-    glo: {
-      "500MB": "140",
-      "1GB": "260",
-      "2GB": "520",
-      "3GB": "780",
-      "5GB": "1300",
-      "10GB": "2600",
-      ratePerGb: "260",
-    },
-    "9mobile": {
-      "500MB": "170",
-      "1GB": "310",
-      "2GB": "620",
-      "3GB": "930",
-      "5GB": "1550",
-      "10GB": "3100",
-      ratePerGb: "310",
+    corporate: {
+      mtn: { ...DEFAULT_TIERS, ratePerGb: "290" },
+      airtel: { ...DEFAULT_TIERS, ratePerGb: "295" },
+      glo: { ...DEFAULT_TIERS, ratePerGb: "270" },
+      "9mobile": { ...DEFAULT_TIERS, ratePerGb: "315" },
     },
   },
 };
+
+const DATA_TYPES = [
+  { id: "sme", name: "SME DATA", icon: "briefcase-outline" },
+  { id: "gifting", name: "GIFTING", icon: "gift-outline" },
+  { id: "corporate", name: "CORPORATE", icon: "domain" },
+];
 
 const DATA_NETWORKS = [
   { id: "mtn", name: "MTN", icon: "cellphone-wireless" },
@@ -109,8 +108,9 @@ const PricingSettings = ({ navigation }) => {
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Tab & Network Navigation
+  // Tab, Type & Network Navigation
   const [activeTab, setActiveTab] = useState("data");
+  const [selectedDataType, setSelectedDataType] = useState("sme");
   const [selectedNetwork, setSelectedNetwork] = useState("mtn");
   const [selectedDataTier, setSelectedDataTier] = useState("1GB");
 
@@ -150,21 +150,23 @@ const PricingSettings = ({ navigation }) => {
         ...(data?.services || data?.serviceCharges || {}),
       },
       dataPlans: {
-        mtn: {
-          ...DEFAULT_PRICING.dataPlans.mtn,
-          ...(data?.dataPlans?.mtn || data?.mtn || {}),
+        sme: {
+          mtn: { ...DEFAULT_TIERS, ...(data?.dataPlans?.sme?.mtn || data?.sme?.mtn || {}) },
+          airtel: { ...DEFAULT_TIERS, ...(data?.dataPlans?.sme?.airtel || data?.sme?.airtel || {}) },
+          glo: { ...DEFAULT_TIERS, ...(data?.dataPlans?.sme?.glo || data?.sme?.glo || {}) },
+          "9mobile": { ...DEFAULT_TIERS, ...(data?.dataPlans?.sme?.["9mobile"] || data?.sme?.["9mobile"] || {}) },
         },
-        airtel: {
-          ...DEFAULT_PRICING.dataPlans.airtel,
-          ...(data?.dataPlans?.airtel || data?.airtel || {}),
+        gifting: {
+          mtn: { ...DEFAULT_TIERS, ...(data?.dataPlans?.gifting?.mtn || data?.gifting?.mtn || {}) },
+          airtel: { ...DEFAULT_TIERS, ...(data?.dataPlans?.gifting?.airtel || data?.gifting?.airtel || {}) },
+          glo: { ...DEFAULT_TIERS, ...(data?.dataPlans?.gifting?.glo || data?.gifting?.glo || {}) },
+          "9mobile": { ...DEFAULT_TIERS, ...(data?.dataPlans?.gifting?.["9mobile"] || data?.gifting?.["9mobile"] || {}) },
         },
-        glo: {
-          ...DEFAULT_PRICING.dataPlans.glo,
-          ...(data?.dataPlans?.glo || data?.glo || {}),
-        },
-        "9mobile": {
-          ...DEFAULT_PRICING.dataPlans["9mobile"],
-          ...(data?.dataPlans?.["9mobile"] || data?.nineMobile || {}),
+        corporate: {
+          mtn: { ...DEFAULT_TIERS, ...(data?.dataPlans?.corporate?.mtn || data?.corporate?.mtn || {}) },
+          airtel: { ...DEFAULT_TIERS, ...(data?.dataPlans?.corporate?.airtel || data?.corporate?.airtel || {}) },
+          glo: { ...DEFAULT_TIERS, ...(data?.dataPlans?.corporate?.glo || data?.corporate?.glo || {}) },
+          "9mobile": { ...DEFAULT_TIERS, ...(data?.dataPlans?.corporate?.["9mobile"] || data?.corporate?.["9mobile"] || {}) },
         },
       },
     };
@@ -189,7 +191,7 @@ const PricingSettings = ({ navigation }) => {
             result = res.data;
             break;
           }
-        } catch (e) {
+        } catch {
           // Fallback to next endpoint
         }
       }
@@ -225,37 +227,46 @@ const PricingSettings = ({ navigation }) => {
     }));
   };
 
-  const updateDataPlanTier = (network, tier, text) => {
+  const updateDataPlanTier = (dataType, network, tier, text) => {
     const clean = text.replace(/[^0-9.]/g, "");
     setPricing((prev) => ({
       ...prev,
       dataPlans: {
         ...prev.dataPlans,
-        [network]: {
-          ...prev.dataPlans[network],
-          [tier]: clean,
+        [dataType]: {
+          ...prev.dataPlans[dataType],
+          [network]: {
+            ...prev.dataPlans[dataType][network],
+            [tier]: clean,
+          },
         },
       },
     }));
   };
 
-  const updateRatePerGb = (network, text) => {
+  const updateRatePerGb = (dataType, network, text) => {
     const clean = text.replace(/[^0-9.]/g, "");
     setPricing((prev) => ({
       ...prev,
       dataPlans: {
         ...prev.dataPlans,
-        [network]: {
-          ...prev.dataPlans[network],
-          ratePerGb: clean,
+        [dataType]: {
+          ...prev.dataPlans[dataType],
+          [network]: {
+            ...prev.dataPlans[dataType][network],
+            ratePerGb: clean,
+          },
         },
       },
     }));
   };
 
   const currentNetworkData = useMemo(() => {
-    return pricing.dataPlans?.[selectedNetwork] || DEFAULT_PRICING.dataPlans.mtn;
-  }, [pricing, selectedNetwork]);
+    return (
+      pricing.dataPlans?.[selectedDataType]?.[selectedNetwork] ||
+      DEFAULT_PRICING.dataPlans.sme.mtn
+    );
+  }, [pricing, selectedDataType, selectedNetwork]);
 
   const liveCalculatedPrice = useMemo(() => {
     const numGb = parseFloat(customGbInput);
@@ -267,7 +278,7 @@ const PricingSettings = ({ navigation }) => {
   const savePricing = async () => {
     Alert.alert(
       "Confirm Pricing Update",
-      "Deploy these service rates and data configurations to live environment?",
+      "Deploy these service rates, SME/Gifting data plans, and custom parameters live?",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -296,17 +307,20 @@ const PricingSettings = ({ navigation }) => {
 
               for (const endpoint of endpoints) {
                 try {
-                  const res = await axios.put(endpoint, payload, config).catch(async () => {
-                    return await axios.post(endpoint, payload, config);
-                  });
+                  const res = await axios
+                    .put(endpoint, payload, config)
+                    .catch(async () => {
+                      return await axios.post(endpoint, payload, config);
+                    });
 
                   if (res?.status === 200 || res?.status === 201) {
                     success = true;
-                    responseMsg = res?.data?.message || "Rates updated successfully.";
+                    responseMsg =
+                      res?.data?.message || "Rates updated successfully.";
                     break;
                   }
-                } catch (err) {
-                  // Continue to next endpoint fallback
+                } catch {
+                  // Continue fallback
                 }
               }
 
@@ -315,14 +329,15 @@ const PricingSettings = ({ navigation }) => {
                 fetchPricing();
               } else {
                 Alert.alert(
-                  "Update Committed Locally",
+                  "Committed Locally",
                   "Configuration recorded in active state. Changes reflect across client terminals."
                 );
               }
             } catch (error) {
               Alert.alert(
                 "Execution Failed",
-                error?.response?.data?.message || "Unable to commit pricing changes."
+                error?.response?.data?.message ||
+                  "Unable to commit pricing changes."
               );
             } finally {
               setSaving(false);
@@ -355,30 +370,34 @@ const PricingSettings = ({ navigation }) => {
   };
 
   const logout = async () => {
-    Alert.alert("End Session", "Are you sure you want to log out of Admin Console?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Log Out",
-        style: "destructive",
-        onPress: async () => {
-          await AsyncStorage.multiRemove([
-            "userToken",
-            "token",
-            "adminToken",
-            "userData",
-            "userRole",
-            "overrideRole",
-          ]);
+    Alert.alert(
+      "End Session",
+      "Are you sure you want to log out of Admin Console?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Log Out",
+          style: "destructive",
+          onPress: async () => {
+            await AsyncStorage.multiRemove([
+              "userToken",
+              "token",
+              "adminToken",
+              "userData",
+              "userRole",
+              "overrideRole",
+            ]);
 
-          navigation.dispatch(
-            CommonActions.reset({
-              index: 0,
-              routes: [{ name: "Login" }],
-            })
-          );
+            navigation.dispatch(
+              CommonActions.reset({
+                index: 0,
+                routes: [{ name: "Login" }],
+              })
+            );
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
   if (loading) {
@@ -414,7 +433,7 @@ const PricingSettings = ({ navigation }) => {
 
         <View style={styles.headerTextBox}>
           <Text style={styles.headerTitle}>Price Configuration Engine</Text>
-          <Text style={styles.headerSubtitle}>Real-Time Matrix & Quotas</Text>
+          <Text style={styles.headerSubtitle}>SME, Gifting & Utility Matrices</Text>
         </View>
 
         <TouchableOpacity
@@ -447,7 +466,7 @@ const PricingSettings = ({ navigation }) => {
           <View style={{ flex: 1 }}>
             <Text style={styles.heroTitle}>Master Price Control</Text>
             <Text style={styles.heroText}>
-              Select service tiers, define fixed bundles, or calculate manual volume gigabyte quotas dynamically.
+              Configure SME Data, Direct Gifting, Corporate Gifting, or input custom manual GB quotas.
             </Text>
           </View>
           <TouchableOpacity style={styles.refreshBtn} onPress={fetchPricing}>
@@ -455,10 +474,10 @@ const PricingSettings = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Primary Service Tabs */}
+        {/* Primary Category Switcher */}
         <View style={styles.tabsRow}>
           {[
-            { id: "data", label: "DATA BUNDLES", icon: "database-outline" },
+            { id: "data", label: "DATA PACKAGES", icon: "database-outline" },
             { id: "nimc", label: "NIMC SERVICES", icon: "fingerprint" },
             { id: "bvn", label: "BVN MATRIX", icon: "card-account-details-outline" },
             { id: "services", label: "VAS UTILITY", icon: "flash-outline" },
@@ -483,11 +502,40 @@ const PricingSettings = ({ navigation }) => {
           })}
         </View>
 
-        {/* TAB 1: DATA PLANS & MANUAL GB CALCULATOR */}
+        {/* TAB 1: DATA BUNDLES (SME, GIFTING, CORPORATE & MANUAL CALCULATOR) */}
         {activeTab === "data" && (
           <View>
-            {/* Network Selector */}
-            <Text style={styles.sectionHeaderLabel}>SELECT TELECOM OPERATOR</Text>
+            {/* DATA TYPE SELECTOR (SME / GIFTING / CORPORATE) */}
+            <Text style={styles.sectionHeaderLabel}>1. SELECT DATA PROTOCOL</Text>
+            <View style={styles.typeSelectorRow}>
+              {DATA_TYPES.map((type) => {
+                const selected = selectedDataType === type.id;
+                return (
+                  <TouchableOpacity
+                    key={type.id}
+                    style={[styles.typeCard, selected && styles.typeCardActive]}
+                    onPress={() => setSelectedDataType(type.id)}
+                  >
+                    <MaterialCommunityIcons
+                      name={type.icon}
+                      size={20}
+                      color={selected ? COLORS.white : COLORS.primary}
+                    />
+                    <Text
+                      style={[
+                        styles.typeLabel,
+                        selected && styles.typeLabelActive,
+                      ]}
+                    >
+                      {type.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* TELECOM OPERATOR SELECTOR */}
+            <Text style={styles.sectionHeaderLabel}>2. SELECT NETWORK OPERATOR</Text>
             <View style={styles.selectorGrid}>
               {DATA_NETWORKS.map((net) => {
                 const selected = selectedNetwork === net.id;
@@ -503,7 +551,10 @@ const PricingSettings = ({ navigation }) => {
                       color={selected ? COLORS.white : COLORS.primary}
                     />
                     <Text
-                      style={[styles.selectorLabel, selected && styles.selectorLabelActive]}
+                      style={[
+                        styles.selectorLabel,
+                        selected && styles.selectorLabelActive,
+                      ]}
                     >
                       {net.name}
                     </Text>
@@ -512,22 +563,22 @@ const PricingSettings = ({ navigation }) => {
               })}
             </View>
 
-            {/* Manual Custom GB Input Calculator Deck */}
+            {/* MANUAL CUSTOM GB CALCULATOR DECK */}
             <View style={styles.calculatorCard}>
               <View style={styles.calculatorHeader}>
                 <MaterialCommunityIcons name="calculator" size={22} color={COLORS.accent} />
                 <Text style={styles.calculatorTitle}>
-                  CUSTOM MANUAL GB QUOTA CALCULATOR
+                  MANUAL CUSTOM GB QUOTA CALCULATOR
                 </Text>
               </View>
 
               <Text style={styles.calcHelperText}>
-                Input arbitrary volume (GB) to evaluate live rate calculation on {selectedNetwork.toUpperCase()}:
+                Input manual arbitrary GB quota to evaluate live cost on {selectedNetwork.toUpperCase()} ({selectedDataType.toUpperCase()}):
               </Text>
 
               <View style={styles.calcDualInput}>
                 <View style={{ flex: 1, marginRight: 10 }}>
-                  <Text style={styles.subInputLabel}>Manual Gigabytes (GB)</Text>
+                  <Text style={styles.subInputLabel}>Manual Volume (GB)</Text>
                   <View style={styles.inputBox}>
                     <TextInput
                       style={styles.input}
@@ -542,13 +593,15 @@ const PricingSettings = ({ navigation }) => {
                 </View>
 
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.subInputLabel}>Rate Per 1GB</Text>
+                  <Text style={styles.subInputLabel}>Rate Per 1GB (₦)</Text>
                   <View style={styles.inputBox}>
                     <Text style={styles.currency}>₦</Text>
                     <TextInput
                       style={styles.input}
                       value={String(currentNetworkData.ratePerGb || "")}
-                      onChangeText={(t) => updateRatePerGb(selectedNetwork, t)}
+                      onChangeText={(t) =>
+                        updateRatePerGb(selectedDataType, selectedNetwork, t)
+                      }
                       keyboardType="numeric"
                       placeholder="Rate/GB"
                       placeholderTextColor={COLORS.muted}
@@ -561,22 +614,24 @@ const PricingSettings = ({ navigation }) => {
                 <Text style={styles.calcResultLabel}>
                   Real-time Cost ({customGbInput || 0} GB @ ₦{currentNetworkData.ratePerGb || 0}/GB):
                 </Text>
-                <Text style={styles.calcResultFigure}>₦{Number(liveCalculatedPrice).toLocaleString()}</Text>
+                <Text style={styles.calcResultFigure}>
+                  ₦{Number(liveCalculatedPrice).toLocaleString()}
+                </Text>
               </View>
             </View>
 
-            {/* Preset Tier Selection & Value Inputs */}
+            {/* PRESET TIER SELECTION & VALUE CONFIGURATION */}
             <View style={styles.formCard}>
               <View style={styles.formHeader}>
                 <Text style={styles.formTitle}>
-                  {selectedNetwork.toUpperCase()} FIXED BUNDLE MATRIX
+                  {selectedNetwork.toUpperCase()} ({selectedDataType.toUpperCase()}) FIXED BUNDLES
                 </Text>
                 <View style={styles.liveBadge}>
-                  <Text style={styles.liveBadgeText}>LIVE STREAM</Text>
+                  <Text style={styles.liveBadgeText}>LIVE MATRIX</Text>
                 </View>
               </View>
 
-              <Text style={styles.subInputLabel}>Select Tier to Inspect/Edit Price</Text>
+              <Text style={styles.subInputLabel}>Select Package Tier to Inspect/Edit</Text>
               <View style={styles.tierSelectorRow}>
                 {PRESET_TIERS.map((tier) => {
                   const isSelected = selectedDataTier === tier;
@@ -602,7 +657,7 @@ const PricingSettings = ({ navigation }) => {
               {/* Selected Tier Editing Box */}
               <View style={styles.selectedTierEditArea}>
                 <Text style={styles.label}>
-                  RETAIL PRICE FOR {selectedNetwork.toUpperCase()} {selectedDataTier}
+                  RETAIL PRICE FOR {selectedNetwork.toUpperCase()} {selectedDataType.toUpperCase()} {selectedDataTier}
                 </Text>
                 <View style={styles.inputBox}>
                   <Text style={styles.currency}>₦</Text>
@@ -610,7 +665,12 @@ const PricingSettings = ({ navigation }) => {
                     style={styles.input}
                     value={String(currentNetworkData[selectedDataTier] || "")}
                     onChangeText={(t) =>
-                      updateDataPlanTier(selectedNetwork, selectedDataTier, t)
+                      updateDataPlanTier(
+                        selectedDataType,
+                        selectedNetwork,
+                        selectedDataTier,
+                        t
+                      )
                     }
                     keyboardType="numeric"
                     placeholder="0"
@@ -619,9 +679,9 @@ const PricingSettings = ({ navigation }) => {
                 </View>
               </View>
 
-              {/* Full Roster List */}
+              {/* Full Bundle Table */}
               <Text style={[styles.subInputLabel, { marginTop: 16 }]}>
-                Full {selectedNetwork.toUpperCase()} Rate Table:
+                Full {selectedNetwork.toUpperCase()} ({selectedDataType.toUpperCase()}) Rate Table:
               </Text>
               {PRESET_TIERS.map((tier) => (
                 <View key={tier} style={styles.tableTierRow}>
@@ -634,7 +694,12 @@ const PricingSettings = ({ navigation }) => {
                       style={styles.input}
                       value={String(currentNetworkData[tier] || "")}
                       onChangeText={(t) =>
-                        updateDataPlanTier(selectedNetwork, tier, t)
+                        updateDataPlanTier(
+                          selectedDataType,
+                          selectedNetwork,
+                          tier,
+                          t
+                        )
                       }
                       keyboardType="numeric"
                       placeholder="0"
@@ -765,7 +830,7 @@ const PricingSettings = ({ navigation }) => {
             color={COLORS.secondary}
           />
           <Text style={styles.noteText}>
-            Committed prices take immediate effect on subscriber transactions, agent billings, and automated billing endpoints.
+            Committed prices take immediate effect across customer purchases, SME data orders, gifting transactions, and API endpoints.
           </Text>
         </View>
       </ScrollView>
@@ -883,6 +948,29 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     letterSpacing: 0.5,
   },
+  typeSelectorRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 14,
+  },
+  typeCard: {
+    flex: 1,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 6,
+  },
+  typeCardActive: {
+    backgroundColor: COLORS.secondary,
+    borderColor: COLORS.secondary,
+  },
+  typeLabel: { color: COLORS.dark, fontSize: 11, fontWeight: "800" },
+  typeLabelActive: { color: COLORS.white },
   selectorGrid: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -955,7 +1043,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 14,
   },
-  formTitle: { color: COLORS.dark, fontSize: 14, fontWeight: "900" },
+  formTitle: { color: COLORS.dark, fontSize: 13, fontWeight: "900" },
   liveBadge: {
     backgroundColor: COLORS.softGreen,
     borderRadius: 999,
