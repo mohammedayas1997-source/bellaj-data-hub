@@ -1,11 +1,10 @@
-import React, { useEffect, useMemo, useState, useContext, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Image,
   StatusBar,
   ToastAndroid,
   Linking,
@@ -14,6 +13,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Modal,
+  SafeAreaView,
   useWindowDimensions,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
@@ -25,10 +25,9 @@ import {
 import { CommonActions } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
-import { ThemeContext } from "../context/ThemeContext";
 import BASE_URL from "../config/api";
 
-const LIGHT = {
+const COLORS = {
   primary: "#0B5E3C",
   secondary: "#16A34A",
   dark: "#0F172A",
@@ -44,33 +43,10 @@ const LIGHT = {
   soft: "#F1F5F9",
   sidebarBg: "#062819",
   sidebarBorder: "#0c3b26",
-  sidebarActive: "rgba(22, 163, 74, 0.22)",
-};
-
-const DARK = {
-  primary: "#16A34A",
-  secondary: "#22C55E",
-  dark: "#020617",
-  white: "#FFFFFF",
-  light: "#020617",
-  muted: "#94A3B8",
-  border: "#1E293B",
-  danger: "#EF4444",
-  accent: "#38BDF8",
-  purple: "#A855F7",
-  orange: "#F97316",
-  card: "#0F172A",
-  soft: "#1E293B",
-  sidebarBg: "#020d08",
-  sidebarBorder: "#082417",
-  sidebarActive: "rgba(34, 197, 94, 0.22)",
 };
 
 const AgentDashboard = ({ navigation, route }) => {
   const { width } = useWindowDimensions();
-  const { isDarkMode } = useContext(ThemeContext);
-
-  const COLORS = isDarkMode ? DARK : LIGHT;
   const isWeb = width >= 992;
 
   const [loading, setLoading] = useState(true);
@@ -80,7 +56,7 @@ const AgentDashboard = ({ navigation, route }) => {
   const [isBalanceVisible, setIsBalanceVisible] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // Navigation & Dialog Modals
+  // Modals
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
   const [logoutProcessing, setLogoutProcessing] = useState(false);
@@ -105,7 +81,7 @@ const AgentDashboard = ({ navigation, route }) => {
         Accept: "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      timeout: 30000,
+      timeout: 20000,
     };
   };
 
@@ -125,7 +101,7 @@ const AgentDashboard = ({ navigation, route }) => {
         const res = await axios.get(url, config);
         if (res?.data) return res.data;
       } catch {
-        // Fallback chain
+        // Continue to next endpoint
       }
     }
     return null;
@@ -136,6 +112,14 @@ const AgentDashboard = ({ navigation, route }) => {
       setLoading(true);
       const config = await getHeaders();
 
+      // Read local cache first so it never appears blank
+      const cachedUserData = await AsyncStorage.getItem("userData");
+      if (cachedUserData) {
+        try {
+          setUserData(JSON.parse(cachedUserData));
+        } catch {}
+      }
+
       const profileEndpoints = [
         `${BASE_URL}/auth/me`,
         `${BASE_URL}/auth/user-profile`,
@@ -144,12 +128,10 @@ const AgentDashboard = ({ navigation, route }) => {
       const perfEndpoints = [
         `${BASE_URL}/agent/performance`,
         `${BASE_URL}/agent/stats`,
-        `${BASE_URL}/users/performance`,
       ];
       const supEndpoints = [
         `${BASE_URL}/agent/my-supervisor`,
         `${BASE_URL}/agent/supervisor`,
-        `${BASE_URL}/users/my-supervisor`,
       ];
       const notifEndpoints = [
         `${BASE_URL}/notifications`,
@@ -180,7 +162,7 @@ const AgentDashboard = ({ navigation, route }) => {
 
       if (notificationRes.status === "fulfilled" && notificationRes.value) {
         const list = normalizeList(notificationRes.value);
-        setUnreadCount(list.filter((item) => item?.read === false || item?.isRead === false).length);
+        setUnreadCount(list.filter((item) => !item?.isRead && !item?.read).length);
       }
     } catch {
       // Retain state
@@ -210,20 +192,8 @@ const AgentDashboard = ({ navigation, route }) => {
         ...params,
       });
     } catch {
-      Alert.alert("Notice", `Module '${screenName}' is initializing.`);
+      Alert.alert("Notice", `Screen '${screenName}' is preparing.`);
     }
-  };
-
-  const goBack = () => {
-    if (route?.params?.backScreen && route.params.backScreen !== "AgentDashboard") {
-      navigation.navigate(route.params.backScreen);
-      return;
-    }
-    if (navigation.canGoBack?.()) {
-      navigation.goBack();
-      return;
-    }
-    navigation.navigate("Main");
   };
 
   const performLogout = async () => {
@@ -250,9 +220,7 @@ const AgentDashboard = ({ navigation, route }) => {
           })
         );
         return;
-      } catch {
-        // Fallback
-      }
+      } catch {}
 
       navigation.navigate("Login");
     } catch {
@@ -271,13 +239,13 @@ const AgentDashboard = ({ navigation, route }) => {
     if (Platform.OS === "android") {
       ToastAndroid.show("Copied to clipboard", ToastAndroid.SHORT);
     } else {
-      Alert.alert("Copied", "Copied to clipboard.");
+      Alert.alert("Copied", "Account number copied to clipboard.");
     }
   };
 
   const openWhatsApp = () => {
     const phoneNumber = "+2349075207281";
-    const message = "Hello Bellaj Support, I am contacting you from my Agent Terminal.";
+    const message = "Hello Bellaj Support, I need assistance with my Agent account.";
     const appUrl = `whatsapp://send?phone=${phoneNumber}&text=${encodeURIComponent(message)}`;
     const webUrl = `https://wa.me/${phoneNumber.replace("+", "")}?text=${encodeURIComponent(message)}`;
     Linking.openURL(appUrl).catch(() => Linking.openURL(webUrl));
@@ -319,7 +287,7 @@ const AgentDashboard = ({ navigation, route }) => {
         { title: "Direct Sale (New Order)", icon: "cart-plus", action: () => safeNavigate("NewSale") },
         { title: "Instant Wallet Funding", icon: "wallet-plus-outline", action: () => safeNavigate("FundWallet") },
         { title: "Sales & Commission History", icon: "history", action: () => safeNavigate("SalesHistory") },
-        { title: "Wallet Ledger & Audit", icon: "receipt-text-outline", action: () => safeNavigate("WalletDashboard") },
+        { title: "Wallet History & Ledger", icon: "receipt-text-outline", action: () => safeNavigate("WalletDashboard") },
       ],
     },
     {
@@ -412,23 +380,11 @@ const AgentDashboard = ({ navigation, route }) => {
     </View>
   );
 
-  if (loading) {
-    return (
-      <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loaderText}>Accessing Field POS Terminal...</Text>
-      </View>
-    );
-  }
-
   return (
-    <View style={[styles.mainContainer, { backgroundColor: COLORS.light }]}>
-      <StatusBar
-        barStyle="light-content"
-        backgroundColor={COLORS.primary}
-      />
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
 
-      <View style={styles.bodyWrapper}>
+      <View style={styles.mainLayout}>
         {/* Desktop Fixed Executive Sidebar */}
         {isWeb && <View style={styles.desktopSidebar}>{renderSidebarContent()}</View>}
 
@@ -451,7 +407,7 @@ const AgentDashboard = ({ navigation, route }) => {
           </Modal>
         )}
 
-        {/* Main Agent Workspace */}
+        {/* Workspace Canvas */}
         <View style={styles.mainCanvas}>
           {/* Header Bar */}
           <View style={styles.header}>
@@ -466,7 +422,7 @@ const AgentDashboard = ({ navigation, route }) => {
             <View style={styles.headerTextBox}>
               <Text style={styles.headerTitle}>Field Agent Terminal</Text>
               <Text style={styles.headerSubtitle}>
-                {agentName} • Status: <Text style={{ color: "#BBF7D0", fontWeight: "900" }}>ACTIVE POS</Text>
+                {agentName} • <Text style={{ color: "#BBF7D0", fontWeight: "900" }}>ACTIVE POS</Text>
               </Text>
             </View>
 
@@ -490,227 +446,232 @@ const AgentDashboard = ({ navigation, route }) => {
             </TouchableOpacity>
           </View>
 
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={styles.scrollContent}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                colors={[COLORS.primary]}
-                tintColor={COLORS.primary}
-              />
-            }
-          >
-            {/* Terminal Master Balance Banner */}
-            <View style={styles.walletCard}>
-              <View style={styles.walletTop}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                  <MaterialCommunityIcons name="wallet-outline" size={18} color="#BBF7D0" />
-                  <Text style={styles.walletLabel}>Terminal Liquidity Balance</Text>
-                </View>
-                <TouchableOpacity onPress={() => safeNavigate("WalletDashboard")}>
-                  <Text style={styles.historyText}>
-                    Audit Log <Ionicons name="chevron-forward" size={12} color={COLORS.white} />
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.balanceContainer}>
-                <Text style={styles.currency}>₦</Text>
-                <Text style={styles.balanceText}>
-                  {isBalanceVisible ? balance.toLocaleString() : "****"}
-                </Text>
-                <TouchableOpacity onPress={() => setIsBalanceVisible(!isBalanceVisible)}>
-                  <Ionicons
-                    name={isBalanceVisible ? "eye-outline" : "eye-off-outline"}
-                    size={22}
-                    color={COLORS.white}
-                    style={{ marginLeft: 12 }}
-                  />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.walletActions}>
-                <TouchableOpacity
-                  style={styles.actionBtn}
-                  onPress={() => safeNavigate("FundWallet")}
-                  activeOpacity={0.88}
-                >
-                  <Ionicons name="add-circle" size={18} color={COLORS.white} />
-                  <Text style={styles.actionBtnText}>FUND WALLET</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.newSaleBtn}
-                  onPress={() => safeNavigate("NewSale")}
-                  activeOpacity={0.88}
-                >
-                  <MaterialCommunityIcons name="cart-plus" size={18} color={COLORS.white} />
-                  <Text style={styles.actionBtnText}>PROCESS SALE</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.supportBtn}
-                  onPress={openWhatsApp}
-                  activeOpacity={0.88}
-                >
-                  <Ionicons name="logo-whatsapp" size={18} color="#22C55E" />
-                  <Text style={styles.actionBtnText}>SUPPORT</Text>
-                </TouchableOpacity>
-              </View>
+          {loading && !userData ? (
+            <View style={styles.loaderContainer}>
+              <ActivityIndicator size="large" color={COLORS.primary} />
+              <Text style={styles.loaderText}>Loading Field POS Terminal...</Text>
             </View>
-
-            {/* Performance Metrics Cards */}
-            <View style={styles.statsGrid}>
-              <View style={[styles.statCard, { borderLeftColor: COLORS.primary }]}>
-                <Text style={styles.statLabel}>Volume Dispatched</Text>
-                <Text style={styles.statValue}>
-                  {Number(performance.totalGB || 0).toLocaleString()} <Text style={styles.statUnit}>GB</Text>
-                </Text>
-              </View>
-
-              <View style={[styles.statCard, { borderLeftColor: COLORS.secondary }]}>
-                <Text style={styles.statLabel}>Total Turnover</Text>
-                <Text style={styles.statValue}>
-                  ₦{Number(currentSales || 0).toLocaleString()}
-                </Text>
-              </View>
-
-              <View style={[styles.statCard, { borderLeftColor: COLORS.orange }]}>
-                <Text style={styles.statLabel}>Earned Commission</Text>
-                <Text style={[styles.statValue, { color: COLORS.orange }]}>
-                  ₦{Number(performance.commissionsEarned || 0).toLocaleString()}
-                </Text>
-              </View>
-
-              <View style={[styles.statCard, { borderLeftColor: COLORS.purple }]}>
-                <Text style={styles.statLabel}>Performance Bonus</Text>
-                <Text style={[styles.statValue, { color: COLORS.purple }]}>
-                  ₦{Number(performance.bonusEarned || 0).toLocaleString()}
-                </Text>
-              </View>
-            </View>
-
-            {/* Target & Performance Progress Deck */}
-            <View style={styles.targetCard}>
-              <View style={styles.targetHeader}>
-                <View>
-                  <Text style={styles.targetLabel}>Monthly Operational Quota</Text>
-                  <Text style={styles.targetValue}>₦{targetSales.toLocaleString()}</Text>
-                </View>
-                <View style={{ alignItems: "flex-end" }}>
-                  <Text style={styles.targetLabel}>Target Fulfilled</Text>
-                  <Text style={styles.percentageText}>{achievementPercentage}%</Text>
-                </View>
-              </View>
-
-              <View style={styles.progressTrack}>
-                <View
-                  style={[
-                    styles.progressBar,
-                    {
-                      width: `${achievementPercentage}%`,
-                      backgroundColor: achievementPercentage >= 100 ? COLORS.secondary : COLORS.primary,
-                    },
-                  ]}
+          ) : (
+            <ScrollView
+              style={{ flex: 1 }}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={styles.scrollContent}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  colors={[COLORS.primary]}
+                  tintColor={COLORS.primary}
                 />
-              </View>
-
-              <View style={styles.targetRowAlt}>
-                <Text style={styles.progressSubText}>
-                  Accumulated: <Text style={styles.boldText}>₦{currentSales.toLocaleString()}</Text>
-                </Text>
-                <Text style={styles.remainingText}>
-                  Remaining: <Text style={styles.boldTextRed}>₦{remainingToTarget.toLocaleString()}</Text>
-                </Text>
-              </View>
-            </View>
-
-            {/* Automatic Dynamic Virtual Funding Accounts */}
-            <Text style={styles.sectionLabel}>Dedicated Settlement Accounts</Text>
-            <View style={styles.bankCardsWrapper}>
-              {userData?.accountNumber && userData?.accountNumber !== "Initialization Pending" ? (
-                <BankCard
-                  bank={userData.bankName || "Wema Bank (Automated)"}
-                  acc={userData.accountNumber}
-                  code="BD"
-                  onCopy={() => copyToClipboard(userData.accountNumber)}
-                />
-              ) : (
-                <BankCard
-                  bank="Automated Settlement Terminal"
-                  acc="Allocating Virtual Account..."
-                  code="POS"
-                  onCopy={() =>
-                    Alert.alert(
-                      "Processing",
-                      "Automated funding account is currently staging."
-                    )
-                  }
-                />
-              )}
-            </View>
-
-            {/* Quick POS Service Dispatch Grid */}
-            <Text style={styles.sectionLabel}>Direct POS Retail Services</Text>
-            <View style={styles.servicesContainer}>
-              <View style={styles.grid}>
-                {quickServices.map((service, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    style={styles.gridItem}
-                    onPress={() => safeNavigate(service.screen)}
-                    activeOpacity={0.85}
-                  >
-                    <View style={styles.iconBox}>
-                      <FontAwesome5 name={service.icon} size={20} color={service.color} />
-                    </View>
-                    <Text style={styles.gridLabel}>{service.label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            {/* Field Supervisor Contact Card */}
-            <View style={styles.supervisorCard}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                <MaterialCommunityIcons name="shield-account" size={22} color={COLORS.secondary} />
-                <Text style={styles.sectionTitle}>Assigned Regional Supervisor</Text>
-              </View>
-
-              {supervisor ? (
-                <View style={styles.supInfoBox}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.supName}>
-                      {supervisor?.name || supervisor?.fullName || "Regional Supervisor"}
-                    </Text>
-                    <Text style={styles.supPhone}>
-                      {supervisor?.phone || supervisor?.email || "No direct phone record"}
-                    </Text>
+              }
+            >
+              {/* Balance Card */}
+              <View style={styles.walletCard}>
+                <View style={styles.walletTop}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <MaterialCommunityIcons name="wallet-outline" size={18} color="#BBF7D0" />
+                    <Text style={styles.walletLabel}>Terminal Liquidity Balance</Text>
                   </View>
-                  {supervisor?.phone ? (
-                    <TouchableOpacity
-                      style={styles.callSupBtn}
-                      onPress={() => Linking.openURL(`tel:${supervisor.phone}`)}
-                    >
-                      <Ionicons name="call" size={16} color={COLORS.white} />
-                      <Text style={styles.callSupText}>Call</Text>
-                    </TouchableOpacity>
-                  ) : null}
+                  <TouchableOpacity onPress={() => safeNavigate("WalletDashboard")}>
+                    <Text style={styles.historyText}>
+                      Audit Log <Ionicons name="chevron-forward" size={12} color={COLORS.white} />
+                    </Text>
+                  </TouchableOpacity>
                 </View>
-              ) : (
-                <Text style={styles.infoText}>
-                  Your account is registered directly under Master Distribution. No individual supervisor assigned.
-                </Text>
-              )}
-            </View>
-          </ScrollView>
+
+                <View style={styles.balanceContainer}>
+                  <Text style={styles.currency}>₦</Text>
+                  <Text style={styles.balanceText}>
+                    {isBalanceVisible ? balance.toLocaleString() : "****"}
+                  </Text>
+                  <TouchableOpacity onPress={() => setIsBalanceVisible(!isBalanceVisible)}>
+                    <Ionicons
+                      name={isBalanceVisible ? "eye-outline" : "eye-off-outline"}
+                      size={22}
+                      color={COLORS.white}
+                      style={{ marginLeft: 12 }}
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.walletActions}>
+                  <TouchableOpacity
+                    style={styles.actionBtn}
+                    onPress={() => safeNavigate("FundWallet")}
+                    activeOpacity={0.88}
+                  >
+                    <Ionicons name="add-circle" size={18} color={COLORS.white} />
+                    <Text style={styles.actionBtnText}>FUND WALLET</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.newSaleBtn}
+                    onPress={() => safeNavigate("NewSale")}
+                    activeOpacity={0.88}
+                  >
+                    <MaterialCommunityIcons name="cart-plus" size={18} color={COLORS.white} />
+                    <Text style={styles.actionBtnText}>PROCESS SALE</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.supportBtn}
+                    onPress={openWhatsApp}
+                    activeOpacity={0.88}
+                  >
+                    <Ionicons name="logo-whatsapp" size={18} color="#22C55E" />
+                    <Text style={styles.actionBtnText}>SUPPORT</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Performance Metrics Cards */}
+              <View style={styles.statsGrid}>
+                <View style={[styles.statCard, { borderLeftColor: COLORS.primary }]}>
+                  <Text style={styles.statLabel}>Volume Dispatched</Text>
+                  <Text style={styles.statValue}>
+                    {Number(performance.totalGB || 0).toLocaleString()} <Text style={styles.statUnit}>GB</Text>
+                  </Text>
+                </View>
+
+                <View style={[styles.statCard, { borderLeftColor: COLORS.secondary }]}>
+                  <Text style={styles.statLabel}>Total Turnover</Text>
+                  <Text style={styles.statValue}>
+                    ₦{Number(currentSales || 0).toLocaleString()}
+                  </Text>
+                </View>
+
+                <View style={[styles.statCard, { borderLeftColor: COLORS.orange }]}>
+                  <Text style={styles.statLabel}>Earned Commission</Text>
+                  <Text style={[styles.statValue, { color: COLORS.orange }]}>
+                    ₦{Number(performance.commissionsEarned || 0).toLocaleString()}
+                  </Text>
+                </View>
+
+                <View style={[styles.statCard, { borderLeftColor: COLORS.purple }]}>
+                  <Text style={styles.statLabel}>Performance Bonus</Text>
+                  <Text style={[styles.statValue, { color: COLORS.purple }]}>
+                    ₦{Number(performance.bonusEarned || 0).toLocaleString()}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Target Card */}
+              <View style={styles.targetCard}>
+                <View style={styles.targetHeader}>
+                  <View>
+                    <Text style={styles.targetLabel}>Monthly Operational Quota</Text>
+                    <Text style={styles.targetValue}>₦{targetSales.toLocaleString()}</Text>
+                  </View>
+                  <View style={{ alignItems: "flex-end" }}>
+                    <Text style={styles.targetLabel}>Target Fulfilled</Text>
+                    <Text style={styles.percentageText}>{achievementPercentage}%</Text>
+                  </View>
+                </View>
+
+                <View style={styles.progressTrack}>
+                  <View
+                    style={[
+                      styles.progressBar,
+                      {
+                        width: `${achievementPercentage}%`,
+                        backgroundColor: achievementPercentage >= 100 ? COLORS.secondary : COLORS.primary,
+                      },
+                    ]}
+                  />
+                </View>
+
+                <View style={styles.targetRowAlt}>
+                  <Text style={styles.progressSubText}>
+                    Accumulated: <Text style={styles.boldText}>₦{currentSales.toLocaleString()}</Text>
+                  </Text>
+                  <Text style={styles.remainingText}>
+                    Remaining: <Text style={styles.boldTextRed}>₦{remainingToTarget.toLocaleString()}</Text>
+                  </Text>
+                </View>
+              </View>
+
+              {/* Bank Virtual Account */}
+              <Text style={styles.sectionLabel}>Dedicated Settlement Accounts</Text>
+              <View style={styles.bankCardsWrapper}>
+                {userData?.accountNumber && userData?.accountNumber !== "Initialization Pending" ? (
+                  <BankCard
+                    bank={userData.bankName || "Wema Bank (Automated)"}
+                    acc={userData.accountNumber}
+                    code="BD"
+                    onCopy={() => copyToClipboard(userData.accountNumber)}
+                  />
+                ) : (
+                  <BankCard
+                    bank="Automated Settlement Terminal"
+                    acc="Allocating Virtual Account..."
+                    code="POS"
+                    onCopy={() =>
+                      Alert.alert("Processing", "Automated funding account is currently staging.")
+                    }
+                  />
+                )}
+              </View>
+
+              {/* POS Services Grid */}
+              <Text style={styles.sectionLabel}>Direct POS Retail Services</Text>
+              <View style={styles.servicesContainer}>
+                <View style={styles.grid}>
+                  {quickServices.map((service, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={styles.gridItem}
+                      onPress={() => safeNavigate(service.screen)}
+                      activeOpacity={0.85}
+                    >
+                      <View style={styles.iconBox}>
+                        <FontAwesome5 name={service.icon} size={20} color={service.color} />
+                      </View>
+                      <Text style={styles.gridLabel}>{service.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {/* Regional Supervisor Card */}
+              <View style={styles.supervisorCard}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                  <MaterialCommunityIcons name="shield-account" size={22} color={COLORS.secondary} />
+                  <Text style={styles.sectionTitle}>Assigned Regional Supervisor</Text>
+                </View>
+
+                {supervisor ? (
+                  <View style={styles.supInfoBox}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.supName}>
+                        {supervisor?.name || supervisor?.fullName || "Regional Supervisor"}
+                      </Text>
+                      <Text style={styles.supPhone}>
+                        {supervisor?.phone || supervisor?.email || "No direct phone record"}
+                      </Text>
+                    </View>
+                    {supervisor?.phone ? (
+                      <TouchableOpacity
+                        style={styles.callSupBtn}
+                        onPress={() => Linking.openURL(`tel:${supervisor.phone}`)}
+                      >
+                        <Ionicons name="call" size={16} color={COLORS.white} />
+                        <Text style={styles.callSupText}>Call</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                ) : (
+                  <Text style={styles.infoText}>
+                    Your account is registered directly under Master Distribution. No individual supervisor assigned.
+                  </Text>
+                )}
+              </View>
+            </ScrollView>
+          )}
         </View>
       </View>
 
-      {/* Universal Logout Modal */}
+      {/* Logout Modal */}
       <Modal
         visible={logoutModalVisible}
         transparent
@@ -751,7 +712,7 @@ const AgentDashboard = ({ navigation, route }) => {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -771,15 +732,15 @@ const BankCard = ({ bank, acc, code, onCopy }) => (
 );
 
 const styles = StyleSheet.create({
-  mainContainer: { flex: 1 },
-  bodyWrapper: { flex: 1, flexDirection: "row" },
+  safeArea: { flex: 1, backgroundColor: COLORS.light },
+  mainLayout: { flex: 1, flexDirection: "row", width: "100%" },
 
-  // Desktop Fixed Executive Sidebar
+  // Desktop Fixed Sidebar
   desktopSidebar: {
     width: 280,
-    backgroundColor: "#062819",
+    backgroundColor: COLORS.sidebarBg,
     borderRightWidth: 1,
-    borderRightColor: "#0c3b26",
+    borderRightColor: COLORS.sidebarBorder,
   },
 
   // Mobile Slide Modal Sidebar
@@ -792,7 +753,7 @@ const styles = StyleSheet.create({
   mobileSidebarContainer: {
     width: 310,
     maxWidth: "85%",
-    backgroundColor: "#062819",
+    backgroundColor: COLORS.sidebarBg,
     height: "100%",
   },
 
@@ -802,7 +763,7 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === "android" ? 48 : 26,
     paddingBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: "#0c3b26",
+    borderBottomColor: COLORS.sidebarBorder,
     flexDirection: "row",
     alignItems: "center",
   },
@@ -857,7 +818,7 @@ const styles = StyleSheet.create({
   sidebarFooter: {
     padding: 14,
     borderTopWidth: 1,
-    borderTopColor: "#0c3b26",
+    borderTopColor: COLORS.sidebarBorder,
     backgroundColor: "rgba(0,0,0,0.2)",
   },
   sidebarLogoutBtn: {
@@ -871,7 +832,7 @@ const styles = StyleSheet.create({
   sidebarLogoutText: { color: "#FCA5A5", fontSize: 12, fontWeight: "800", marginLeft: 8 },
 
   // Canvas
-  mainCanvas: { flex: 1, display: "flex", flexDirection: "column" },
+  mainCanvas: { flex: 1, display: "flex", flexDirection: "column", width: "100%" },
   header: {
     backgroundColor: COLORS.primary,
     paddingTop: Platform.OS === "android" ? 44 : 20,
@@ -936,10 +897,9 @@ const styles = StyleSheet.create({
   },
   loaderContainer: {
     flex: 1,
-    backgroundColor: COLORS.light,
     justifyContent: "center",
     alignItems: "center",
-    padding: 20,
+    padding: 30,
   },
   loaderText: { marginTop: 12, color: COLORS.primary, fontWeight: "800" },
   walletCard: {
