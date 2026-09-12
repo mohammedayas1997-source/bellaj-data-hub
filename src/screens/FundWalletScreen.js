@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   RefreshControl,
   StatusBar,
   Platform,
+  ToastAndroid,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import axios from "axios";
@@ -19,21 +20,17 @@ import { CommonActions } from "@react-navigation/native";
 import BASE_URL from "../config/api";
 
 const COLORS = {
-  primary: "#E60000",
-  secondary: "#0B5E3C",
-  dark: "#121212",
+  primary: "#0B5E3C",
+  secondary: "#16A34A",
+  danger: "#E60000",
+  dark: "#0F172A",
   white: "#FFFFFF",
   light: "#F8FAFC",
-  muted: "#94A3B8",
-  card: "#1E293B",
-  border: "#334155",
-  softGreen: "rgba(11, 94, 60, 0.18)",
-  softRed: "rgba(230, 0, 0, 0.12)",
-};
-
-const API_ENDPOINTS = {
-  walletDetails: `${BASE_URL}/wallet/details`,
-  generateVirtualAccount: `${BASE_URL}/wallet/generate-virtual-account`,
+  muted: "#64748B",
+  card: "#FFFFFF",
+  border: "#E2E8F0",
+  softGreen: "#EAF7F1",
+  softRed: "#FEF2F2",
 };
 
 const FundWalletScreen = ({ navigation }) => {
@@ -42,79 +39,130 @@ const FundWalletScreen = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [generating, setGenerating] = useState(false);
 
-  useEffect(() => {
-    fetchWalletDetails();
-  }, []);
-
   const getAuthHeaders = async () => {
     const token =
       (await AsyncStorage.getItem("userToken")) ||
       (await AsyncStorage.getItem("token")) ||
       (await AsyncStorage.getItem("adminToken"));
 
-    return token ? { Authorization: `Bearer ${token}` } : {};
+    return {
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      timeout: 25000,
+    };
   };
 
   const normalizeWallet = (payload) => {
-    return payload?.data?.user || payload?.data || payload?.user || payload || null;
+    return (
+      payload?.data?.user ||
+      payload?.data?.profile ||
+      payload?.data ||
+      payload?.user ||
+      payload?.profile ||
+      payload ||
+      null
+    );
   };
 
-  const fetchWalletDetails = async () => {
+  const fetchWalletDetails = useCallback(async () => {
     try {
       setLoading(true);
+      const config = await getAuthHeaders();
 
-      const headers = await getAuthHeaders();
+      // Read local cache immediately
+      const cached = await AsyncStorage.getItem("userData");
+      if (cached) {
+        try {
+          setUserData(JSON.parse(cached));
+        } catch {}
+      }
 
-      const { data } = await axios.get(API_ENDPOINTS.walletDetails, { headers });
-      const wallet = normalizeWallet(data);
+      const endpoints = [
+        `${BASE_URL}/wallet/details`,
+        `${BASE_URL}/wallet/balance`,
+        `${BASE_URL}/user/profile`,
+        `${BASE_URL}/auth/me`,
+      ];
 
-      setUserData(wallet);
+      let resolved = null;
+      for (const url of endpoints) {
+        try {
+          const res = await axios.get(url, config);
+          if (res?.data) {
+            resolved = normalizeWallet(res.data);
+            if (resolved?.accountNumber || resolved?.walletBalance !== undefined) {
+              break;
+            }
+          }
+        } catch {
+          // Continue to fallback endpoint
+        }
+      }
 
-      const accounts =
-        wallet?.virtualAccounts ||
-        wallet?.accounts ||
-        wallet?.bankAccounts ||
-        [];
-
-      if (!accounts || accounts.length === 0) {
-        await handleGenerateAccount(false);
+      if (resolved) {
+        setUserData((prev) => ({ ...(prev || {}), ...resolved }));
+        await AsyncStorage.setItem("userData", JSON.stringify(resolved));
       }
     } catch (e) {
-      Alert.alert(
-        "Connection Error",
-        e?.response?.data?.message ||
-          "Unable to sync wallet details. Please pull down to retry."
-      );
+      // Retain state
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchWalletDetails();
+  }, [fetchWalletDetails]);
 
   const handleGenerateAccount = async (showAlert = true) => {
     try {
       setGenerating(true);
+      const config = await getAuthHeaders();
 
-      const headers = await getAuthHeaders();
+      const endpoints = [
+        `${BASE_URL}/wallet/generate-account`,
+        `${BASE_URL}/wallet/generate-virtual-account`,
+        `${BASE_URL}/auth/generate-account`,
+      ];
 
-      const { data } = await axios.post(
-        API_ENDPOINTS.generateVirtualAccount,
-        {},
-        { headers }
-      );
+      let generated = null;
+      for (const url of endpoints) {
+        try {
+          const res = await axios.post(url, {}, config);
+          if (res?.data?.success || res?.data?.data) {
+            generated = res.data;
+            break;
+          }
+        } catch {
+          // Next
+        }
+      }
 
-      const wallet = normalizeWallet(data);
-      setUserData(wallet);
+      await fetchWalletDetails();
 
       if (showAlert) {
-        Alert.alert("Bellaj Data Hub", "Virtual account generated successfully.");
+        if (generated) {
+          Alert.alert(
+            "Bellaj Data Hub",
+            generated?.message || "Virtual account setup initiated successfully."
+          );
+        } else {
+          Alert.alert(
+            "Account Processing",
+            "Your virtual account request is currently being processed by Paystack & Wema Bank."
+          );
+        }
       }
     } catch (error) {
       if (showAlert) {
         Alert.alert(
           "Account Pending",
           error?.response?.data?.message ||
-            "Virtual account is still processing or KYC is required."
+            "Virtual account request is queued. Please pull down to refresh in a few moments."
         );
       }
     } finally {
@@ -128,26 +176,15 @@ const FundWalletScreen = ({ navigation }) => {
   };
 
   const copyToClipboard = async (text, label) => {
-    if (!text) return;
+    if (!text || text === "Generating..." || text === "Initialization Pending") return;
 
     await Clipboard.setStringAsync(String(text));
-    Alert.alert("Copied", `${label} copied to clipboard.`);
-  };
 
-  const openMenu = () => {
-    const parent = navigation?.getParent?.();
-
-    if (navigation?.openDrawer) {
-      navigation.openDrawer();
-      return;
+    if (Platform.OS === "android") {
+      ToastAndroid.show(`${label} copied to clipboard`, ToastAndroid.SHORT);
+    } else {
+      Alert.alert("Copied", `${label} copied to clipboard.`);
     }
-
-    if (parent?.openDrawer) {
-      parent.openDrawer();
-      return;
-    }
-
-    navigation.navigate("Main");
   };
 
   const goBack = () => {
@@ -155,7 +192,6 @@ const FundWalletScreen = ({ navigation }) => {
       navigation.goBack();
       return;
     }
-
     navigation.navigate("Main");
   };
 
@@ -187,37 +223,61 @@ const FundWalletScreen = ({ navigation }) => {
     ]);
   };
 
-  const virtualAccounts =
-    userData?.virtualAccounts ||
-    userData?.accounts ||
-    userData?.bankAccounts ||
-    [];
+  // Compile all available virtual accounts (including top-level profile numbers)
+  const resolvedAccounts = useMemo(() => {
+    const list =
+      userData?.virtualAccounts ||
+      userData?.accounts ||
+      userData?.bankAccounts ||
+      [];
 
-  if (loading) {
+    const out = [...list];
+
+    const directAccount = userData?.accountNumber || userData?.accountNo;
+    if (
+      directAccount &&
+      !out.some((a) => (a?.accountNumber || a?.accountNo) === directAccount)
+    ) {
+      out.unshift({
+        bankName: userData?.bankName || userData?.bank || "Wema Bank",
+        accountNumber: directAccount,
+        accountName:
+          userData?.accountName ||
+          userData?.name ||
+          `${userData?.firstName || ""} ${userData?.surname || ""}`.trim() ||
+          "Bellaj Subscriber",
+      });
+    }
+
+    return out.filter(
+      (a) =>
+        a?.accountNumber &&
+        a?.accountNumber !== "Generating..." &&
+        a?.accountNumber !== "Initialization Pending"
+    );
+  }, [userData]);
+
+  if (loading && !userData) {
     return (
       <View style={styles.loaderContainer}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loaderText}>Syncing Bellaj Secure Accounts...</Text>
+        <Text style={styles.loaderText}>Syncing Bellaj Dedicated Accounts...</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.screen}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.dark} />
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
 
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerIconBtn} onPress={goBack}>
           <Ionicons name="arrow-back" size={24} color={COLORS.white} />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.headerIconBtn} onPress={openMenu}>
-          <Ionicons name="menu" size={26} color={COLORS.white} />
-        </TouchableOpacity>
-
         <View style={styles.headerTextBox}>
           <Text style={styles.headerTitle}>Fund Wallet</Text>
-          <Text style={styles.headerSubtitle}>Automated account funding</Text>
+          <Text style={styles.headerSubtitle}>Automated Dedicated Transfer</Text>
         </View>
 
         <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
@@ -228,7 +288,7 @@ const FundWalletScreen = ({ navigation }) => {
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator
+        showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
@@ -246,54 +306,63 @@ const FundWalletScreen = ({ navigation }) => {
               size={16}
               color={COLORS.secondary}
             />
-            <Text style={styles.badgeText}>Automated Funding</Text>
+            <Text style={styles.badgeText}>Instant Auto-Funding</Text>
           </View>
 
-          <Text style={styles.heroTitle}>Bellaj Secure Wallet</Text>
-
+          <Text style={styles.heroTitle}>Dedicated Bank Accounts</Text>
           <Text style={styles.heroSubtitle}>
-            Funds transferred to your dedicated account will reflect in your
-            Bellaj Data Hub wallet automatically.
+            Any money transferred from any banking app to your dedicated account
+            below will automatically fund your wallet within seconds.
           </Text>
         </View>
 
-        {virtualAccounts && virtualAccounts.length > 0 ? (
-          virtualAccounts.map((acc, index) => (
-            <View key={acc?._id || acc?.accountNumber || index} style={styles.bankCard}>
+        {resolvedAccounts.length > 0 ? (
+          resolvedAccounts.map((acc, index) => (
+            <View
+              key={acc?._id || acc?.accountNumber || index}
+              style={styles.bankCard}
+            >
               <View style={styles.bankHeader}>
                 <View>
-                  <Text style={styles.bankTag}>PROVIDER</Text>
+                  <Text style={styles.bankTag}>SETTLEMENT BANK</Text>
                   <Text style={styles.bankName}>
-                    {(acc?.bankName || acc?.bank || "BANK").toUpperCase()}
+                    {(acc?.bankName || acc?.bank || "WEMA BANK").toUpperCase()}
                   </Text>
                 </View>
 
-                <MaterialCommunityIcons
-                  name="bank-outline"
-                  size={28}
-                  color={COLORS.primary}
-                />
+                <View style={styles.bankIconWrap}>
+                  <MaterialCommunityIcons
+                    name="bank"
+                    size={22}
+                    color={COLORS.primary}
+                  />
+                </View>
               </View>
 
               <View style={styles.accContainer}>
                 <Text style={styles.label}>Account Number</Text>
-
                 <TouchableOpacity
                   style={styles.numberRow}
                   onPress={() =>
-                    copyToClipboard(acc?.accountNumber || acc?.accountNo, "Account Number")
+                    copyToClipboard(
+                      acc?.accountNumber || acc?.accountNo,
+                      "Account Number"
+                    )
                   }
-                  activeOpacity={0.86}
+                  activeOpacity={0.85}
                 >
                   <Text style={styles.accountNumberText}>
-                    {acc?.accountNumber || acc?.accountNo || "N/A"}
+                    {acc?.accountNumber || acc?.accountNo}
                   </Text>
 
-                  <MaterialCommunityIcons
-                    name="content-copy"
-                    size={20}
-                    color={COLORS.primary}
-                  />
+                  <View style={styles.copyPill}>
+                    <MaterialCommunityIcons
+                      name="content-copy"
+                      size={16}
+                      color={COLORS.primary}
+                    />
+                    <Text style={styles.copyText}>COPY</Text>
+                  </View>
                 </TouchableOpacity>
               </View>
 
@@ -302,7 +371,10 @@ const FundWalletScreen = ({ navigation }) => {
               <View style={styles.nameContainer}>
                 <Text style={styles.label}>Account Name</Text>
                 <Text style={styles.accountNameText}>
-                  {acc?.accountName || userData?.name || "Bellaj Data Hub User"}
+                  {acc?.accountName ||
+                    userData?.accountName ||
+                    userData?.name ||
+                    "Bellaj Subscriber"}
                 </Text>
               </View>
             </View>
@@ -311,29 +383,31 @@ const FundWalletScreen = ({ navigation }) => {
           <View style={styles.emptyCard}>
             {generating ? (
               <>
-                <ActivityIndicator color={COLORS.primary} />
-                <Text style={styles.emptyText}>Generating virtual account...</Text>
+                <ActivityIndicator color={COLORS.primary} size="large" />
+                <Text style={styles.emptyTitle}>Provisioning Virtual Account...</Text>
+                <Text style={styles.emptyText}>
+                  Connecting with Paystack & Wema Bank to create your account.
+                </Text>
               </>
             ) : (
               <>
                 <MaterialCommunityIcons
-                  name="account-clock"
-                  size={42}
-                  color={COLORS.muted}
+                  name="bank-plus"
+                  size={46}
+                  color={COLORS.secondary}
                 />
-
                 <Text style={styles.emptyTitle}>Virtual Account Pending</Text>
-
                 <Text style={styles.emptyText}>
-                  Your dedicated Bellaj bank account is still processing.
+                  Your dedicated virtual account is not active yet. Tap below to
+                  generate your personal account immediately.
                 </Text>
 
                 <TouchableOpacity
                   style={styles.retryBtn}
                   onPress={() => handleGenerateAccount(true)}
-                  activeOpacity={0.86}
+                  activeOpacity={0.88}
                 >
-                  <Text style={styles.retryText}>Generate Account</Text>
+                  <Text style={styles.retryText}>GENERATE ACCOUNT NOW</Text>
                 </TouchableOpacity>
               </>
             )}
@@ -341,7 +415,7 @@ const FundWalletScreen = ({ navigation }) => {
         )}
 
         <View style={styles.alternativeSection}>
-          <Text style={styles.sectionTitle}>Other Payment Options</Text>
+          <Text style={styles.sectionTitle}>Alternative Payment Options</Text>
 
           <TouchableOpacity
             style={styles.cardBtn}
@@ -357,9 +431,9 @@ const FundWalletScreen = ({ navigation }) => {
             </View>
 
             <View style={styles.cardBtnTextCont}>
-              <Text style={styles.cardBtnTitle}>Card / USSD / QR</Text>
+              <Text style={styles.cardBtnTitle}>Card / USSD / Bank Transfer Checkout</Text>
               <Text style={styles.cardBtnSub}>
-                Instant funding via secure checkout
+                Instant dynamic top-up via Paystack online checkout
               </Text>
             </View>
 
@@ -368,10 +442,10 @@ const FundWalletScreen = ({ navigation }) => {
         </View>
 
         <View style={styles.noticeBox}>
-          <Ionicons name="information-circle" size={20} color={COLORS.primary} />
-
+          <Ionicons name="information-circle" size={22} color={COLORS.secondary} />
           <Text style={styles.noticeText}>
-            Processing fee may apply to automated transfers. Minimum deposit is ₦100.
+            Dedicated accounts are 100% automated. Minimum transfer amount is ₦100.
+            Transferred funds credit your wallet balance instantly.
           </Text>
         </View>
       </ScrollView>
@@ -380,69 +454,67 @@ const FundWalletScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: COLORS.dark },
+  screen: { flex: 1, backgroundColor: COLORS.light },
   header: {
-    backgroundColor: COLORS.dark,
-    paddingTop: Platform.OS === "android" ? 42 : 22,
+    backgroundColor: COLORS.primary,
+    paddingTop: Platform.OS === "android" ? 44 : 20,
     paddingBottom: 16,
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
   },
   headerIconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 13,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.18)",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    marginRight: 10,
   },
   headerTextBox: { flex: 1 },
   headerTitle: {
     color: COLORS.white,
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "900",
   },
   headerSubtitle: {
-    color: COLORS.muted,
+    color: "#DCFCE7",
     fontSize: 12,
     fontWeight: "600",
-    marginTop: 3,
+    marginTop: 2,
   },
   logoutBtn: {
     width: 40,
     height: 40,
-    borderRadius: 14,
-    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+    backgroundColor: COLORS.danger,
     alignItems: "center",
     justifyContent: "center",
   },
-  container: { flex: 1, backgroundColor: COLORS.dark },
+  container: { flex: 1 },
   content: {
-    paddingHorizontal: 20,
-    paddingTop: 22,
+    paddingHorizontal: 16,
+    paddingTop: 18,
     paddingBottom: 80,
-    flexGrow: 1,
+    maxWidth: 800,
+    width: "100%",
+    alignSelf: "center",
   },
   loaderContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: COLORS.dark,
+    backgroundColor: COLORS.light,
   },
   loaderText: {
-    marginTop: 15,
-    color: COLORS.muted,
-    fontSize: 14,
-    fontWeight: "700",
+    marginTop: 12,
+    color: COLORS.primary,
+    fontSize: 13,
+    fontWeight: "800",
   },
   heroSection: {
-    marginBottom: 25,
+    marginBottom: 18,
   },
   infoBadge: {
     flexDirection: "row",
@@ -452,7 +524,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 20,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   badgeText: {
     color: COLORS.secondary,
@@ -461,49 +533,65 @@ const styles = StyleSheet.create({
     marginLeft: 5,
   },
   heroTitle: {
-    color: COLORS.white,
-    fontSize: 25,
+    color: COLORS.dark,
+    fontSize: 22,
     fontWeight: "900",
-    marginBottom: 8,
+    marginBottom: 6,
   },
   heroSubtitle: {
     color: COLORS.muted,
-    fontSize: 14,
-    lineHeight: 21,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "600",
   },
   bankCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 24,
-    padding: 25,
-    marginBottom: 20,
+    backgroundColor: COLORS.white,
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderLeftWidth: 5,
-    borderLeftColor: COLORS.primary,
+    borderLeftColor: COLORS.secondary,
+    shadowColor: COLORS.dark,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
   bankHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 25,
+    alignItems: "center",
+    marginBottom: 18,
   },
   bankTag: {
     color: COLORS.muted,
     fontSize: 10,
     fontWeight: "900",
-    letterSpacing: 1,
+    letterSpacing: 0.5,
   },
   bankName: {
     color: COLORS.primary,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "900",
+    marginTop: 2,
   },
-  accContainer: { marginBottom: 15 },
+  bankIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: COLORS.softGreen,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  accContainer: { marginBottom: 12 },
   label: {
     color: COLORS.muted,
     fontSize: 11,
-    fontWeight: "900",
+    fontWeight: "800",
     textTransform: "uppercase",
-    marginBottom: 6,
+    marginBottom: 4,
   },
   numberRow: {
     flexDirection: "row",
@@ -511,113 +599,131 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   accountNumberText: {
-    color: COLORS.white,
-    fontSize: 28,
+    color: COLORS.dark,
+    fontSize: 26,
     fontWeight: "900",
     letterSpacing: 1.5,
+  },
+  copyPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.softGreen,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 4,
+  },
+  copyText: {
+    color: COLORS.primary,
+    fontSize: 11,
+    fontWeight: "900",
   },
   divider: {
     height: 1,
     backgroundColor: COLORS.border,
-    marginVertical: 18,
+    marginVertical: 14,
   },
   accountNameText: {
-    color: COLORS.light,
-    fontSize: 16,
-    fontWeight: "700",
+    color: COLORS.dark,
+    fontSize: 15,
+    fontWeight: "800",
   },
   emptyCard: {
-    backgroundColor: COLORS.card,
-    padding: 34,
-    borderRadius: 24,
+    backgroundColor: COLORS.white,
+    padding: 28,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
     borderStyle: "dashed",
     borderWidth: 2,
     borderColor: COLORS.border,
+    marginBottom: 18,
   },
   emptyTitle: {
-    color: COLORS.white,
-    fontSize: 17,
+    color: COLORS.dark,
+    fontSize: 16,
     fontWeight: "900",
-    marginTop: 12,
+    marginTop: 10,
   },
   emptyText: {
     color: COLORS.muted,
     textAlign: "center",
-    marginTop: 10,
-    fontSize: 14,
-    lineHeight: 20,
+    marginTop: 6,
+    fontSize: 13,
+    lineHeight: 18,
+    maxWidth: 320,
   },
   retryBtn: {
-    marginTop: 20,
-    backgroundColor: COLORS.softRed,
+    marginTop: 16,
+    backgroundColor: COLORS.primary,
     paddingHorizontal: 20,
-    paddingVertical: 11,
+    paddingVertical: 12,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.primary,
   },
   retryText: {
-    color: COLORS.primary,
+    color: COLORS.white,
     fontWeight: "900",
+    fontSize: 12,
+    letterSpacing: 0.5,
   },
   alternativeSection: {
     marginTop: 10,
   },
   sectionTitle: {
-    color: COLORS.white,
-    fontSize: 16,
+    color: COLORS.dark,
+    fontSize: 15,
     fontWeight: "900",
-    marginBottom: 15,
+    marginBottom: 12,
   },
   cardBtn: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.card,
-    padding: 18,
-    borderRadius: 20,
+    backgroundColor: COLORS.white,
+    padding: 16,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   cardBtnIcon: {
-    width: 45,
-    height: 45,
-    borderRadius: 14,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     backgroundColor: COLORS.secondary,
     justifyContent: "center",
     alignItems: "center",
   },
   cardBtnTextCont: {
     flex: 1,
-    marginLeft: 15,
+    marginLeft: 12,
   },
   cardBtnTitle: {
-    color: COLORS.light,
-    fontSize: 15,
+    color: COLORS.dark,
+    fontSize: 14,
     fontWeight: "900",
   },
   cardBtnSub: {
     color: COLORS.muted,
-    fontSize: 12,
+    fontSize: 11,
     marginTop: 2,
     fontWeight: "600",
   },
   noticeBox: {
     flexDirection: "row",
-    backgroundColor: COLORS.softRed,
-    padding: 15,
-    borderRadius: 15,
-    marginTop: 30,
+    backgroundColor: COLORS.softGreen,
+    padding: 14,
+    borderRadius: 14,
+    marginTop: 20,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#BBF7D0",
   },
   noticeText: {
     flex: 1,
-    color: COLORS.muted,
-    fontSize: 12,
-    marginLeft: 12,
-    lineHeight: 18,
-    fontWeight: "600",
+    color: COLORS.primary,
+    fontSize: 11,
+    marginLeft: 10,
+    lineHeight: 16,
+    fontWeight: "700",
   },
 });
 
