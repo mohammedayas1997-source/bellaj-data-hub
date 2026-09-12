@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Modal,
+  SafeAreaView,
 } from "react-native";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -31,7 +32,6 @@ const COLORS = {
   softGreen: "#EAF7F1",
   danger: "#DC2626",
   accent: "#2563EB",
-  purple: "#7C3AED",
 };
 
 const AssignTargetScreen = ({ navigation, route }) => {
@@ -41,12 +41,12 @@ const AssignTargetScreen = ({ navigation, route }) => {
   const [usersList, setUsersList] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
 
-  // Selector Modes
+  // Selection Modes
   const [isSelectAll, setIsSelectAll] = useState(false);
-  const [targetRoleFilter, setTargetRoleFilter] = useState("all"); // 'all' | 'supervisor' | 'agent' | 'user'
+  const [targetRoleFilter, setTargetRoleFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Logout Modal State
+  // Logout Modal
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
 
@@ -70,33 +70,38 @@ const AssignTargetScreen = ({ navigation, route }) => {
         Accept: "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      timeout: 35000,
+      timeout: 20000,
     };
   };
 
-  const getArray = (payload, key) => {
+  const getArray = (payload) => {
+    if (!payload) return [];
     if (Array.isArray(payload)) return payload;
     if (Array.isArray(payload?.data)) return payload.data;
-    if (Array.isArray(payload?.[key])) return payload[key];
-    if (Array.isArray(payload?.data?.[key])) return payload.data[key];
     if (Array.isArray(payload?.users)) return payload.users;
+    if (Array.isArray(payload?.data?.users)) return payload.data.users;
     if (Array.isArray(payload?.supervisors)) return payload.supervisors;
+    if (Array.isArray(payload?.data?.supervisors)) return payload.data.supervisors;
     if (Array.isArray(payload?.agents)) return payload.agents;
+    if (Array.isArray(payload?.data?.agents)) return payload.data.agents;
     return [];
   };
 
-  const normalizeUser = (item, index) => ({
-    id: item?._id || item?.id || `user_${index}`,
-    name:
-      item?.name ||
-      item?.fullName ||
-      `${item?.firstName || ""} ${item?.surname || ""}`.trim() ||
-      "Platform User",
-    email: item?.email || "",
-    phone: item?.phone || "",
-    role: (item?.role || "user").toLowerCase(),
-    agents: item?.totalAgents || item?.agents?.length || 0,
-  });
+  const normalizeUser = (item, index) => {
+    if (!item) return null;
+    return {
+      id: String(item?._id || item?.id || `user_${index}`),
+      name:
+        item?.name ||
+        item?.fullName ||
+        `${item?.firstName || ""} ${item?.surname || ""}`.trim() ||
+        "Subscriber",
+      email: item?.email || "",
+      phone: item?.phone || "",
+      role: String(item?.role || "user").toLowerCase(),
+      agents: Number(item?.totalAgents || item?.agents?.length || 0),
+    };
+  };
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -114,29 +119,33 @@ const AssignTargetScreen = ({ navigation, route }) => {
       for (const url of endpoints) {
         try {
           const res = await axios.get(url, config);
-          if (res?.data) {
-            const arr = getArray(res.data, "users") || getArray(res.data, "supervisors");
-            if (arr.length > 0) {
-              rawList = arr;
-              break;
-            }
+          const parsed = getArray(res?.data);
+          if (parsed.length > 0) {
+            rawList = parsed;
+            break;
           }
         } catch {
-          // Continue to next fallback
+          // Try next endpoint fallback
         }
       }
 
-      const list = rawList.map(normalizeUser);
+      const list = rawList
+        .map((u, i) => normalizeUser(u, i))
+        .filter(Boolean);
+
       setUsersList(list);
 
       const routeUserId = route?.params?.supervisorId || route?.params?.userId;
       if (routeUserId) {
-        const found = list.find((item) => item.id === routeUserId);
+        const found = list.find((item) => item.id === String(routeUserId));
         if (found) {
           setSelectedUser(found);
           setIsSelectAll(false);
+          return;
         }
-      } else if (list.length > 0 && !isSelectAll) {
+      }
+
+      if (list.length > 0 && !isSelectAll) {
         setSelectedUser(list[0]);
       }
     } catch {
@@ -156,19 +165,20 @@ const AssignTargetScreen = ({ navigation, route }) => {
     fetchUsers();
   };
 
-  // Filtered List based on Role and Search Query (ID or Name or Email or Phone)
   const filteredUsers = useMemo(() => {
+    if (!Array.isArray(usersList)) return [];
     return usersList.filter((item) => {
+      if (!item) return false;
       const matchesRole =
         targetRoleFilter === "all" || item.role === targetRoleFilter;
 
       const q = searchQuery.toLowerCase().trim();
       const matchesSearch =
         !q ||
-        item.name.toLowerCase().includes(q) ||
-        item.id.toLowerCase().includes(q) ||
-        item.email.toLowerCase().includes(q) ||
-        item.phone.toLowerCase().includes(q);
+        (item.name && item.name.toLowerCase().includes(q)) ||
+        (item.id && item.id.toLowerCase().includes(q)) ||
+        (item.email && item.email.toLowerCase().includes(q)) ||
+        (item.phone && item.phone.toLowerCase().includes(q));
 
       return matchesRole && matchesSearch;
     });
@@ -252,8 +262,8 @@ const AssignTargetScreen = ({ navigation, route }) => {
   const validateForm = () => {
     if (!isSelectAll && !selectedUser && !searchQuery.trim()) {
       Alert.alert(
-        "Beneficiary Required",
-        "Please select a user, choose 'Select All', or input a User ID/Name directly."
+        "Target Recipient Required",
+        "Please pick a user from the list, enter a user ID/Phone, or enable 'Select All Users'."
       );
       return false;
     }
@@ -264,8 +274,8 @@ const AssignTargetScreen = ({ navigation, route }) => {
       !targetData.salesGoal.trim()
     ) {
       Alert.alert(
-        "Target Goal Required",
-        "Please provide at least one target metric (Agent Goal, Data Volume, or Revenue Goal)."
+        "Missing Target Figures",
+        "Please set at least one quota goal (Agent Enrollments, Data GB, or Revenue)."
       );
       return false;
     }
@@ -277,14 +287,14 @@ const AssignTargetScreen = ({ navigation, route }) => {
     if (!validateForm()) return;
 
     const targetRecipientName = isSelectAll
-      ? "ALL PLATFORM USERS (GLOBAL)"
+      ? "ALL PLATFORM USERS (GLOBAL TARGET)"
       : selectedUser
       ? `${selectedUser.name} (${selectedUser.role.toUpperCase()})`
-      : `User Ref: ${searchQuery.trim()}`;
+      : `User Reference: ${searchQuery.trim()}`;
 
     Alert.alert(
-      "Confirm Target Assignment",
-      `Activate operational target schedule for:\n\n${targetRecipientName}?`,
+      "Confirm Target Deployment",
+      `Activate operational performance target for:\n\n${targetRecipientName}?`,
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -306,11 +316,12 @@ const AssignTargetScreen = ({ navigation, route }) => {
                 targetUserId: resolvedTargetId,
                 isGlobal: isSelectAll,
                 target: Number(targetData.salesGoal || targetData.dataGoal || 0),
+                quota: Number(targetData.salesGoal || 0),
                 type: targetData.salesGoal ? "REVENUE" : "DATA_VOLUME",
                 agentGoal: Number(targetData.agentGoal || 0),
                 dataGoal: Number(targetData.dataGoal || 0),
                 salesGoal: Number(targetData.salesGoal || 0),
-                month: targetData.month.trim(),
+                month: targetData.month.trim() || "September 2026",
                 note: targetData.note.trim(),
               };
 
@@ -318,6 +329,7 @@ const AssignTargetScreen = ({ navigation, route }) => {
                 `${BASE_URL}/admin/targets`,
                 `${BASE_URL}/admin/assign-target`,
                 `${BASE_URL}/superadmin/targets`,
+                `${BASE_URL}/agent/targets`,
               ];
 
               let success = false;
@@ -336,7 +348,7 @@ const AssignTargetScreen = ({ navigation, route }) => {
                     break;
                   }
                 } catch {
-                  // Next fallback
+                  // Continue fallback
                 }
               }
 
@@ -351,7 +363,7 @@ const AssignTargetScreen = ({ navigation, route }) => {
               }
             } catch (error) {
               Alert.alert(
-                "Execution Failed",
+                "Execution Error",
                 error?.response?.data?.message || "Failed to commit target parameters."
               );
             } finally {
@@ -364,30 +376,21 @@ const AssignTargetScreen = ({ navigation, route }) => {
   };
 
   const selectedSummary = useMemo(() => {
-    if (isSelectAll) return "ALL PLATFORM USERS SELECTED (GLOBAL BROADCAST)";
+    if (isSelectAll) return "ALL PLATFORM USERS (GLOBAL TARGET)";
     if (selectedUser) {
       return `${selectedUser.name} [ID: ${selectedUser.id}] • Role: ${selectedUser.role.toUpperCase()}`;
     }
     if (searchQuery.trim()) {
-      return `Custom User Search Input: "${searchQuery.trim()}"`;
+      return `Custom Recipient: "${searchQuery.trim()}"`;
     }
     return "No beneficiary selected. Pick a user below or choose 'Select All'";
   }, [isSelectAll, selectedUser, searchQuery]);
 
-  if (loading) {
-    return (
-      <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loaderText}>Accessing Quota & Target Engine...</Text>
-      </View>
-    );
-  }
-
   return (
-    <View style={styles.screen}>
+    <SafeAreaView style={styles.screen}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
 
-      {/* Header Bar */}
+      {/* Persistent Navigation Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerIconBtn} onPress={goBack}>
           <Ionicons name="arrow-back" size={23} color={COLORS.white} />
@@ -399,7 +402,7 @@ const AssignTargetScreen = ({ navigation, route }) => {
 
         <View style={styles.headerTextBox}>
           <Text style={styles.headerTitle}>Quota & Target Command</Text>
-          <Text style={styles.headerSubtitle}>Assign Performance Quotas Live</Text>
+          <Text style={styles.headerSubtitle}>Assign Performance Goals Live</Text>
         </View>
 
         <TouchableOpacity
@@ -427,27 +430,28 @@ const AssignTargetScreen = ({ navigation, route }) => {
             />
           }
         >
-          {/* Hero Banner */}
+          {/* Header Banner */}
           <View style={styles.heroCard}>
             <View style={styles.heroIcon}>
               <MaterialCommunityIcons name="target" size={32} color={COLORS.white} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.heroTitle}>Performance Target Center</Text>
+              <Text style={styles.heroTitle}>Target Deployment Center</Text>
               <Text style={styles.heroText}>
-                Deploy goals to an individual supervisor, search users by ID/Name, or broadcast targets globally to all users.
+                Deploy goals to an individual supervisor, search users by ID/Phone, or broadcast targets globally to all users.
               </Text>
             </View>
           </View>
 
+          {/* Form Container */}
           <View style={styles.formCard}>
-            {/* Beneficiary Header & Selection Summary */}
+            {/* Status Pill Header */}
             <View style={styles.selectionSummaryCard}>
               <Text style={styles.summaryLabel}>CURRENT BENEFICIARY STATUS:</Text>
               <Text style={styles.summaryValue}>{selectedSummary}</Text>
             </View>
 
-            {/* Select All Toggle Bar */}
+            {/* Select All Toggle */}
             <View style={styles.selectAllBar}>
               <TouchableOpacity
                 style={[
@@ -456,7 +460,10 @@ const AssignTargetScreen = ({ navigation, route }) => {
                 ]}
                 onPress={() => {
                   setIsSelectAll(!isSelectAll);
-                  if (!isSelectAll) setSelectedUser(null);
+                  if (!isSelectAll) {
+                    setSelectedUser(null);
+                    setSearchQuery("");
+                  }
                 }}
                 activeOpacity={0.85}
               >
@@ -476,17 +483,17 @@ const AssignTargetScreen = ({ navigation, route }) => {
               </TouchableOpacity>
             </View>
 
-            {/* Manual User ID / Name Search Box */}
+            {/* Manual ID / Name Search */}
             {!isSelectAll && (
               <View style={{ marginBottom: 14 }}>
                 <Text style={styles.label}>
-                  SEARCH OR ENTER USER ID / FULL NAME MANUALLY
+                  SEARCH OR ENTER USER ID / PHONE / NAME MANUALLY
                 </Text>
                 <View style={styles.inputWrapper}>
                   <Ionicons name="search-outline" size={20} color={COLORS.muted} />
                   <TextInput
                     style={styles.input}
-                    placeholder="Type Name, Email, Phone, or MongoDB User ID..."
+                    placeholder="Type Name, Phone, Email, or MongoDB ID..."
                     placeholderTextColor="#94A3B8"
                     value={searchQuery}
                     onChangeText={(t) => {
@@ -503,11 +510,11 @@ const AssignTargetScreen = ({ navigation, route }) => {
               </View>
             )}
 
-            {/* Category Filter Pills */}
+            {/* Role Filter Pills */}
             {!isSelectAll && (
               <View style={styles.roleFilterRow}>
                 {[
-                  { id: "all", label: "All Enrolled" },
+                  { id: "all", label: "All Users" },
                   { id: "supervisor", label: "Supervisors" },
                   { id: "agent", label: "Agents" },
                   { id: "user", label: "Subscribers" },
@@ -533,25 +540,32 @@ const AssignTargetScreen = ({ navigation, route }) => {
               </View>
             )}
 
-            {/* Horizontal Beneficiary Selection Carousel */}
+            {/* User Carousel List */}
             {!isSelectAll && (
               <View style={{ marginBottom: 18 }}>
                 <Text style={styles.subInputLabel}>
-                  Select User from List ({filteredUsers.length} available):
+                  Select User from Directory ({filteredUsers.length} available):
                 </Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.supervisorList}
-                >
-                  {filteredUsers.length === 0 ? (
-                    <View style={styles.emptySupervisor}>
-                      <Text style={styles.emptyText}>
-                        No matching user records found.
-                      </Text>
-                    </View>
-                  ) : (
-                    filteredUsers.map((item) => {
+                {loading ? (
+                  <View style={{ paddingVertical: 20, alignItems: "center" }}>
+                    <ActivityIndicator size="small" color={COLORS.primary} />
+                    <Text style={{ marginTop: 6, fontSize: 12, color: COLORS.muted }}>
+                      Loading directory...
+                    </Text>
+                  </View>
+                ) : filteredUsers.length === 0 ? (
+                  <View style={styles.emptySupervisor}>
+                    <Text style={styles.emptyText}>
+                      No users found. Type ID or Name directly in the search box above.
+                    </Text>
+                  </View>
+                ) : (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.supervisorList}
+                  >
+                    {filteredUsers.map((item) => {
                       const active = selectedUser?.id === item.id;
                       return (
                         <TouchableOpacity
@@ -602,13 +616,13 @@ const AssignTargetScreen = ({ navigation, route }) => {
                           </Text>
                         </TouchableOpacity>
                       );
-                    })
-                  )}
-                </ScrollView>
+                    })}
+                  </ScrollView>
+                )}
               </View>
             )}
 
-            {/* Target Metrics Inputs */}
+            {/* Target Numbers Input */}
             <Text style={styles.label}>New Agent Enrollments Quota</Text>
             <View style={styles.inputWrapper}>
               <MaterialCommunityIcons
@@ -629,7 +643,7 @@ const AssignTargetScreen = ({ navigation, route }) => {
               <Text style={styles.unitText}>Agents</Text>
             </View>
 
-            <Text style={styles.label}>Data Volume Distribution Quota</Text>
+            <Text style={styles.label}>Data Volume Sales Quota</Text>
             <View style={styles.inputWrapper}>
               <MaterialCommunityIcons
                 name="database-arrow-up-outline"
@@ -703,7 +717,7 @@ const AssignTargetScreen = ({ navigation, route }) => {
               />
             </View>
 
-            {/* Submit Action */}
+            {/* Action Buttons */}
             <TouchableOpacity
               style={styles.assignBtn}
               onPress={handleAssign}
@@ -772,7 +786,7 @@ const AssignTargetScreen = ({ navigation, route }) => {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -818,18 +832,6 @@ const styles = StyleSheet.create({
     maxWidth: 960,
     width: "100%",
     alignSelf: "center",
-  },
-  loaderContainer: {
-    flex: 1,
-    backgroundColor: COLORS.light,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  loaderText: {
-    color: COLORS.primary,
-    fontWeight: "700",
-    marginTop: 12,
   },
   heroCard: {
     backgroundColor: COLORS.white,
