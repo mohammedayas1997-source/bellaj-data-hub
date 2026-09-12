@@ -54,15 +54,17 @@ const LoginScreen = ({ navigation }) => {
 
   const normalizeEmail = (value) => String(value || "").trim().toLowerCase();
 
+  // Robust Deep Role Extractor
   const detectRole = (payload) => {
-    const foundRole =
+    const candidate =
       payload?.role ||
       payload?.user?.role ||
       payload?.data?.role ||
       payload?.data?.user?.role ||
+      payload?.userData?.role ||
       "";
 
-    return String(foundRole || "user").trim().toLowerCase();
+    return String(candidate).trim().toLowerCase();
   };
 
   const getToken = (data) =>
@@ -72,65 +74,86 @@ const LoginScreen = ({ navigation }) => {
     data?.data?.accessToken ||
     "";
 
-  const getUserPayload = (data) => data?.user || data?.data?.user || data?.data || {};
+  const getUserPayload = (data) =>
+    data?.user || data?.data?.user || data?.data || {};
 
+  // Safe Multi-Tier Redirector (Prevents Wrong Dashboard Loops)
   const redirectUser = (role) => {
-  const normalizedRole = String(role || "user").trim().toLowerCase();
+    const normalizedRole = String(role || "user").trim().toLowerCase();
 
-  const drawerScreens = {
-    superadmin: "SuperAdminDashboard",
-    admin: "AdminDashboard",
-    leader: "LeaderDashboard",
-    support: "SupportDashboard",
-    supervisor: "SupervisorDashboard",
-    agent: "AgentDashboard",
-  };
+    const roleTargetMap = {
+      superadmin: "SuperAdminDashboard",
+      admin: "AdminDashboard",
+      leader: "LeaderDashboard",
+      support: "SupportDashboard",
+      supervisor: "SupervisorDashboard",
+      agent: "AgentDashboard",
+      user: "Dashboard",
+    };
 
-  const targetScreen = drawerScreens[normalizedRole];
+    const targetScreen = roleTargetMap[normalizedRole] || "Dashboard";
 
-  if (targetScreen) {
-    navigation.dispatch(
-      CommonActions.reset({
-        index: 0,
-        routes: [
-          {
-            name: "Main",
-            params: {
-              screen: targetScreen,
+    // 1. Try Direct Root Stack Navigation
+    try {
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: targetScreen }],
+        })
+      );
+      return;
+    } catch {
+      // Fallback to nested below
+    }
+
+    // 2. Try Nested Main Stack Navigation
+    try {
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [
+            {
+              name: "Main",
+              params: {
+                screen: targetScreen,
+              },
             },
-          },
-        ],
-      })
-    );
-    return;
-  }
+          ],
+        })
+      );
+      return;
+    } catch {
+      // Fallback
+    }
 
-  navigation.dispatch(
-    CommonActions.reset({
-      index: 0,
-      routes: [
-        {
-          name: "Main",
-          params: {
-            screen: "Dashboard",
-          },
-        },
-      ],
-    })
-  );
-};
+    // 3. Last-resort standard navigation
+    navigation.navigate("Main", { screen: targetScreen });
+  };
 
   const checkLoginStatus = async () => {
     try {
-      const token = await AsyncStorage.getItem("userToken");
+      const token =
+        (await AsyncStorage.getItem("userToken")) ||
+        (await AsyncStorage.getItem("token"));
       const storedUserData = await AsyncStorage.getItem("userData");
+      const storedRole = await AsyncStorage.getItem("userRole");
 
-      if (!token || !storedUserData) return;
+      if (!token) return;
 
-      const user = JSON.parse(storedUserData);
-      redirectUser(detectRole(user));
+      if (storedRole) {
+        redirectUser(storedRole);
+        return;
+      }
+
+      if (storedUserData) {
+        const user = JSON.parse(storedUserData);
+        const resolvedRole = detectRole(user);
+        if (resolvedRole) {
+          redirectUser(resolvedRole);
+        }
+      }
     } catch (e) {
-      console.log("Startup auth error:", e.message);
+      console.log("Startup auth check error:", e.message);
     }
   };
 
@@ -161,43 +184,85 @@ const LoginScreen = ({ navigation }) => {
     setLoading(true);
 
     try {
-      const response = await axios.post(
+      const endpoints = [
         `${BASE_URL}/auth/login`,
-        { email: cleanEmail, password },
-        { timeout: 30000 }
-      );
+        `${BASE_URL}/api/v1/auth/login`,
+        `${BASE_URL}/login`,
+      ];
+
+      let response = null;
+      let lastErr = null;
+
+      for (const url of endpoints) {
+        try {
+          const res = await axios.post(
+            url,
+            { email: cleanEmail, password },
+            { timeout: 25000 }
+          );
+          if (res?.data) {
+            response = res;
+            break;
+          }
+        } catch (err) {
+          lastErr = err;
+          // Continue loop to fallback endpoint
+        }
+      }
+
+      if (!response && lastErr) {
+        throw lastErr;
+      }
 
       const token = getToken(response.data);
       const userPayload = getUserPayload(response.data);
-      const finalRole = detectRole(response.data);
+      let finalRole = detectRole(response.data);
+
+      if (!finalRole && userPayload?.role) {
+        finalRole = String(userPayload.role).trim().toLowerCase();
+      }
 
       if (!token) {
         setErrorMessage("Authentication token missing from server.");
         return;
       }
 
+      const verifiedRole = finalRole || "user";
+
       const finalUserData = {
         ...userPayload,
         email: userPayload?.email || cleanEmail,
-        role: finalRole,
+        role: verifiedRole,
       };
+
+      // Wipe any outdated session remnants before writing new session
+      await AsyncStorage.multiRemove([
+        "userToken",
+        "token",
+        "adminToken",
+        "userData",
+        "userRole",
+        "overrideRole",
+        "isSuperAdminOverride",
+      ]);
 
       await AsyncStorage.setItem("userToken", token);
       await AsyncStorage.setItem("token", token);
       await AsyncStorage.setItem("userData", JSON.stringify(finalUserData));
-      await AsyncStorage.setItem("userRole", finalRole);
+      await AsyncStorage.setItem("userRole", verifiedRole);
 
-      redirectUser(finalRole);
+      redirectUser(verifiedRole);
     } catch (error) {
       const status = error?.response?.status;
-      const serverMessage = error?.response?.data?.message;
+      const serverMessage =
+        error?.response?.data?.message || error?.response?.data?.error;
 
       if (status === 401) {
-        setErrorMessage("Unauthorized: email or password is wrong.");
+        setErrorMessage("Invalid credentials. Please verify email and password.");
       } else if (status === 404) {
-        setErrorMessage("Login API not found. Check backend URL.");
+        setErrorMessage("Login service unavailable. Verify server endpoints.");
       } else {
-        setErrorMessage(serverMessage || "Login failed. Please try again.");
+        setErrorMessage(serverMessage || "Login failed. Please verify credentials.");
       }
     } finally {
       setLoading(false);
@@ -207,7 +272,7 @@ const LoginScreen = ({ navigation }) => {
   const handleBiometricLogin = async () => {
     try {
       const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: "Login to Bellaj Data Hub",
+        promptMessage: "Authenticate to Bellaj Data Hub",
         fallbackLabel: "Use Password",
         disableDeviceFallback: false,
       });
@@ -216,9 +281,15 @@ const LoginScreen = ({ navigation }) => {
 
       const storedUserData = await AsyncStorage.getItem("userData");
       const token = await AsyncStorage.getItem("userToken");
+      const storedRole = await AsyncStorage.getItem("userRole");
 
-      if (!token || !storedUserData) {
+      if (!token || (!storedUserData && !storedRole)) {
         setErrorMessage("Please login with password first.");
+        return;
+      }
+
+      if (storedRole) {
+        redirectUser(storedRole);
         return;
       }
 
@@ -236,7 +307,7 @@ const LoginScreen = ({ navigation }) => {
   };
 
   const openEmail = () => {
-    Linking.openURL("mailto:bellajdatahub@gmail.com");
+    Linking.openURL("mailto:support@bellajdatahub.online");
   };
 
   const makeCall = () => {
@@ -256,7 +327,7 @@ const LoginScreen = ({ navigation }) => {
             isWeb && styles.webScrollContent,
           ]}
           keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator
+          showsVerticalScrollIndicator={false}
         >
           <View style={[styles.card, isWeb && styles.webCard]}>
             <View style={styles.headerSection}>
