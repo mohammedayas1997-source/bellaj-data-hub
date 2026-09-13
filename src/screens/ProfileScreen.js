@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -11,10 +11,12 @@ import {
   StatusBar,
   RefreshControl,
   Platform,
+  Switch,
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { CommonActions, useFocusEffect } from "@react-navigation/native";
+import * as LocalAuthentication from "expo-local-authentication";
 import axios from "axios";
 import BASE_URL from "../config/api";
 
@@ -41,11 +43,60 @@ const ProfileScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Biometrics States
+  const [isBiometricSupported, setIsBiometricSupported] = useState(false);
+  const [isBiometricActive, setIsBiometricActive] = useState(false);
+
   useFocusEffect(
     useCallback(() => {
       fetchProfile();
+      checkBiometricSettings();
     }, [])
   );
+
+  const checkBiometricSettings = async () => {
+    try {
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+
+      if (hasHardware && isEnrolled) {
+        setIsBiometricSupported(true);
+        const enabled = await AsyncStorage.getItem("useBiometricLogin");
+        setIsBiometricActive(enabled === "true");
+      } else {
+        setIsBiometricSupported(false);
+      }
+    } catch (e) {
+      console.log("Biometric check failed:", e.message);
+    }
+  };
+
+  const handleToggleBiometrics = async (value) => {
+    if (value) {
+      try {
+        const result = await LocalAuthentication.authenticateAsync({
+          promptMessage: "Confirm Fingerprint / Biometrics to Enable",
+          fallbackLabel: "Cancel",
+          disableDeviceFallback: true,
+        });
+
+        if (result.success) {
+          await AsyncStorage.setItem("useBiometricLogin", "true");
+          setIsBiometricActive(true);
+          Alert.alert("Success", "Fingerprint login activated successfully!");
+        } else {
+          setIsBiometricActive(false);
+        }
+      } catch (err) {
+        Alert.alert("Authentication Failed", err.message);
+        setIsBiometricActive(false);
+      }
+    } else {
+      await AsyncStorage.setItem("useBiometricLogin", "false");
+      setIsBiometricActive(false);
+      Alert.alert("Disabled", "Fingerprint login has been disabled.");
+    }
+  };
 
   const getAuthHeaders = async () => {
     const token =
@@ -109,6 +160,7 @@ const ProfileScreen = ({ navigation }) => {
   const onRefresh = () => {
     setRefreshing(true);
     fetchProfile();
+    checkBiometricSettings();
   };
 
   const openMenu = () => {
@@ -289,6 +341,41 @@ const ProfileScreen = ({ navigation }) => {
             <Text style={styles.statValue}>
               {userData?.totalTransactions || walletData?.totalTransactions || 0}
             </Text>
+          </View>
+        </View>
+
+        {/* Sashin Tsaro & Fingerprint */}
+        <View style={styles.infoSection}>
+          <Text style={styles.sectionLabel}>Security & Biometrics</Text>
+
+          <View style={styles.infoBox}>
+            <View style={styles.switchRow}>
+              <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
+                <MaterialCommunityIcons
+                  name="fingerprint"
+                  size={24}
+                  color={isBiometricActive ? COLORS.secondary : COLORS.primary}
+                />
+                <View style={{ marginLeft: 14, flex: 1 }}>
+                  <Text style={styles.switchTitle}>Fingerprint Login</Text>
+                  <Text style={styles.switchSubtitle}>
+                    {isBiometricSupported
+                      ? isBiometricActive
+                        ? "Instant login activated"
+                        : "Enable Touch ID / Face ID"
+                      : "Not supported on this device"}
+                  </Text>
+                </View>
+              </View>
+
+              <Switch
+                value={isBiometricActive}
+                onValueChange={handleToggleBiometrics}
+                disabled={!isBiometricSupported}
+                trackColor={{ false: "#CBD5E1", true: "#86EFAC" }}
+                thumbColor={isBiometricActive ? COLORS.secondary : "#F1F5F9"}
+              />
+            </View>
           </View>
         </View>
 
@@ -547,6 +634,23 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     borderLeftWidth: 5,
     borderLeftColor: COLORS.primary,
+  },
+  switchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 18,
+  },
+  switchTitle: {
+    fontSize: 14,
+    fontWeight: "900",
+    color: COLORS.dark,
+  },
+  switchSubtitle: {
+    fontSize: 12,
+    color: COLORS.muted,
+    marginTop: 2,
+    fontWeight: "600",
   },
   infoItem: {
     flexDirection: "row",

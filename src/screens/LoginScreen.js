@@ -13,6 +13,7 @@ import {
   Linking,
   useWindowDimensions,
   SafeAreaView,
+  Alert,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
@@ -44,17 +45,17 @@ const LoginScreen = ({ navigation }) => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isBiometricSupported, setIsBiometricSupported] = useState(false);
   const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     checkLoginStatus();
-    checkBiometricStatus();
+    setupBiometrics();
   }, []);
 
   const normalizeEmail = (value) => String(value || "").trim().toLowerCase();
 
-  // Robust Deep Role Extractor
   const detectRole = (payload) => {
     const candidate =
       payload?.role ||
@@ -77,7 +78,6 @@ const LoginScreen = ({ navigation }) => {
   const getUserPayload = (data) =>
     data?.user || data?.data?.user || data?.data || {};
 
-  // Safe Multi-Tier Redirector (Prevents Wrong Dashboard Loops)
   const redirectUser = (role) => {
     const normalizedRole = String(role || "user").trim().toLowerCase();
 
@@ -93,7 +93,6 @@ const LoginScreen = ({ navigation }) => {
 
     const targetScreen = roleTargetMap[normalizedRole] || "Dashboard";
 
-    // 1. Try Direct Root Stack Navigation
     try {
       navigation.dispatch(
         CommonActions.reset({
@@ -103,10 +102,9 @@ const LoginScreen = ({ navigation }) => {
       );
       return;
     } catch {
-      // Fallback to nested below
+      // Fallback below
     }
 
-    // 2. Try Nested Main Stack Navigation
     try {
       navigation.dispatch(
         CommonActions.reset({
@@ -114,19 +112,16 @@ const LoginScreen = ({ navigation }) => {
           routes: [
             {
               name: "Main",
-              params: {
-                screen: targetScreen,
-              },
+              params: { screen: targetScreen },
             },
           ],
         })
       );
       return;
     } catch {
-      // Fallback
+      // Fallback below
     }
 
-    // 3. Last-resort standard navigation
     navigation.navigate("Main", { screen: targetScreen });
   };
 
@@ -157,23 +152,30 @@ const LoginScreen = ({ navigation }) => {
     }
   };
 
-  const checkBiometricStatus = async () => {
+  const setupBiometrics = async () => {
     try {
-      const isEnabled = await AsyncStorage.getItem("useBiometricLogin");
       const hasHardware = await LocalAuthentication.hasHardwareAsync();
       const isEnrolled = await LocalAuthentication.isEnrolledAsync();
 
-      if (isEnabled === "true" && hasHardware && isEnrolled) {
-        setIsBiometricEnabled(true);
+      if (hasHardware && isEnrolled) {
+        setIsBiometricSupported(true);
+
+        const isEnabled = await AsyncStorage.getItem("useBiometricLogin");
+        const storedToken = await AsyncStorage.getItem("userToken");
+
+        if (isEnabled === "true" && storedToken) {
+          setIsBiometricEnabled(true);
+          // Fara tantancewa kai tsaye idan an riga an kunna
+          handleBiometricLogin();
+        }
       }
     } catch (e) {
-      console.log("Biometric check error:", e.message);
+      console.log("Biometric setup error:", e.message);
     }
   };
 
   const handleLogin = async () => {
     setErrorMessage("");
-
     const cleanEmail = normalizeEmail(email);
 
     if (!cleanEmail || !password) {
@@ -206,7 +208,6 @@ const LoginScreen = ({ navigation }) => {
           }
         } catch (err) {
           lastErr = err;
-          // Continue loop to fallback endpoint
         }
       }
 
@@ -228,14 +229,12 @@ const LoginScreen = ({ navigation }) => {
       }
 
       const verifiedRole = finalRole || "user";
-
       const finalUserData = {
         ...userPayload,
         email: userPayload?.email || cleanEmail,
         role: verifiedRole,
       };
 
-      // Wipe any outdated session remnants before writing new session
       await AsyncStorage.multiRemove([
         "userToken",
         "token",
@@ -250,6 +249,32 @@ const LoginScreen = ({ navigation }) => {
       await AsyncStorage.setItem("token", token);
       await AsyncStorage.setItem("userData", JSON.stringify(finalUserData));
       await AsyncStorage.setItem("userRole", verifiedRole);
+
+      // Tambayi mai amfani idan yana son fingerprint
+      if (isBiometricSupported) {
+        const biometricSetting = await AsyncStorage.getItem("useBiometricLogin");
+        if (biometricSetting !== "true") {
+          Alert.alert(
+            "Enable Fingerprint Login?",
+            "Would you like to use fingerprint / biometrics for instant login next time?",
+            [
+              {
+                text: "No",
+                style: "cancel",
+                onPress: () => redirectUser(verifiedRole),
+              },
+              {
+                text: "Yes, Enable",
+                onPress: async () => {
+                  await AsyncStorage.setItem("useBiometricLogin", "true");
+                  redirectUser(verifiedRole);
+                },
+              },
+            ]
+          );
+          return;
+        }
+      }
 
       redirectUser(verifiedRole);
     } catch (error) {
@@ -270,33 +295,40 @@ const LoginScreen = ({ navigation }) => {
   };
 
   const handleBiometricLogin = async () => {
+    setErrorMessage("");
+
     try {
+      const token =
+        (await AsyncStorage.getItem("userToken")) ||
+        (await AsyncStorage.getItem("token"));
+      const storedUserData = await AsyncStorage.getItem("userData");
+      const storedRole = await AsyncStorage.getItem("userRole");
+
+      if (!token) {
+        setErrorMessage("Please login with email and password first to enable Touch ID.");
+        return;
+      }
+
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: "Authenticate to Bellaj Data Hub",
         fallbackLabel: "Use Password",
         disableDeviceFallback: false,
+        cancelLabel: "Cancel",
       });
 
       if (!result.success) return;
-
-      const storedUserData = await AsyncStorage.getItem("userData");
-      const token = await AsyncStorage.getItem("userToken");
-      const storedRole = await AsyncStorage.getItem("userRole");
-
-      if (!token || (!storedUserData && !storedRole)) {
-        setErrorMessage("Please login with password first.");
-        return;
-      }
 
       if (storedRole) {
         redirectUser(storedRole);
         return;
       }
 
-      const user = JSON.parse(storedUserData);
-      redirectUser(detectRole(user));
-    } catch {
-      setErrorMessage("Biometric login failed. Please try again.");
+      if (storedUserData) {
+        const user = JSON.parse(storedUserData);
+        redirectUser(detectRole(user));
+      }
+    } catch (err) {
+      setErrorMessage(err.message || "Biometric login failed. Please use your password.");
     }
   };
 
@@ -404,15 +436,15 @@ const LoginScreen = ({ navigation }) => {
             </View>
 
             <View style={styles.actionRow}>
-              {isBiometricEnabled ? (
+              {isBiometricSupported ? (
                 <TouchableOpacity
                   style={styles.biometricBtn}
                   onPress={handleBiometricLogin}
                 >
                   <MaterialCommunityIcons
                     name="fingerprint"
-                    size={35}
-                    color={COLORS.secondary}
+                    size={32}
+                    color={COLORS.primary}
                   />
                   <Text style={styles.biometricText}>Touch ID</Text>
                 </TouchableOpacity>
@@ -617,12 +649,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 22,
   },
-  biometricBtn: { alignItems: "center" },
+  biometricBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: "#F0FDF4",
+    borderWidth: 1,
+    borderColor: "#BBF7D0",
+  },
   biometricText: {
-    fontSize: 10,
-    color: COLORS.secondary,
+    fontSize: 12,
+    color: COLORS.primary,
     fontWeight: "bold",
-    marginTop: 2,
   },
   forgotBtn: { alignSelf: "center" },
   forgotText: {
