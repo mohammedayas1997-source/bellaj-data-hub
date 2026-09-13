@@ -2,7 +2,7 @@
   "expo": {
     "name": "Bellaj Data Hub",
     "slug": "bellaj-data-hub",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "jsEngine": "hermes",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -15,26 +15,44 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.bellajdatahub.app"
+      "bundleIdentifier": "com.bellajdatahub.app",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Allow Bellaj Data Hub to use Face ID / Biometrics for secure login."
+      }
     },
     "android": {
+      "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
       "package": "com.bellajdatahub.app",
       "edgeToEdgeEnabled": true,
-      "permissions": ["INTERNET"]
+      "permissions": [
+        "INTERNET",
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "owner": "ayas87244",
     "extra": {
       "eas": {
-        "projectId": "c2dcf106-76cb-441b-9979-834bda4c6f5f"
+        "projectId": "d75b4e20-d88e-4ee4-a44d-f45181d7c9eb"
       }
     },
-    "owner": "ayas6124",
-    "plugins": ["expo-font"]
+    "plugins": [
+      "expo-font",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow Bellaj Data Hub to use Face ID / Biometrics for secure login."
+        }
+      ]
+    ]
   }
 }

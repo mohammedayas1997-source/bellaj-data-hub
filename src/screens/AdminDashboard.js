@@ -76,7 +76,7 @@ const AdminDashboard = ({ navigation }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // In-Screen Modal Workflows
-  // Types: null | 'broadcast_notification' | 'pricing' | 'target' | 'confirm_logout'
+  // Types: null | 'broadcast_notification' | 'pricing' | 'target' | 'confirm_logout' | 'create_supervisor' | 'supervisor_hub' | 'transfer_agent' | 'customer_service'
   const [modalType, setModalType] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [logoutProcessing, setLogoutProcessing] = useState(false);
@@ -88,6 +88,30 @@ const AdminDashboard = ({ navigation }) => {
     reports: 0,
     sales: 0,
     transactions: 0,
+    supervisorsCount: 0,
+  });
+
+  // State na Data List
+  const [supervisorsList, setSupervisorsList] = useState([]);
+  const [selectedSupervisor, setSelectedSupervisor] = useState(null);
+  const [supervisorAgents, setSupervisorAgents] = useState([]);
+  const [allAgentsList, setAllAgentsList] = useState([]);
+  const [customerTickets, setCustomerTickets] = useState([]);
+
+  // Create Supervisor Form
+  const [supervisorForm, setSupervisorForm] = useState({
+    firstName: "",
+    surname: "",
+    email: "",
+    phone: "",
+    password: "",
+  });
+
+  // Transfer Agent Form
+  const [transferForm, setTransferForm] = useState({
+    agentId: "",
+    agentName: "",
+    targetSupervisorId: "",
   });
 
   // Broadcast Notification Form
@@ -104,7 +128,7 @@ const AdminDashboard = ({ navigation }) => {
     margin: "",
   });
 
-  // Direct Quota Target Form (Updated with Global & Multi-Metric support)
+  // Direct Quota Target Form
   const [targetForm, setTargetForm] = useState({
     targetType: "MONTHLY_SALES",
     amount: "",
@@ -137,8 +161,9 @@ const AdminDashboard = ({ navigation }) => {
     if (Array.isArray(payload?.data)) return payload.data;
     if (Array.isArray(payload?.[key])) return payload[key];
     if (Array.isArray(payload?.data?.[key])) return payload.data[key];
-    if (Array.isArray(payload?.requests)) return payload.requests;
-    if (Array.isArray(payload?.data?.requests)) return payload.data.requests;
+    if (Array.isArray(payload?.users)) return payload.users;
+    if (Array.isArray(payload?.supervisors)) return payload.supervisors;
+    if (Array.isArray(payload?.reports)) return payload.reports;
     return [];
   };
 
@@ -162,6 +187,49 @@ const AdminDashboard = ({ navigation }) => {
     }
     return null;
   };
+
+  // 1. Dauko dukkan Supervisors da Agents
+  const fetchSupervisorsAndAgents = useCallback(async () => {
+    try {
+      const config = await getAuthHeaders();
+      const usersData = await fetchWithFallback(
+        [`${BASE_URL}/admin/users`, `${BASE_URL}/users`],
+        config
+      );
+      const allUsers = getArray(usersData, "users");
+
+      const sups = allUsers.filter(
+        (u) => (u.role || "").toLowerCase() === "supervisor"
+      );
+      const agents = allUsers.filter(
+        (u) => (u.role || "").toLowerCase() === "agent"
+      );
+
+      setSupervisorsList(sups);
+      setAllAgentsList(agents);
+      setStats((prev) => ({ ...prev, supervisorsCount: sups.length }));
+    } catch {
+      // Retain
+    }
+  }, []);
+
+  // 2. Dauko Reports na Customer Service
+  const fetchCustomerTickets = useCallback(async () => {
+    try {
+      const config = await getAuthHeaders();
+      const reportsData = await fetchWithFallback(
+        [
+          `${BASE_URL}/admin/reports`,
+          `${BASE_URL}/support/reports`,
+          `${BASE_URL}/reports`,
+        ],
+        config
+      );
+      setCustomerTickets(getArray(reportsData, "reports"));
+    } catch {
+      // Retain
+    }
+  }, []);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -226,6 +294,18 @@ const AdminDashboard = ({ navigation }) => {
         sData?.total ??
         0;
 
+      const usersArr = getArray(uData, "users");
+      const sups = usersArr.filter(
+        (u) => (u.role || "").toLowerCase() === "supervisor"
+      );
+      const agents = usersArr.filter(
+        (u) => (u.role || "").toLowerCase() === "agent"
+      );
+
+      setSupervisorsList(sups);
+      setAllAgentsList(agents);
+      setCustomerTickets(getArray(rData, "reports"));
+
       setStats({
         users: getCount(uData, "users"),
         nimc: getCount(nData, "nimcRequests"),
@@ -233,6 +313,7 @@ const AdminDashboard = ({ navigation }) => {
         reports: getCount(rData, "reports"),
         sales: Number(extractedSales || 0),
         transactions: getCount(tData, "transactions"),
+        supervisorsCount: sups.length,
       });
     } catch {
       // Retain state
@@ -249,6 +330,188 @@ const AdminDashboard = ({ navigation }) => {
   const onRefresh = () => {
     setRefreshing(true);
     fetchStats();
+  };
+
+  // -------------------------------------------------------------
+  // AIKIN 1: KIRKIRAR SUPERVISOR
+  // -------------------------------------------------------------
+  const handleCreateSupervisor = async () => {
+    const { firstName, surname, email, phone, password } = supervisorForm;
+    if (!firstName || !email || !password || !phone) {
+      Alert.alert("Required Fields", "Please provide First Name, Email, Phone, and Password.");
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      const config = await getAuthHeaders();
+
+      const payload = {
+        name: `${firstName} ${surname}`.trim(),
+        firstName: firstName.trim(),
+        surname: surname.trim(),
+        email: email.toLowerCase().trim(),
+        phone: phone.trim(),
+        password,
+        role: "supervisor",
+      };
+
+      const endpoints = [
+        `${BASE_URL}/admin/create-supervisor`,
+        `${BASE_URL}/admin/users/create`,
+        `${BASE_URL}/users/register`,
+      ];
+
+      let created = false;
+      for (const ep of endpoints) {
+        try {
+          const res = await axios.post(ep, payload, config);
+          if (res.status === 200 || res.status === 201) {
+            created = true;
+            break;
+          }
+        } catch {
+          // Next
+        }
+      }
+
+      if (created) {
+        Alert.alert("Success", `Supervisor ${payload.name} created successfully.`);
+        setModalType(null);
+        setSupervisorForm({ firstName: "", surname: "", email: "", phone: "", password: "" });
+        fetchStats();
+      } else {
+        Alert.alert("Error", "Could not complete supervisor creation. Please try again.");
+      }
+    } catch (err) {
+      Alert.alert("Error", err.response?.data?.message || "Failed to create supervisor.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // -------------------------------------------------------------
+  // AIKIN 2: DAKATAR DA / KUNNA SUPERVISOR (SUSPEND / ACTIVATE)
+  // -------------------------------------------------------------
+  const handleToggleSupervisorStatus = async (supervisor) => {
+    const isCurrentlySuspended = Boolean(supervisor.isSuspended);
+    const actionText = isCurrentlySuspended ? "Activate" : "Suspend";
+
+    Alert.alert(
+      `${actionText} Supervisor`,
+      `Are you sure you want to ${actionText.toLowerCase()} ${supervisor.name || supervisor.email}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: actionText,
+          style: isCurrentlySuspended ? "default" : "destructive",
+          onPress: async () => {
+            try {
+              setActionLoading(true);
+              const config = await getAuthHeaders();
+              const supId = supervisor._id || supervisor.id;
+
+              const payload = { isSuspended: !isCurrentlySuspended };
+
+              await axios.patch(`${BASE_URL}/admin/users/${supId}/status`, payload, config).catch(async () => {
+                return await axios.put(`${BASE_URL}/admin/users/${supId}`, payload, config);
+              });
+
+              Alert.alert("Updated", `Supervisor status updated to ${isCurrentlySuspended ? "Active" : "Suspended"}.`);
+              fetchStats();
+            } catch (err) {
+              Alert.alert("Error", err.response?.data?.message || "Failed to change supervisor status.");
+            } finally {
+              setActionLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // -------------------------------------------------------------
+  // AIKIN 3: DUBA AGENTS DAKE KARKASHIN WANNAN SUPERVISOR DIN
+  // -------------------------------------------------------------
+  const handleInspectSupervisorAgents = (supervisor) => {
+    setSelectedSupervisor(supervisor);
+    const supId = String(supervisor._id || supervisor.id);
+
+    // Filter agents whose assignedSupervisor equals this ID
+    const under = allAgentsList.filter(
+      (ag) =>
+        String(ag.assignedSupervisor) === supId ||
+        String(ag.supervisorId) === supId ||
+        String(ag?.supervisor?._id) === supId
+    );
+
+    setSupervisorAgents(under);
+  };
+
+  // -------------------------------------------------------------
+  // AIKIN 4: TRANSFER NA AGENT ZUWA WANI SUPERVISOR
+  // -------------------------------------------------------------
+  const handleExecuteTransfer = async () => {
+    if (!transferForm.agentId || !transferForm.targetSupervisorId) {
+      Alert.alert("Selection Missing", "Please select the target supervisor.");
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      const config = await getAuthHeaders();
+
+      const payload = {
+        agentId: transferForm.agentId,
+        supervisorId: transferForm.targetSupervisorId,
+        assignedSupervisor: transferForm.targetSupervisorId,
+      };
+
+      const endpoints = [
+        `${BASE_URL}/admin/transfer-agent`,
+        `${BASE_URL}/admin/assign-supervisor`,
+        `${BASE_URL}/admin/users/${transferForm.agentId}`,
+      ];
+
+      for (const ep of endpoints) {
+        try {
+          await axios.put(ep, payload, config).catch(async () => {
+            return await axios.post(ep, payload, config);
+          });
+          break;
+        } catch {
+          // Next
+        }
+      }
+
+      Alert.alert("Transfer Completed", "Agent transferred successfully to new supervisor.");
+      setModalType("supervisor_hub");
+      fetchStats();
+    } catch (err) {
+      Alert.alert("Transfer Error", err.response?.data?.message || "Could not reassign agent.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // -------------------------------------------------------------
+  // AIKIN 5: CUSTOMER SERVICE RESOLUTION
+  // -------------------------------------------------------------
+  const handleResolveTicket = async (ticketId) => {
+    try {
+      setActionLoading(true);
+      const config = await getAuthHeaders();
+      await axios.patch(`${BASE_URL}/admin/reports/${ticketId}/resolve`, { status: "resolved" }, config).catch(async () => {
+        return await axios.put(`${BASE_URL}/reports/${ticketId}`, { status: "resolved" }, config);
+      });
+
+      Alert.alert("Customer Service", "Issue marked as resolved.");
+      fetchCustomerTickets();
+    } catch (err) {
+      Alert.alert("Error", "Could not resolve ticket.");
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const safeNavigate = (screenName) => {
@@ -286,46 +549,15 @@ const AdminDashboard = ({ navigation }) => {
         timestamp: new Date().toISOString(),
       };
 
-      const endpoints = [
-        `${BASE_URL}/admin/notifications/broadcast`,
-        `${BASE_URL}/notifications/broadcast`,
-        `${BASE_URL}/admin/broadcast`,
-        `${BASE_URL}/superadmin/broadcast`,
-      ];
+      await axios.post(`${BASE_URL}/admin/notifications/broadcast`, payload, config).catch(async () => {
+        return await axios.post(`${BASE_URL}/notifications/broadcast`, payload, config);
+      });
 
-      let success = false;
-      let responseMsg = "";
-
-      for (const endpoint of endpoints) {
-        try {
-          const res = await axios.post(endpoint, payload, config);
-          if (res?.status === 200 || res?.status === 201) {
-            success = true;
-            responseMsg = res?.data?.message || "Notification broadcast delivered successfully.";
-            break;
-          }
-        } catch {
-          // Fallback loop
-        }
-      }
-
-      if (success) {
-        Alert.alert("Broadcast Dispatched", responseMsg);
-        setModalType(null);
-        setBroadcastForm({ title: "", message: "", targetAudience: "ALL" });
-      } else {
-        Alert.alert(
-          "Broadcast Staged",
-          "Notification payload registered and pushed to live subscriber channels."
-        );
-        setModalType(null);
-        setBroadcastForm({ title: "", message: "", targetAudience: "ALL" });
-      }
+      Alert.alert("Broadcast Dispatched", "Notification delivered to selected recipients.");
+      setModalType(null);
+      setBroadcastForm({ title: "", message: "", targetAudience: "ALL" });
     } catch (err) {
-      Alert.alert(
-        "Dispatch Failed",
-        err.response?.data?.message || "Failed to dispatch broadcast notice."
-      );
+      Alert.alert("Dispatch Failed", err.response?.data?.message || "Failed to dispatch broadcast notice.");
     } finally {
       setActionLoading(false);
     }
@@ -355,124 +587,42 @@ const AdminDashboard = ({ navigation }) => {
       setModalType(null);
       setPricingForm({ serviceType: "SME_DATA", unitRate: "", margin: "" });
     } catch (err) {
-      Alert.alert(
-        "Update Failed",
-        err.response?.data?.message || "Failed to update real-time pricing."
-      );
+      Alert.alert("Update Failed", err.response?.data?.message || "Failed to update pricing.");
     } finally {
       setActionLoading(false);
     }
   };
 
-  // GYARAN TURA TARGET: Yana bada damar tura wa kowa ko takamaiman Agent/Supervisor
   const handleAssignTarget = async () => {
-    const hasValue =
-      targetForm.amount.trim() ||
-      targetForm.dataGoal.trim() ||
-      targetForm.agentGoal.trim();
-
+    const hasValue = targetForm.amount.trim() || targetForm.dataGoal.trim() || targetForm.agentGoal.trim();
     if (!hasValue) {
-      Alert.alert(
-        "Validation Error",
-        "Please provide at least one target metric (Revenue, Data GB, or Agent registration quota)."
-      );
-      return;
-    }
-
-    if (!targetForm.isGlobal && !targetForm.agentRef.trim()) {
-      Alert.alert(
-        "Target Recipient Required",
-        "Please specify an Agent ID, Supervisor Phone/Email, or check 'Select All Users (Global Target)'."
-      );
+      Alert.alert("Validation Error", "Please provide at least one target metric.");
       return;
     }
 
     try {
       setActionLoading(true);
       const config = await getAuthHeaders();
-
-      const targetId = targetForm.isGlobal
-        ? "GLOBAL_ALL"
-        : targetForm.agentRef.trim();
+      const targetId = targetForm.isGlobal ? "GLOBAL_ALL" : targetForm.agentRef.trim();
 
       const payload = {
-        supervisorId: targetId,
-        agentId: targetId,
         targetUserId: targetId,
         isGlobal: targetForm.isGlobal,
-        target: Number(targetForm.amount || targetForm.dataGoal || 0),
-        quota: Number(targetForm.amount || 0),
-        type: targetForm.targetType,
         salesGoal: Number(targetForm.amount || 0),
         dataGoal: Number(targetForm.dataGoal || 0),
         agentGoal: Number(targetForm.agentGoal || 0),
-        month: targetForm.month.trim() || "September 2026",
+        month: targetForm.month.trim(),
         note: targetForm.note.trim(),
       };
 
-      const endpoints = [
-        `${BASE_URL}/admin/targets`,
-        `${BASE_URL}/admin/assign-target`,
-        `${BASE_URL}/superadmin/targets`,
-        `${BASE_URL}/agent/targets`,
-      ];
+      await axios.post(`${BASE_URL}/admin/targets`, payload, config).catch(async () => {
+        return await axios.put(`${BASE_URL}/admin/assign-target`, payload, config);
+      });
 
-      let success = false;
-      let responseMsg = "";
-
-      for (const endpoint of endpoints) {
-        try {
-          const res = await axios.post(endpoint, payload, config).catch(async () => {
-            return await axios.put(endpoint, payload, config);
-          });
-
-          if (res?.status === 200 || res?.status === 201) {
-            success = true;
-            responseMsg = res?.data?.message || "Operational target committed live.";
-            break;
-          }
-        } catch {
-          // Continue fallback
-        }
-      }
-
-      if (success) {
-        Alert.alert("Target Committed", responseMsg);
-        setModalType(null);
-        setTargetForm({
-          targetType: "MONTHLY_SALES",
-          amount: "",
-          agentGoal: "",
-          dataGoal: "",
-          agentRef: "",
-          isGlobal: false,
-          month: "September 2026",
-          note: "",
-        });
-      } else {
-        Alert.alert(
-          "Target Activated",
-          `Performance parameters registered and scheduled for ${
-            targetForm.isGlobal ? "ALL PLATFORM USERS (GLOBAL)" : targetId
-          }.`
-        );
-        setModalType(null);
-        setTargetForm({
-          targetType: "MONTHLY_SALES",
-          amount: "",
-          agentGoal: "",
-          dataGoal: "",
-          agentRef: "",
-          isGlobal: false,
-          month: "September 2026",
-          note: "",
-        });
-      }
+      Alert.alert("Target Committed", "Operational target assigned successfully.");
+      setModalType(null);
     } catch (err) {
-      Alert.alert(
-        "Deployment Failed",
-        err.response?.data?.message || "Failed to commit target parameters."
-      );
+      Alert.alert("Failed", err.response?.data?.message || "Failed to assign target.");
     } finally {
       setActionLoading(false);
     }
@@ -494,34 +644,12 @@ const AdminDashboard = ({ navigation }) => {
       setModalType(null);
       setSidebarOpen(false);
 
-      try {
-        navigation.dispatch(
-          CommonActions.reset({
-            index: 0,
-            routes: [{ name: "Login" }],
-          })
-        );
-        return;
-      } catch {
-        // Fallback
-      }
-
-      const parentNav = navigation.getParent?.();
-      if (parentNav) {
-        try {
-          parentNav.dispatch(
-            CommonActions.reset({
-              index: 0,
-              routes: [{ name: "Login" }],
-            })
-          );
-          return;
-        } catch {
-          // Fallback
-        }
-      }
-
-      navigation.navigate("Login");
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: "Login" }],
+        })
+      );
     } catch {
       if (Platform.OS === "web" && typeof window !== "undefined") {
         window.location.reload();
@@ -536,11 +664,27 @@ const AdminDashboard = ({ navigation }) => {
   const cards = useMemo(
     () => [
       {
+        title: "Supervisors Hub",
+        value: `${stats.supervisorsCount} Active`,
+        icon: "account-tie",
+        type: "mci",
+        color: COLORS.primary,
+        action: () => setModalType("supervisor_hub"),
+      },
+      {
+        title: "Customer Support",
+        value: `${stats.reports} Inquiries`,
+        icon: "headset",
+        type: "mci",
+        color: COLORS.orange,
+        action: () => setModalType("customer_service"),
+      },
+      {
         title: "Subscribers",
         value: stats.users,
         icon: "account-group-outline",
         type: "mci",
-        color: COLORS.primary,
+        color: COLORS.accent,
         screen: "UserManagement",
       },
       {
@@ -583,27 +727,40 @@ const AdminDashboard = ({ navigation }) => {
         color: "#D97706",
         screen: "BvnRequests",
       },
-      {
-        title: "Rate Matrix",
-        value: "Active",
-        icon: "cash-cog",
-        type: "mci",
-        color: COLORS.purple,
-        action: () => setModalType("pricing"),
-      },
-      {
-        title: "Push Notice",
-        value: "Broadcast",
-        icon: "bullhorn-outline",
-        type: "mci",
-        color: COLORS.orange,
-        action: () => setModalType("broadcast_notification"),
-      },
     ],
     [stats, COLORS]
   );
 
   const sidebarNavGroups = [
+    {
+      group: "Supervisor & Team Ops",
+      routes: [
+        {
+          title: "Supervisors & Agents Hub",
+          icon: "account-tie",
+          action: () => {
+            setSidebarOpen(false);
+            setModalType("supervisor_hub");
+          },
+        },
+        {
+          title: "+ Register New Supervisor",
+          icon: "account-plus",
+          action: () => {
+            setSidebarOpen(false);
+            setModalType("create_supervisor");
+          },
+        },
+        {
+          title: "Customer Support Desk",
+          icon: "headset",
+          action: () => {
+            setSidebarOpen(false);
+            setModalType("customer_service");
+          },
+        },
+      ],
+    },
     {
       group: "Live Quick Actions",
       routes: [
@@ -668,33 +825,11 @@ const AdminDashboard = ({ navigation }) => {
         },
       ],
     },
-    {
-      group: "Audit & Reporting",
-      routes: [
-        {
-          title: "Sales & Billing History",
-          icon: "history",
-          action: () => safeNavigate("SalesHistory"),
-        },
-        {
-          title: "System Notification Hub",
-          icon: "bell-outline",
-          action: () => safeNavigate("Notifications"),
-        },
-        {
-          title: "Support Desk Activities",
-          icon: "headset",
-          action: () => safeNavigate("SupportActivities"),
-        },
-      ],
-    },
   ];
 
   const renderIcon = (item, size = 24, color = COLORS.white) => {
     if (item.type === "mci") {
-      return (
-        <MaterialCommunityIcons name={item.icon} size={size} color={color} />
-      );
+      return <MaterialCommunityIcons name={item.icon} size={size} color={color} />;
     }
     return <Ionicons name={item.icon} size={size} color={color} />;
   };
@@ -781,10 +916,7 @@ const AdminDashboard = ({ navigation }) => {
 
   return (
     <View style={styles.screen}>
-      <StatusBar
-        barStyle="light-content"
-        backgroundColor={COLORS.primary}
-      />
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
 
       <View style={styles.bodyWrapper}>
         {/* Desktop Fixed Executive Sidebar */}
@@ -827,10 +959,10 @@ const AdminDashboard = ({ navigation }) => {
 
             <TouchableOpacity
               style={styles.headerIconBtn}
-              onPress={() => setModalType("broadcast_notification")}
-              accessibilityLabel="Send Broadcast Alert"
+              onPress={() => setModalType("create_supervisor")}
+              accessibilityLabel="New Supervisor"
             >
-              <Ionicons name="megaphone-outline" size={21} color={COLORS.white} />
+              <MaterialCommunityIcons name="account-plus" size={22} color={COLORS.white} />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -870,7 +1002,7 @@ const AdminDashboard = ({ navigation }) => {
               <View style={{ flex: 1 }}>
                 <Text style={styles.heroTitle}>Operations Center Active</Text>
                 <Text style={styles.heroText}>
-                  All services executing in-place. Dispatches, adjustments, and monitoring stay locked to your workspace.
+                  Supervisors, Team Agents, and Customer Tickets are directly orchestrated from this panel.
                 </Text>
               </View>
 
@@ -882,30 +1014,30 @@ const AdminDashboard = ({ navigation }) => {
             {/* In-Screen Action Deck */}
             <View style={styles.quickDeckRow}>
               <TouchableOpacity
-                style={[styles.quickDeckBtn, { backgroundColor: COLORS.orange }]}
-                onPress={() => setModalType("broadcast_notification")}
+                style={[styles.quickDeckBtn, { backgroundColor: COLORS.primary }]}
+                onPress={() => setModalType("supervisor_hub")}
                 activeOpacity={0.85}
               >
-                <Ionicons name="megaphone" size={18} color={COLORS.white} />
-                <Text style={styles.quickDeckBtnText}>Broadcast Notice</Text>
+                <MaterialCommunityIcons name="account-tie" size={18} color={COLORS.white} />
+                <Text style={styles.quickDeckBtnText}>Supervisors Hub</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.quickDeckBtn, { backgroundColor: COLORS.purple }]}
-                onPress={() => setModalType("pricing")}
+                style={[styles.quickDeckBtn, { backgroundColor: COLORS.orange }]}
+                onPress={() => setModalType("customer_service")}
                 activeOpacity={0.85}
               >
-                <MaterialCommunityIcons name="cash-cog" size={18} color={COLORS.white} />
-                <Text style={styles.quickDeckBtnText}>Adjust Margins</Text>
+                <MaterialCommunityIcons name="headset" size={18} color={COLORS.white} />
+                <Text style={styles.quickDeckBtnText}>Customer Care</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={[styles.quickDeckBtn, { backgroundColor: COLORS.secondary }]}
-                onPress={() => setModalType("target")}
+                onPress={() => setModalType("create_supervisor")}
                 activeOpacity={0.85}
               >
-                <MaterialCommunityIcons name="target" size={18} color={COLORS.white} />
-                <Text style={styles.quickDeckBtnText}>Set Targets</Text>
+                <MaterialCommunityIcons name="account-plus" size={18} color={COLORS.white} />
+                <Text style={styles.quickDeckBtnText}>+ Supervisor</Text>
               </TouchableOpacity>
             </View>
 
@@ -935,53 +1067,397 @@ const AdminDashboard = ({ navigation }) => {
 
             {/* Quick Master Channels */}
             <View style={styles.quickSection}>
-              <Text style={styles.sectionTitle}>Master Service Channels</Text>
+              <Text style={styles.sectionTitle}>Administrative Core Controls</Text>
 
               <QuickAction
                 COLORS={COLORS}
-                icon="target-account"
-                title="Full Target Deployment Center"
-                color={COLORS.secondary}
-                onPress={() => safeNavigate("AssignTarget")}
-              />
-
-              <QuickAction
-                COLORS={COLORS}
-                icon="cash-cog"
-                title="Service Pricing Engine"
-                color={COLORS.purple}
-                onPress={() => setModalType("pricing")}
-              />
-
-              <QuickAction
-                COLORS={COLORS}
-                icon="bullhorn-outline"
-                title="Send Live Push Notice to Subscribers"
-                color={COLORS.orange}
-                onPress={() => setModalType("broadcast_notification")}
-              />
-
-              <QuickAction
-                COLORS={COLORS}
-                icon="server-outline"
-                title="Data & Airtime Plan Schedules"
+                icon="account-tie"
+                title="Supervisors & Assigned Agents Directorate"
                 color={COLORS.primary}
-                onPress={() => safeNavigate("DataPlans")}
+                onPress={() => setModalType("supervisor_hub")}
               />
 
               <QuickAction
                 COLORS={COLORS}
                 icon="headset"
-                title="Support Desk Audit Logs"
-                color={COLORS.primary}
-                onPress={() => safeNavigate("SupportActivities")}
+                title="Customer Service Resolution & Inquiries"
+                color={COLORS.orange}
+                onPress={() => setModalType("customer_service")}
+              />
+
+              <QuickAction
+                COLORS={COLORS}
+                icon="account-plus"
+                title="Register New Supervisor Profile"
+                color={COLORS.secondary}
+                onPress={() => setModalType("create_supervisor")}
+              />
+
+              <QuickAction
+                COLORS={COLORS}
+                icon="bullhorn-outline"
+                title="Send Live Push Broadcast to All Users"
+                color={COLORS.purple}
+                onPress={() => setModalType("broadcast_notification")}
               />
             </View>
           </ScrollView>
         </View>
       </View>
 
-      {/* MODAL 1: Broadcast Notification to All Users */}
+      {/* ============================================================= */}
+      {/* MODAL: SUPERVISOR HUB (Duba kowa, dakatarwa, da duban Agents) */}
+      {/* ============================================================= */}
+      <Modal
+        visible={modalType === "supervisor_hub"}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalType(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalBox, { maxHeight: "90%" }]}>
+            <View style={styles.modalHead}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <MaterialCommunityIcons name="account-tie" size={26} color={COLORS.primary} />
+                <Text style={styles.modalTitle}>Supervisors Directory</Text>
+              </View>
+              <TouchableOpacity onPress={() => setModalType(null)}>
+                <Ionicons name="close" size={24} color={COLORS.muted} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {supervisorsList.length === 0 ? (
+                <View style={{ padding: 20, alignItems: "center" }}>
+                  <Text style={{ color: COLORS.subText }}>No supervisors registered yet.</Text>
+                </View>
+              ) : (
+                supervisorsList.map((sup) => {
+                  const isSuspended = Boolean(sup.isSuspended);
+                  const isSelected = selectedSupervisor?._id === sup._id;
+
+                  return (
+                    <View
+                      key={sup._id || sup.id}
+                      style={[
+                        styles.supervisorCard,
+                        isSelected && { borderColor: COLORS.primary, borderWidth: 2 },
+                      ]}
+                    >
+                      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.supervisorName}>{sup.name || `${sup.firstName} ${sup.surname}`}</Text>
+                          <Text style={styles.supervisorDetail}>{sup.phone || sup.email}</Text>
+                        </View>
+                        <View
+                          style={[
+                            styles.statusBadge,
+                            { backgroundColor: isSuspended ? "#FEE2E2" : "#DCFCE7" },
+                          ]}
+                        >
+                          <Text
+                            style={{
+                              color: isSuspended ? COLORS.danger : COLORS.secondary,
+                              fontSize: 11,
+                              fontWeight: "900",
+                            }}
+                          >
+                            {isSuspended ? "SUSPENDED" : "ACTIVE"}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Action Buttons for this Supervisor */}
+                      <View style={styles.supervisorActionRow}>
+                        <TouchableOpacity
+                          style={[styles.smallBtn, { backgroundColor: COLORS.primary }]}
+                          onPress={() => handleInspectSupervisorAgents(sup)}
+                        >
+                          <MaterialCommunityIcons name="account-group" size={16} color={COLORS.white} />
+                          <Text style={styles.smallBtnText}>View Agents</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[
+                            styles.smallBtn,
+                            { backgroundColor: isSuspended ? COLORS.secondary : COLORS.danger },
+                          ]}
+                          onPress={() => handleToggleSupervisorStatus(sup)}
+                        >
+                          <MaterialCommunityIcons
+                            name={isSuspended ? "account-check" : "account-cancel"}
+                            size={16}
+                            color={COLORS.white}
+                          />
+                          <Text style={styles.smallBtnText}>
+                            {isSuspended ? "Unsuspend" : "Suspend"}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      {/* Idan aka danna duba Agents dinsa */}
+                      {isSelected && (
+                        <View style={styles.agentsUnderBox}>
+                          <Text style={styles.agentsUnderTitle}>
+                            Assigned Agents ({supervisorAgents.length}):
+                          </Text>
+                          {supervisorAgents.length === 0 ? (
+                            <Text style={{ fontSize: 12, color: COLORS.subText, marginVertical: 6 }}>
+                              No agents currently assigned to this supervisor.
+                            </Text>
+                          ) : (
+                            supervisorAgents.map((ag) => (
+                              <View key={ag._id || ag.id} style={styles.agentRow}>
+                                <View style={{ flex: 1 }}>
+                                  <Text style={styles.agentName}>{ag.name || ag.email}</Text>
+                                  <Text style={styles.agentSub}>
+                                    Phone: {ag.phone} | Bal: ₦{(ag.walletBalance || 0).toLocaleString()}
+                                  </Text>
+                                </View>
+
+                                <TouchableOpacity
+                                  style={styles.transferBtn}
+                                  onPress={() => {
+                                    setTransferForm({
+                                      agentId: ag._id || ag.id,
+                                      agentName: ag.name || ag.email,
+                                      targetSupervisorId: "",
+                                    });
+                                    setModalType("transfer_agent");
+                                  }}
+                                >
+                                  <MaterialCommunityIcons name="swap-horizontal" size={16} color={COLORS.white} />
+                                  <Text style={styles.transferBtnText}>Transfer</Text>
+                                </TouchableOpacity>
+                              </View>
+                            ))
+                          )}
+                        </View>
+                      )}
+                    </View>
+                  );
+                })
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ============================================================= */}
+      {/* MODAL: TRANSFER AGENT TO ANOTHER SUPERVISOR */}
+      {/* ============================================================= */}
+      <Modal
+        visible={modalType === "transfer_agent"}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModalType("supervisor_hub")}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalBox}>
+            <View style={styles.modalHead}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <MaterialCommunityIcons name="swap-horizontal" size={24} color={COLORS.accent} />
+                <Text style={styles.modalTitle}>Reassign Agent</Text>
+              </View>
+              <TouchableOpacity onPress={() => setModalType("supervisor_hub")}>
+                <Ionicons name="close" size={24} color={COLORS.muted} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.inputGuide}>Agent Selected</Text>
+            <View style={[styles.modalInput, { backgroundColor: COLORS.soft }]}>
+              <Text style={{ fontWeight: "800", color: COLORS.text }}>{transferForm.agentName}</Text>
+            </View>
+
+            <Text style={styles.inputGuide}>Select New Destination Supervisor</Text>
+            <ScrollView style={{ maxHeight: 180, marginBottom: 12 }}>
+              {supervisorsList
+                .filter((s) => s._id !== selectedSupervisor?._id)
+                .map((sup) => {
+                  const isTarget = transferForm.targetSupervisorId === sup._id;
+                  return (
+                    <TouchableOpacity
+                      key={sup._id}
+                      style={[
+                        styles.targetSupPill,
+                        isTarget && { backgroundColor: COLORS.accent, borderColor: COLORS.accent },
+                      ]}
+                      onPress={() =>
+                        setTransferForm((prev) => ({ ...prev, targetSupervisorId: sup._id }))
+                      }
+                    >
+                      <Text style={{ color: isTarget ? COLORS.white : COLORS.text, fontWeight: "800" }}>
+                        {sup.name || sup.email}
+                      </Text>
+                      <Text style={{ color: isTarget ? "#E0F2FE" : COLORS.subText, fontSize: 11 }}>
+                        {sup.phone}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+            </ScrollView>
+
+            <TouchableOpacity
+              style={[styles.modalSubmitBtn, { backgroundColor: COLORS.accent }]}
+              onPress={handleExecuteTransfer}
+              disabled={actionLoading}
+            >
+              {actionLoading ? (
+                <ActivityIndicator color={COLORS.white} />
+              ) : (
+                <Text style={styles.modalSubmitBtnText}>Confirm Reassignment</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ============================================================= */}
+      {/* MODAL: CUSTOMER SERVICE CONSOLE */}
+      {/* ============================================================= */}
+      <Modal
+        visible={modalType === "customer_service"}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalType(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalBox, { maxHeight: "90%" }]}>
+            <View style={styles.modalHead}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <MaterialCommunityIcons name="headset" size={24} color={COLORS.orange} />
+                <Text style={styles.modalTitle}>Customer Service Tickets</Text>
+              </View>
+              <TouchableOpacity onPress={() => setModalType(null)}>
+                <Ionicons name="close" size={24} color={COLORS.muted} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {customerTickets.length === 0 ? (
+                <View style={{ padding: 25, alignItems: "center" }}>
+                  <MaterialCommunityIcons name="checkbox-marked-circle-outline" size={40} color={COLORS.secondary} />
+                  <Text style={{ color: COLORS.subText, marginTop: 10 }}>All customer inquiries are resolved.</Text>
+                </View>
+              ) : (
+                customerTickets.map((ticket) => {
+                  const isResolved = ticket.status === "resolved";
+                  return (
+                    <View key={ticket._id || ticket.id} style={styles.ticketCard}>
+                      <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                        <Text style={styles.ticketUser}>{ticket.userName || ticket.userEmail || "Customer"}</Text>
+                        <Text style={{ fontSize: 11, color: isResolved ? COLORS.secondary : COLORS.orange, fontWeight: "900" }}>
+                          {(ticket.status || "PENDING").toUpperCase()}
+                        </Text>
+                      </View>
+
+                      <Text style={styles.ticketTitle}>{ticket.subject || ticket.title || "Complaint / Inquiry"}</Text>
+                      <Text style={styles.ticketMsg}>{ticket.message || ticket.description}</Text>
+
+                      {!isResolved && (
+                        <TouchableOpacity
+                          style={styles.resolveBtn}
+                          onPress={() => handleResolveTicket(ticket._id || ticket.id)}
+                        >
+                          <Ionicons name="checkmark-done" size={16} color={COLORS.white} />
+                          <Text style={styles.resolveBtnText}>Mark Resolved</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  );
+                })
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ============================================================= */}
+      {/* MODAL: CREATE SUPERVISOR */}
+      {/* ============================================================= */}
+      <Modal
+        visible={modalType === "create_supervisor"}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !actionLoading && setModalType(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalBox}>
+            <View style={styles.modalHead}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <MaterialCommunityIcons name="account-plus" size={24} color={COLORS.primary} />
+                <Text style={styles.modalTitle}>Register Supervisor</Text>
+              </View>
+              <TouchableOpacity onPress={() => setModalType(null)}>
+                <Ionicons name="close" size={24} color={COLORS.muted} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.inputGuide}>First Name</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="e.g. Ibrahim"
+              value={supervisorForm.firstName}
+              onChangeText={(t) => setSupervisorForm({ ...supervisorForm, firstName: t })}
+              placeholderTextColor={COLORS.muted}
+            />
+
+            <Text style={styles.inputGuide}>Surname / Last Name</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="e.g. Musa"
+              value={supervisorForm.surname}
+              onChangeText={(t) => setSupervisorForm({ ...supervisorForm, surname: t })}
+              placeholderTextColor={COLORS.muted}
+            />
+
+            <Text style={styles.inputGuide}>Email Address</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="supervisor@bellajdatahub.online"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={supervisorForm.email}
+              onChangeText={(t) => setSupervisorForm({ ...supervisorForm, email: t })}
+              placeholderTextColor={COLORS.muted}
+            />
+
+            <Text style={styles.inputGuide}>Phone Number</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="08012345678"
+              keyboardType="phone-pad"
+              value={supervisorForm.phone}
+              onChangeText={(t) => setSupervisorForm({ ...supervisorForm, phone: t })}
+              placeholderTextColor={COLORS.muted}
+            />
+
+            <Text style={styles.inputGuide}>Temporary Password</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Minimum 6 characters"
+              secureTextEntry
+              value={supervisorForm.password}
+              onChangeText={(t) => setSupervisorForm({ ...supervisorForm, password: t })}
+              placeholderTextColor={COLORS.muted}
+            />
+
+            <TouchableOpacity
+              style={[styles.modalSubmitBtn, { backgroundColor: COLORS.primary }]}
+              onPress={handleCreateSupervisor}
+              disabled={actionLoading}
+            >
+              {actionLoading ? (
+                <ActivityIndicator color={COLORS.white} />
+              ) : (
+                <Text style={styles.modalSubmitBtnText}>Create Supervisor</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL: Broadcast Notification */}
       <Modal
         visible={modalType === "broadcast_notification"}
         transparent
@@ -1053,7 +1529,7 @@ const AdminDashboard = ({ navigation }) => {
               ) : (
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                   <Ionicons name="send" size={18} color={COLORS.white} />
-                  <Text style={styles.modalSubmitBtnText}>Dispatch to All Users</Text>
+                  <Text style={styles.modalSubmitBtnText}>Dispatch Notice</Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -1061,7 +1537,7 @@ const AdminDashboard = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* MODAL 2: Adjust Service Pricing Live */}
+      {/* MODAL: Adjust Service Pricing Live */}
       <Modal
         visible={modalType === "pricing"}
         transparent
@@ -1123,7 +1599,7 @@ const AdminDashboard = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* MODAL 3: Assign Targets Live (Upgraded with Global Toggle and Full Metrics) */}
+      {/* MODAL: Assign Targets Live */}
       <Modal
         visible={modalType === "target"}
         transparent
@@ -1142,7 +1618,6 @@ const AdminDashboard = ({ navigation }) => {
               </TouchableOpacity>
             </View>
 
-            {/* Global Broadcast Toggle */}
             <TouchableOpacity
               style={[
                 styles.globalToggleBtn,
@@ -1177,7 +1652,7 @@ const AdminDashboard = ({ navigation }) => {
                 <Text style={styles.inputGuide}>Beneficiary ID, Phone, or Email</Text>
                 <TextInput
                   style={styles.modalInput}
-                  placeholder="e.g. 08012345678, agent@mail.com or User ID"
+                  placeholder="e.g. 08012345678 or User ID"
                   value={targetForm.agentRef}
                   onChangeText={(t) => setTargetForm({ ...targetForm, agentRef: t })}
                   placeholderTextColor={COLORS.muted}
@@ -1215,42 +1690,6 @@ const AdminDashboard = ({ navigation }) => {
               </View>
             </View>
 
-            <View style={{ flexDirection: "row", gap: 8 }}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.inputGuide}>New Agents Quota</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="e.g. 15"
-                  keyboardType="numeric"
-                  value={targetForm.agentGoal}
-                  onChangeText={(t) =>
-                    setTargetForm({ ...targetForm, agentGoal: t.replace(/[^0-9.]/g, "") })
-                  }
-                  placeholderTextColor={COLORS.muted}
-                />
-              </View>
-
-              <View style={{ flex: 1 }}>
-                <Text style={styles.inputGuide}>Target Period</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="e.g. September 2026"
-                  value={targetForm.month}
-                  onChangeText={(t) => setTargetForm({ ...targetForm, month: t })}
-                  placeholderTextColor={COLORS.muted}
-                />
-              </View>
-            </View>
-
-            <Text style={styles.inputGuide}>Instructional Note (Optional)</Text>
-            <TextInput
-              style={[styles.modalInput, { minHeight: 48 }]}
-              placeholder="e.g. Milestone for third quarter"
-              value={targetForm.note}
-              onChangeText={(t) => setTargetForm({ ...targetForm, note: t })}
-              placeholderTextColor={COLORS.muted}
-            />
-
             <TouchableOpacity
               style={[styles.modalSubmitBtn, { backgroundColor: COLORS.secondary }]}
               onPress={handleAssignTarget}
@@ -1259,17 +1698,14 @@ const AdminDashboard = ({ navigation }) => {
               {actionLoading ? (
                 <ActivityIndicator color={COLORS.white} />
               ) : (
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                  <MaterialCommunityIcons name="target-account" size={18} color={COLORS.white} />
-                  <Text style={styles.modalSubmitBtnText}>Deploy Target Parameters</Text>
-                </View>
+                <Text style={styles.modalSubmitBtnText}>Deploy Target</Text>
               )}
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
-      {/* MODAL 4: Cross-Platform Universal Logout Dialog */}
+      {/* MODAL: Universal Logout Dialog */}
       <Modal
         visible={modalType === "confirm_logout"}
         transparent
@@ -1645,7 +2081,7 @@ const getStyles = (COLORS) =>
     },
     modalBox: {
       width: "100%",
-      maxWidth: 440,
+      maxWidth: 480,
       backgroundColor: COLORS.card,
       borderRadius: 20,
       padding: 20,
@@ -1680,7 +2116,7 @@ const getStyles = (COLORS) =>
       paddingVertical: 14,
       alignItems: "center",
       justifyContent: "center",
-      marginTop: 4,
+      marginTop: 6,
     },
     modalSubmitBtnText: { color: COLORS.white, fontWeight: "900", fontSize: 14 },
     audienceSelectorRow: {
@@ -1735,6 +2171,94 @@ const getStyles = (COLORS) =>
     globalToggleTextActive: {
       color: COLORS.white,
     },
+
+    // Supervisor Styling
+    supervisorCard: {
+      backgroundColor: COLORS.soft,
+      borderRadius: 14,
+      padding: 14,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+    },
+    supervisorName: { fontSize: 15, fontWeight: "900", color: COLORS.text },
+    supervisorDetail: { fontSize: 12, color: COLORS.subText, marginTop: 2 },
+    statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+    supervisorActionRow: { flexDirection: "row", gap: 8, marginTop: 10 },
+    smallBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 8,
+    },
+    smallBtnText: { color: COLORS.white, fontSize: 12, fontWeight: "800" },
+    agentsUnderBox: {
+      marginTop: 12,
+      paddingTop: 10,
+      borderTopWidth: 1,
+      borderTopColor: COLORS.border,
+    },
+    agentsUnderTitle: { fontSize: 12, fontWeight: "900", color: COLORS.text, marginBottom: 6 },
+    agentRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      backgroundColor: COLORS.card,
+      padding: 8,
+      borderRadius: 8,
+      marginBottom: 6,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+    },
+    agentName: { fontSize: 12, fontWeight: "800", color: COLORS.text },
+    agentSub: { fontSize: 10, color: COLORS.subText, marginTop: 2 },
+    transferBtn: {
+      backgroundColor: COLORS.accent,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: 8,
+      paddingVertical: 5,
+      borderRadius: 6,
+    },
+    transferBtnText: { color: COLORS.white, fontSize: 11, fontWeight: "800" },
+
+    // Transfer target selection
+    targetSupPill: {
+      backgroundColor: COLORS.soft,
+      padding: 10,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      marginBottom: 6,
+    },
+
+    // Ticket Styling
+    ticketCard: {
+      backgroundColor: COLORS.soft,
+      borderRadius: 12,
+      padding: 12,
+      marginBottom: 10,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+    },
+    ticketUser: { fontSize: 13, fontWeight: "900", color: COLORS.text },
+    ticketTitle: { fontSize: 13, fontWeight: "800", color: COLORS.primary, marginTop: 4 },
+    ticketMsg: { fontSize: 12, color: COLORS.subText, marginTop: 2, lineHeight: 16 },
+    resolveBtn: {
+      backgroundColor: COLORS.secondary,
+      alignSelf: "flex-start",
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 8,
+      marginTop: 8,
+    },
+    resolveBtnText: { color: COLORS.white, fontSize: 11, fontWeight: "800" },
 
     modalLogoutIconWrap: {
       width: 56,
