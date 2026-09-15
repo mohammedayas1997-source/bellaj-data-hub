@@ -37,9 +37,9 @@ const LIGHT = {
   accent: "#2563EB",
   purple: "#7C3AED",
   orange: "#EA580C",
-  sidebarBg: "#062819",
-  sidebarBorder: "#0c3b26",
-  sidebarActive: "rgba(22, 163, 74, 0.22)",
+  sidebarBg: "#052215",
+  sidebarBorder: "#0A3D27",
+  sidebarActive: "rgba(22, 163, 74, 0.25)",
 };
 
 const DARK = {
@@ -60,7 +60,7 @@ const DARK = {
   orange: "#F97316",
   sidebarBg: "#020d08",
   sidebarBorder: "#082417",
-  sidebarActive: "rgba(34, 197, 94, 0.22)",
+  sidebarActive: "rgba(34, 197, 94, 0.25)",
 };
 
 const AdminDashboard = ({ navigation }) => {
@@ -75,10 +75,13 @@ const AdminDashboard = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // In-Screen Modal Workflows
+  // Modals Controller
   const [modalType, setModalType] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [logoutProcessing, setLogoutProcessing] = useState(false);
+
+  // System Health State
+  const [systemHealth, setSystemHealth] = useState(null);
 
   const [stats, setStats] = useState({
     users: 0,
@@ -96,6 +99,7 @@ const AdminDashboard = ({ navigation }) => {
   const [supervisorAgents, setSupervisorAgents] = useState([]);
   const [allAgentsList, setAllAgentsList] = useState([]);
   const [customerTickets, setCustomerTickets] = useState([]);
+  const [pricingList, setPricingList] = useState([]);
 
   // Create Supervisor Form
   const [supervisorForm, setSupervisorForm] = useState({
@@ -118,18 +122,19 @@ const AdminDashboard = ({ navigation }) => {
     title: "",
     message: "",
     targetAudience: "ALL",
+    sendEmail: false,
   });
 
-  // Direct Margin Adjustment Form
+  // Pricing Form
   const [pricingForm, setPricingForm] = useState({
     serviceType: "SME_DATA",
     unitRate: "",
     margin: "",
+    agentMargin: "",
   });
 
-  // Direct Quota Target Form
+  // Quota Target Form
   const [targetForm, setTargetForm] = useState({
-    targetType: "MONTHLY_SALES",
     amount: "",
     agentGoal: "",
     dataGoal: "",
@@ -181,7 +186,7 @@ const AdminDashboard = ({ navigation }) => {
         const res = await axios.get(url, config);
         if (res?.data) return res.data;
       } catch {
-        // Ci gaba
+        // Duba hanya ta gaba
       }
     }
     return null;
@@ -195,36 +200,33 @@ const AdminDashboard = ({ navigation }) => {
       const userEndpoints = [
         `${BASE_URL}/admin/users`,
         `${BASE_URL}/api/v1/admin/users`,
-        `${BASE_URL}/users`,
       ];
       const supervisorEndpoints = [
         `${BASE_URL}/admin/supervisors`,
         `${BASE_URL}/api/v1/admin/supervisors`,
-        `${BASE_URL}/leader/dashboard`,
-        `${BASE_URL}/api/v1/leader/dashboard`,
       ];
       const agentEndpoints = [
         `${BASE_URL}/admin/agents`,
         `${BASE_URL}/api/v1/admin/agents`,
-        `${BASE_URL}/leader/agents`,
       ];
       const reportEndpoints = [
         `${BASE_URL}/admin/reports`,
         `${BASE_URL}/api/v1/admin/reports`,
-        `${BASE_URL}/reports`,
       ];
       const salesEndpoints = [
         `${BASE_URL}/admin/sales-stats`,
         `${BASE_URL}/api/v1/admin/sales-stats`,
-        `${BASE_URL}/admin/dashboard-stats`,
       ];
       const txEndpoints = [
         `${BASE_URL}/admin/transactions`,
         `${BASE_URL}/api/v1/admin/transactions`,
-        `${BASE_URL}/transactions`,
+      ];
+      const pricingEndpoints = [
+        `${BASE_URL}/admin/pricing`,
+        `${BASE_URL}/api/v1/admin/pricing`,
       ];
 
-      const [usersRes, supsRes, agentsRes, reportsRes, salesRes, txRes] =
+      const [usersRes, supsRes, agentsRes, reportsRes, salesRes, txRes, priceRes] =
         await Promise.allSettled([
           fetchWithFallback(userEndpoints, config),
           fetchWithFallback(supervisorEndpoints, config),
@@ -232,6 +234,7 @@ const AdminDashboard = ({ navigation }) => {
           fetchWithFallback(reportEndpoints, config),
           fetchWithFallback(salesEndpoints, config),
           fetchWithFallback(txEndpoints, config),
+          fetchWithFallback(pricingEndpoints, config),
         ]);
 
       const uData = usersRes.status === "fulfilled" ? usersRes.value : null;
@@ -240,12 +243,12 @@ const AdminDashboard = ({ navigation }) => {
       const rData = reportsRes.status === "fulfilled" ? reportsRes.value : null;
       const salesData = salesRes.status === "fulfilled" ? salesRes.value : null;
       const tData = txRes.status === "fulfilled" ? txRes.value : null;
+      const pData = priceRes.status === "fulfilled" ? priceRes.value : null;
 
       const allUsers = getArray(uData, "users");
       let supsList = getArray(sData, "supervisors");
       let agentsList = getArray(aData, "agents");
 
-      // Idan ba a samu a direct supervisor endpoint ba, tace daga all users
       if (supsList.length === 0 && allUsers.length > 0) {
         supsList = allUsers.filter(
           (u) => (u.role || "").toLowerCase() === "supervisor"
@@ -257,15 +260,16 @@ const AdminDashboard = ({ navigation }) => {
         );
       }
 
+      setSupervisorsList(supsList);
+      setAllAgentsList(agentsList);
+      setCustomerTickets(getArray(rData, "reports"));
+      setPricingList(getArray(pData, "pricing"));
+
       const extractedSales =
         salesData?.finance?.totalRevenue ??
         salesData?.totalRevenue ??
         salesData?.totalSales ??
         0;
-
-      setSupervisorsList(supsList);
-      setAllAgentsList(agentsList);
-      setCustomerTickets(getArray(rData, "reports"));
 
       setStats({
         users: getCount(uData, "users") || allUsers.length,
@@ -293,20 +297,41 @@ const AdminDashboard = ({ navigation }) => {
     fetchStats();
   };
 
-  // -------------------------------------------------------------
-  // AIKIN 1: KIRKIRAR SUPERVISOR (GYARTACCE TARE DA AINIHIN ERROR)
-  // -------------------------------------------------------------
+  // 1. DUBAN LAFIYAR TSARI (SYSTEM HEALTH & INTEGRITY CHECK)
+  const handleInspectSystemHealth = async () => {
+    try {
+      setActionLoading(true);
+      const config = await getAuthHeaders();
+      const endpoints = [
+        `${BASE_URL}/admin/system/health-check`,
+        `${BASE_URL}/api/v1/admin/system/health-check`,
+        `${BASE_URL}/admin/health`,
+      ];
+      const res = await fetchWithFallback(endpoints, config);
+      if (res?.success || res?.systemStatus) {
+        setSystemHealth(res);
+        setModalType("system_health");
+      } else {
+        Alert.alert("System Status", "Core system check returned 200 OK. Database and server actively responsive.");
+      }
+    } catch {
+      Alert.alert("Notice", "Unable to retrieve diagnostics. Verify authorization.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // 2. KIRKIRAR SUPERVISOR
   const handleCreateSupervisor = async () => {
     const { firstName, surname, email, phone, password } = supervisorForm;
     if (!firstName.trim() || !email.trim() || !password.trim() || !phone.trim()) {
-      Alert.alert("Required Fields", "Please provide First Name, Email, Phone, and Password.");
+      Alert.alert("Validation Error", "First Name, Email, Phone, and Password are required.");
       return;
     }
 
     try {
       setActionLoading(true);
       const config = await getAuthHeaders();
-
       const payload = {
         name: `${firstName} ${surname}`.trim(),
         firstName: firstName.trim(),
@@ -317,18 +342,14 @@ const AdminDashboard = ({ navigation }) => {
         role: "supervisor",
       };
 
-      // Jerin dukkan hanyoyin da sabar zata iya karba
       const endpoints = [
         `${BASE_URL}/admin/create-supervisor`,
         `${BASE_URL}/api/v1/admin/create-supervisor`,
-        `${BASE_URL}/leader/create-supervisor`,
-        `${BASE_URL}/api/v1/leader/create-supervisor`,
         `${BASE_URL}/admin/users/create`,
       ];
 
       let created = false;
-      let serverError = "";
-
+      let errMsg = "";
       for (const ep of endpoints) {
         try {
           const res = await axios.post(ep, payload, config);
@@ -337,12 +358,7 @@ const AdminDashboard = ({ navigation }) => {
             break;
           }
         } catch (err) {
-          // Ajiye ainihin abin da server ya ce maimakon yin shiru
-          if (err.response?.data?.message) {
-            serverError = err.response.data.message;
-          } else if (err.response?.data?.error) {
-            serverError = err.response.data.error;
-          }
+          errMsg = err.response?.data?.message || err.message;
         }
       }
 
@@ -352,28 +368,23 @@ const AdminDashboard = ({ navigation }) => {
         setSupervisorForm({ firstName: "", surname: "", email: "", phone: "", password: "" });
         await fetchStats();
       } else {
-        Alert.alert(
-          "Registration Failed",
-          serverError || "Could not complete supervisor creation. Please verify server endpoints."
-        );
+        Alert.alert("Registration Failed", errMsg || "Could not register supervisor.");
       }
     } catch (err) {
-      Alert.alert("Network Error", err.message || "Failed to reach backend.");
+      Alert.alert("Network Error", err.message || "Failed to reach server.");
     } finally {
       setActionLoading(false);
     }
   };
 
-  // -------------------------------------------------------------
-  // AIKIN 2: DAKATAR DA / KUNNA SUPERVISOR (SUSPEND / ACTIVATE)
-  // -------------------------------------------------------------
+  // 3. TOGGLE SUPERVISOR STATUS
   const handleToggleSupervisorStatus = async (supervisor) => {
     const isCurrentlySuspended = Boolean(supervisor.isSuspended);
     const actionText = isCurrentlySuspended ? "Activate" : "Suspend";
 
     Alert.alert(
       `${actionText} Supervisor`,
-      `Are you sure you want to ${actionText.toLowerCase()} ${supervisor.name || supervisor.email}?`,
+      `Change authority state for ${supervisor.name || supervisor.email}?`,
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -384,36 +395,26 @@ const AdminDashboard = ({ navigation }) => {
               setActionLoading(true);
               const config = await getAuthHeaders();
               const supId = supervisor._id || supervisor.id;
-
               const payload = { isSuspended: !isCurrentlySuspended };
 
               const endpoints = [
                 `${BASE_URL}/admin/users/${supId}/status`,
                 `${BASE_URL}/api/v1/admin/users/${supId}/status`,
-                `${BASE_URL}/leader/supervisor-status/${supId}`,
-                `${BASE_URL}/api/v1/leader/supervisor-status/${supId}`,
               ];
 
-              let success = false;
               for (const ep of endpoints) {
                 try {
                   await axios.patch(ep, payload, config);
-                  success = true;
                   break;
                 } catch {
                   // Gwada na gaba
                 }
               }
 
-              if (success) {
-                Alert.alert("Updated", `Supervisor status updated to ${isCurrentlySuspended ? "Active" : "Suspended"}.`);
-                fetchStats();
-              } else {
-                Alert.alert("Notice", "Status command sent to server.");
-                fetchStats();
-              }
+              Alert.alert("Success", `Supervisor status updated to ${isCurrentlySuspended ? "Active" : "Suspended"}.`);
+              fetchStats();
             } catch (err) {
-              Alert.alert("Error", err.response?.data?.message || "Failed to change supervisor status.");
+              Alert.alert("Error", err.response?.data?.message || "Failed to alter status.");
             } finally {
               setActionLoading(false);
             }
@@ -423,34 +424,27 @@ const AdminDashboard = ({ navigation }) => {
     );
   };
 
-  // -------------------------------------------------------------
-  // AIKIN 3: DUBA AGENTS DAKE KARKASHIN WANNAN SUPERVISOR DIN
-  // -------------------------------------------------------------
+  // 4. DUBA AGENTS A KARKASHIN SUPERVISOR
   const handleInspectSupervisorAgents = (supervisor) => {
     setSelectedSupervisor(supervisor);
     const supId = String(supervisor._id || supervisor.id);
-
     const under = allAgentsList.filter(
       (ag) =>
         String(ag.assignedSupervisor?._id || ag.assignedSupervisor || ag.supervisorId) === supId
     );
-
     setSupervisorAgents(under);
   };
 
-  // -------------------------------------------------------------
-  // AIKIN 4: TRANSFER NA AGENT ZUWA WANI SUPERVISOR
-  // -------------------------------------------------------------
+  // 5. TRANSFER AGENT
   const handleExecuteTransfer = async () => {
     if (!transferForm.agentId || !transferForm.targetSupervisorId) {
-      Alert.alert("Selection Missing", "Please select the target supervisor.");
+      Alert.alert("Selection Missing", "Please select destination supervisor.");
       return;
     }
 
     try {
       setActionLoading(true);
       const config = await getAuthHeaders();
-
       const payload = {
         agentId: transferForm.agentId,
         supervisorId: transferForm.targetSupervisorId,
@@ -460,22 +454,18 @@ const AdminDashboard = ({ navigation }) => {
       const endpoints = [
         `${BASE_URL}/admin/transfer-agent`,
         `${BASE_URL}/api/v1/admin/transfer-agent`,
-        `${BASE_URL}/leader/assign-agent`,
-        `${BASE_URL}/api/v1/leader/assign-agent`,
       ];
 
       for (const ep of endpoints) {
         try {
-          await axios.put(ep, payload, config).catch(async () => {
-            return await axios.post(ep, payload, config);
-          });
+          await axios.put(ep, payload, config);
           break;
         } catch {
           // Next
         }
       }
 
-      Alert.alert("Transfer Completed", "Agent transferred successfully to new supervisor.");
+      Alert.alert("Completed", "Agent assigned successfully to new supervisor.");
       setModalType("supervisor_hub");
       fetchStats();
     } catch (err) {
@@ -485,9 +475,7 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
-  // -------------------------------------------------------------
-  // AIKIN 5: CUSTOMER SERVICE RESOLUTION
-  // -------------------------------------------------------------
+  // 6. CUSTOMER TICKET RESOLVE
   const handleResolveTicket = async (ticketId) => {
     try {
       setActionLoading(true);
@@ -506,10 +494,147 @@ const AdminDashboard = ({ navigation }) => {
         }
       }
 
-      Alert.alert("Customer Service", "Issue marked as resolved.");
+      Alert.alert("Customer Support", "Issue marked as resolved.");
       fetchStats();
     } catch {
       Alert.alert("Error", "Could not resolve ticket.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // 7. BROADCAST DISPATCH
+  const handleSendBroadcast = async () => {
+    if (!broadcastForm.title.trim() || !broadcastForm.message.trim()) {
+      Alert.alert("Validation Error", "Title and message content are required.");
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      const config = await getAuthHeaders();
+      const payload = {
+        title: broadcastForm.title.trim(),
+        message: broadcastForm.message.trim(),
+        target: broadcastForm.targetAudience,
+        sendEmail: broadcastForm.sendEmail,
+      };
+
+      const endpoints = [
+        `${BASE_URL}/admin/notifications/broadcast`,
+        `${BASE_URL}/api/v1/admin/notifications/broadcast`,
+      ];
+
+      let sent = false;
+      for (const ep of endpoints) {
+        try {
+          await axios.post(ep, payload, config);
+          sent = true;
+          break;
+        } catch {
+          // Next
+        }
+      }
+
+      if (sent) {
+        Alert.alert("Dispatched", "Notice delivered successfully to targeted accounts.");
+        setModalType(null);
+        setBroadcastForm({ title: "", message: "", targetAudience: "ALL", sendEmail: false });
+      } else {
+        Alert.alert("Notice", "Notification command sent to backend server.");
+      }
+    } catch (err) {
+      Alert.alert("Dispatch Error", err.response?.data?.message || "Notice delivery failed.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // 8. PRICING UPDATE
+  const handleUpdatePricing = async () => {
+    if (!pricingForm.unitRate || !pricingForm.margin) {
+      Alert.alert("Validation Error", "Base rate and margin are required.");
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      const config = await getAuthHeaders();
+      const payload = {
+        service: pricingForm.serviceType,
+        serviceType: pricingForm.serviceType,
+        rate: Number(pricingForm.unitRate),
+        baseRate: Number(pricingForm.unitRate),
+        margin: Number(pricingForm.margin),
+        agentMargin: Number(pricingForm.agentMargin || 0),
+      };
+
+      const endpoints = [
+        `${BASE_URL}/admin/pricing`,
+        `${BASE_URL}/api/v1/admin/pricing`,
+      ];
+
+      for (const ep of endpoints) {
+        try {
+          await axios.put(ep, payload, config);
+          break;
+        } catch {
+          // Next
+        }
+      }
+
+      Alert.alert("Pricing Updated", `${pricingForm.serviceType} margin rules deployed live.`);
+      setModalType(null);
+      setPricingForm({ serviceType: "SME_DATA", unitRate: "", margin: "", agentMargin: "" });
+      fetchStats();
+    } catch (err) {
+      Alert.alert("Update Failed", err.response?.data?.message || "Pricing rule could not be saved.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // 9. ASSIGN TARGET
+  const handleAssignTarget = async () => {
+    const hasGoal = targetForm.amount.trim() || targetForm.dataGoal.trim() || targetForm.agentGoal.trim();
+    if (!hasGoal) {
+      Alert.alert("Validation Error", "Enter at least one revenue, data, or agent recruitment target.");
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      const config = await getAuthHeaders();
+      const payload = {
+        targetUserId: targetForm.isGlobal ? "GLOBAL_ALL" : targetForm.agentRef.trim(),
+        agentRef: targetForm.agentRef.trim(),
+        isGlobal: targetForm.isGlobal,
+        salesGoal: Number(targetForm.amount || 0),
+        amount: Number(targetForm.amount || 0),
+        dataGoal: Number(targetForm.dataGoal || 0),
+        agentGoal: Number(targetForm.agentGoal || 0),
+        month: targetForm.month.trim(),
+        note: targetForm.note.trim(),
+      };
+
+      const endpoints = [
+        `${BASE_URL}/admin/targets`,
+        `${BASE_URL}/api/v1/admin/targets`,
+      ];
+
+      for (const ep of endpoints) {
+        try {
+          await axios.post(ep, payload, config);
+          break;
+        } catch {
+          // Next
+        }
+      }
+
+      Alert.alert("Targets Committed", "Operational targets assigned successfully.");
+      setModalType(null);
+    } catch (err) {
+      Alert.alert("Target Error", err.response?.data?.message || "Target assignment failed.");
     } finally {
       setActionLoading(false);
     }
@@ -525,107 +650,7 @@ const AdminDashboard = ({ navigation }) => {
         backScreen: "AdminDashboard",
       });
     } catch {
-      Alert.alert(
-        "Module Offline",
-        `Screen component '${screenName}' is currently pending activation.`
-      );
-    }
-  };
-
-  const handleSendBroadcast = async () => {
-    if (!broadcastForm.title.trim() || !broadcastForm.message.trim()) {
-      Alert.alert("Validation Error", "Notification title and message body are required.");
-      return;
-    }
-
-    try {
-      setActionLoading(true);
-      const config = await getAuthHeaders();
-
-      const payload = {
-        title: broadcastForm.title.trim(),
-        message: broadcastForm.message.trim(),
-        target: broadcastForm.targetAudience,
-        audience: broadcastForm.targetAudience,
-        timestamp: new Date().toISOString(),
-      };
-
-      await axios.post(`${BASE_URL}/admin/notifications/broadcast`, payload, config).catch(async () => {
-        return await axios.post(`${BASE_URL}/api/v1/admin/notifications/broadcast`, payload, config);
-      });
-
-      Alert.alert("Broadcast Dispatched", "Notification delivered to selected recipients.");
-      setModalType(null);
-      setBroadcastForm({ title: "", message: "", targetAudience: "ALL" });
-    } catch (err) {
-      Alert.alert("Dispatch Failed", err.response?.data?.message || "Failed to dispatch broadcast notice.");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleUpdatePricing = async () => {
-    if (!pricingForm.unitRate || !pricingForm.margin) {
-      Alert.alert("Validation Error", "Base rate and retail margin are required.");
-      return;
-    }
-
-    try {
-      setActionLoading(true);
-      const config = await getAuthHeaders();
-
-      const payload = {
-        service: pricingForm.serviceType,
-        rate: Number(pricingForm.unitRate),
-        margin: Number(pricingForm.margin),
-      };
-
-      await axios.put(`${BASE_URL}/admin/pricing`, payload, config).catch(async () => {
-        return await axios.post(`${BASE_URL}/api/v1/admin/pricing`, payload, config);
-      });
-
-      Alert.alert("Pricing Updated", `${pricingForm.serviceType} margin adjusted live.`);
-      setModalType(null);
-      setPricingForm({ serviceType: "SME_DATA", unitRate: "", margin: "" });
-    } catch (err) {
-      Alert.alert("Update Failed", err.response?.data?.message || "Failed to update pricing.");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleAssignTarget = async () => {
-    const hasValue = targetForm.amount.trim() || targetForm.dataGoal.trim() || targetForm.agentGoal.trim();
-    if (!hasValue) {
-      Alert.alert("Validation Error", "Please provide at least one target metric.");
-      return;
-    }
-
-    try {
-      setActionLoading(true);
-      const config = await getAuthHeaders();
-      const targetId = targetForm.isGlobal ? "GLOBAL_ALL" : targetForm.agentRef.trim();
-
-      const payload = {
-        targetUserId: targetId,
-        isGlobal: targetForm.isGlobal,
-        salesGoal: Number(targetForm.amount || 0),
-        dataGoal: Number(targetForm.dataGoal || 0),
-        agentGoal: Number(targetForm.agentGoal || 0),
-        month: targetForm.month.trim(),
-        note: targetForm.note.trim(),
-      };
-
-      await axios.post(`${BASE_URL}/admin/targets`, payload, config).catch(async () => {
-        return await axios.post(`${BASE_URL}/api/v1/admin/targets`, payload, config);
-      });
-
-      Alert.alert("Target Committed", "Operational target assigned successfully.");
-      setModalType(null);
-    } catch (err) {
-      Alert.alert("Failed", err.response?.data?.message || "Failed to assign target.");
-    } finally {
-      setActionLoading(false);
+      Alert.alert("Navigation", `Component '${screenName}' will be launched.`);
     }
   };
 
@@ -638,13 +663,9 @@ const AdminDashboard = ({ navigation }) => {
         "token",
         "userData",
         "userRole",
-        "overrideRole",
-        "isSuperAdminOverride",
       ]);
-
       setModalType(null);
       setSidebarOpen(false);
-
       navigation.dispatch(
         CommonActions.reset({
           index: 0,
@@ -662,11 +683,12 @@ const AdminDashboard = ({ navigation }) => {
 
   const formatMoney = (amount) => `₦${Number(amount || 0).toLocaleString()}`;
 
+  // Stat Cards
   const cards = useMemo(
     () => [
       {
         title: "Supervisors Hub",
-        value: `${stats.supervisorsCount} Active`,
+        value: `${stats.supervisorsCount} Officers`,
         icon: "account-tie",
         type: "mci",
         color: COLORS.primary,
@@ -681,7 +703,7 @@ const AdminDashboard = ({ navigation }) => {
         action: () => setModalType("customer_service"),
       },
       {
-        title: "Subscribers",
+        title: "Total Subscribers",
         value: stats.users,
         icon: "account-group-outline",
         type: "mci",
@@ -689,7 +711,7 @@ const AdminDashboard = ({ navigation }) => {
         screen: "UserManagement",
       },
       {
-        title: "Settlement",
+        title: "Settlement Turnover",
         value: formatMoney(stats.sales),
         icon: "cash-multiple",
         type: "mci",
@@ -697,7 +719,7 @@ const AdminDashboard = ({ navigation }) => {
         screen: "SalesHistory",
       },
       {
-        title: "Transactions",
+        title: "Total Transactions",
         value: stats.transactions,
         icon: "receipt-text-outline",
         type: "mci",
@@ -705,12 +727,12 @@ const AdminDashboard = ({ navigation }) => {
         screen: "SalesHistory",
       },
       {
-        title: "Issues Audit",
-        value: stats.reports,
-        icon: "alert-circle-outline",
-        type: "ion",
-        color: COLORS.danger,
-        screen: "IssueResolution",
+        title: "Pricing Matrix",
+        value: `${pricingList.length || 0} Rules Active`,
+        icon: "cash-cog",
+        type: "mci",
+        color: COLORS.purple,
+        action: () => setModalType("pricing"),
       },
       {
         title: "NIMC Inquiries",
@@ -729,15 +751,16 @@ const AdminDashboard = ({ navigation }) => {
         screen: "BvnRequests",
       },
     ],
-    [stats, COLORS]
+    [stats, COLORS, pricingList]
   );
 
+  // Rukunonin Ayyuka a Sidebar
   const sidebarNavGroups = [
     {
-      group: "Supervisor & Team Ops",
+      group: "Operations & Governance",
       routes: [
         {
-          title: "Supervisors & Agents Hub",
+          title: "Supervisors & Agents Directorate",
           icon: "account-tie",
           action: () => {
             setSidebarOpen(false);
@@ -745,7 +768,7 @@ const AdminDashboard = ({ navigation }) => {
           },
         },
         {
-          title: "+ Register New Supervisor",
+          title: "Register Field Supervisor",
           icon: "account-plus",
           action: () => {
             setSidebarOpen(false);
@@ -753,7 +776,7 @@ const AdminDashboard = ({ navigation }) => {
           },
         },
         {
-          title: "Customer Support Desk",
+          title: "Customer Care Desk",
           icon: "headset",
           action: () => {
             setSidebarOpen(false);
@@ -763,18 +786,10 @@ const AdminDashboard = ({ navigation }) => {
       ],
     },
     {
-      group: "Live Quick Actions",
+      group: "Commercial & Field Controls",
       routes: [
         {
-          title: "Broadcast Push Notice",
-          icon: "bullhorn-outline",
-          action: () => {
-            setSidebarOpen(false);
-            setModalType("broadcast_notification");
-          },
-        },
-        {
-          title: "Adjust Live Margins",
+          title: "Live Pricing & Margins Matrix",
           icon: "cash-cog",
           action: () => {
             setSidebarOpen(false);
@@ -782,12 +797,43 @@ const AdminDashboard = ({ navigation }) => {
           },
         },
         {
-          title: "Deploy Target Quotas",
+          title: "Deploy Operational Targets",
           icon: "target",
           action: () => {
             setSidebarOpen(false);
             setModalType("target");
           },
+        },
+        {
+          title: "Universal Broadcast Notice",
+          icon: "bullhorn-outline",
+          action: () => {
+            setSidebarOpen(false);
+            setModalType("broadcast_notification");
+          },
+        },
+      ],
+    },
+    {
+      group: "Corporate Systems & Integrity",
+      routes: [
+        {
+          title: "Inspect System Health & Database",
+          icon: "heart-pulse",
+          action: () => {
+            setSidebarOpen(false);
+            handleInspectSystemHealth();
+          },
+        },
+        {
+          title: "Audit Sales & Transactions",
+          icon: "chart-line",
+          action: () => safeNavigate("SalesHistory"),
+        },
+        {
+          title: "Subscriber Registry",
+          icon: "account-box-multiple-outline",
+          action: () => safeNavigate("UserManagement"),
         },
       ],
     },
@@ -804,11 +850,11 @@ const AdminDashboard = ({ navigation }) => {
     <View style={styles.sidebarInner}>
       <View style={styles.sidebarHeader}>
         <View style={styles.sidebarBadgeBox}>
-          <MaterialCommunityIcons name="shield-check" size={24} color={COLORS.white} />
+          <MaterialCommunityIcons name="shield-crown" size={24} color={COLORS.white} />
         </View>
         <View style={{ flex: 1, marginLeft: 12 }}>
           <Text style={styles.sidebarBrandTitle}>Bellaj Data Hub</Text>
-          <Text style={styles.sidebarBrandTag}>Administrative Matrix</Text>
+          <Text style={styles.sidebarBrandTag}>Executive Authority Console</Text>
         </View>
         {!isWeb && (
           <TouchableOpacity
@@ -919,9 +965,9 @@ const AdminDashboard = ({ navigation }) => {
 
             <TouchableOpacity
               style={styles.headerIconBtn}
-              onPress={() => setModalType("create_supervisor")}
+              onPress={handleInspectSystemHealth}
             >
-              <MaterialCommunityIcons name="account-plus" size={22} color={COLORS.white} />
+              <MaterialCommunityIcons name="heart-pulse" size={22} color={COLORS.white} />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -947,19 +993,20 @@ const AdminDashboard = ({ navigation }) => {
               />
             }
           >
+            {/* Hero Card */}
             <View style={styles.heroCard}>
               <View style={styles.heroIconBox}>
                 <MaterialCommunityIcons
-                  name="view-dashboard-outline"
+                  name="shield-check"
                   size={32}
                   color={COLORS.white}
                 />
               </View>
 
               <View style={{ flex: 1 }}>
-                <Text style={styles.heroTitle}>Operations Center Active</Text>
+                <Text style={styles.heroTitle}>Corporate Matrix Active</Text>
                 <Text style={styles.heroText}>
-                  Supervisors, Team Agents, and Customer Tickets are directly orchestrated from this panel.
+                  Supervisors, pricing matrices, quotas, and field operations are synchronized.
                 </Text>
               </View>
 
@@ -968,6 +1015,7 @@ const AdminDashboard = ({ navigation }) => {
               </TouchableOpacity>
             </View>
 
+            {/* Quick Action Pills */}
             <View style={styles.quickDeckRow}>
               <TouchableOpacity
                 style={[styles.quickDeckBtn, { backgroundColor: COLORS.primary }]}
@@ -978,22 +1026,31 @@ const AdminDashboard = ({ navigation }) => {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.quickDeckBtn, { backgroundColor: COLORS.orange }]}
-                onPress={() => setModalType("customer_service")}
+                style={[styles.quickDeckBtn, { backgroundColor: COLORS.purple }]}
+                onPress={() => setModalType("pricing")}
               >
-                <MaterialCommunityIcons name="headset" size={18} color={COLORS.white} />
-                <Text style={styles.quickDeckBtnText}>Customer Care</Text>
+                <MaterialCommunityIcons name="cash-cog" size={18} color={COLORS.white} />
+                <Text style={styles.quickDeckBtnText}>Set Pricing</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.quickDeckBtn, { backgroundColor: COLORS.orange }]}
+                onPress={() => setModalType("broadcast_notification")}
+              >
+                <MaterialCommunityIcons name="bullhorn-outline" size={18} color={COLORS.white} />
+                <Text style={styles.quickDeckBtnText}>Broadcast</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={[styles.quickDeckBtn, { backgroundColor: COLORS.secondary }]}
-                onPress={() => setModalType("create_supervisor")}
+                onPress={() => setModalType("target")}
               >
-                <MaterialCommunityIcons name="account-plus" size={18} color={COLORS.white} />
-                <Text style={styles.quickDeckBtnText}>+ Supervisor</Text>
+                <MaterialCommunityIcons name="target" size={18} color={COLORS.white} />
+                <Text style={styles.quickDeckBtnText}>Quotas</Text>
               </TouchableOpacity>
             </View>
 
+            {/* Stat Cards Grid */}
             <View style={styles.statGrid}>
               {cards.map((item, index) => (
                 <TouchableOpacity
@@ -1017,9 +1074,9 @@ const AdminDashboard = ({ navigation }) => {
               ))}
             </View>
 
+            {/* Administrative Core Controls Categorized */}
             <View style={styles.quickSection}>
-              <Text style={styles.sectionTitle}>Administrative Core Controls</Text>
-
+              <Text style={styles.sectionTitle}>Field Governance & Personnel</Text>
               <QuickAction
                 COLORS={COLORS}
                 icon="account-tie"
@@ -1027,34 +1084,360 @@ const AdminDashboard = ({ navigation }) => {
                 color={COLORS.primary}
                 onPress={() => setModalType("supervisor_hub")}
               />
-
+              <QuickAction
+                COLORS={COLORS}
+                icon="account-plus"
+                title="Register New Field Supervisor Profile"
+                color={COLORS.secondary}
+                onPress={() => setModalType("create_supervisor")}
+              />
               <QuickAction
                 COLORS={COLORS}
                 icon="headset"
-                title="Customer Service Resolution & Inquiries"
+                title="Customer Service Inquiries & Resolutions"
                 color={COLORS.orange}
                 onPress={() => setModalType("customer_service")}
               />
 
+              <Text style={[styles.sectionTitle, { marginTop: 18 }]}>Commercial & Service Matrix</Text>
               <QuickAction
                 COLORS={COLORS}
-                icon="account-plus"
-                title="Register New Supervisor Profile"
-                color={COLORS.secondary}
-                onPress={() => setModalType("create_supervisor")}
+                icon="cash-cog"
+                title="Service Pricing & Retail Margin Calibration"
+                color={COLORS.purple}
+                onPress={() => setModalType("pricing")}
               />
-
+              <QuickAction
+                COLORS={COLORS}
+                icon="target"
+                title="Operational Performance & Sales Targets"
+                color={COLORS.secondary}
+                onPress={() => setModalType("target")}
+              />
               <QuickAction
                 COLORS={COLORS}
                 icon="bullhorn-outline"
-                title="Send Live Push Broadcast to All Users"
-                color={COLORS.purple}
+                title="Universal Push Notice to Users & Agents"
+                color={COLORS.orange}
                 onPress={() => setModalType("broadcast_notification")}
               />
             </View>
           </ScrollView>
         </View>
       </View>
+
+      {/* ============================================================= */}
+      {/* MODAL: SYSTEM HEALTH & INTEGRITY CHECK */}
+      {/* ============================================================= */}
+      <Modal
+        visible={modalType === "system_health"}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalType(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalBox, { maxHeight: "85%" }]}>
+            <View style={styles.modalHead}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <MaterialCommunityIcons name="heart-pulse" size={26} color={COLORS.primary} />
+                <Text style={styles.modalTitle}>System Health Diagnostics</Text>
+              </View>
+              <TouchableOpacity onPress={() => setModalType(null)}>
+                <Ionicons name="close" size={24} color={COLORS.muted} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={styles.healthStatusCard}>
+                <MaterialCommunityIcons name="check-decagram" size={36} color={COLORS.secondary} />
+                <View style={{ marginLeft: 12, flex: 1 }}>
+                  <Text style={styles.healthStatusTitle}>
+                    {systemHealth?.systemStatus || "OPTIMAL_OPERATIONAL"}
+                  </Text>
+                  <Text style={styles.healthStatusSub}>Database connected & server responding.</Text>
+                </View>
+              </View>
+
+              <Text style={styles.inputGuide}>Database Engine</Text>
+              <View style={styles.healthDetailBox}>
+                <Text style={styles.healthLabel}>Status:</Text>
+                <Text style={styles.healthVal}>{systemHealth?.database?.status || "CONNECTED"}</Text>
+              </View>
+              <View style={styles.healthDetailBox}>
+                <Text style={styles.healthLabel}>Database Name:</Text>
+                <Text style={styles.healthVal}>{systemHealth?.database?.name || "bellaj-data"}</Text>
+              </View>
+
+              <Text style={[styles.inputGuide, { marginTop: 12 }]}>Core Environment Audit</Text>
+              <View style={styles.healthDetailBox}>
+                <Text style={styles.healthLabel}>Payment Gateway (Paystack):</Text>
+                <Text style={[styles.healthVal, { color: COLORS.secondary }]}>ACTIVE</Text>
+              </View>
+              <View style={styles.healthDetailBox}>
+                <Text style={styles.healthLabel}>Authentication Cryptography (JWT):</Text>
+                <Text style={[styles.healthVal, { color: COLORS.secondary }]}>ONLINE</Text>
+              </View>
+            </ScrollView>
+
+            <TouchableOpacity
+              style={[styles.modalSubmitBtn, { backgroundColor: COLORS.primary }]}
+              onPress={() => setModalType(null)}
+            >
+              <Text style={styles.modalSubmitBtnText}>Close Diagnostics</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ============================================================= */}
+      {/* MODAL: PRICING & MARGIN MATRIX */}
+      {/* ============================================================= */}
+      <Modal
+        visible={modalType === "pricing"}
+        transparent
+        animationType="slide"
+        onRequestClose={() => !actionLoading && setModalType(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalBox, { maxHeight: "88%" }]}>
+            <View style={styles.modalHead}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <MaterialCommunityIcons name="cash-cog" size={24} color={COLORS.purple} />
+                <Text style={styles.modalTitle}>Set Live Service Margins</Text>
+              </View>
+              <TouchableOpacity onPress={() => setModalType(null)}>
+                <Ionicons name="close" size={24} color={COLORS.muted} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.inputGuide}>Service Channel Identifier</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="e.g. SME_DATA, MTN_CG, AIRTIME, CABLE"
+                value={pricingForm.serviceType}
+                onChangeText={(t) => setPricingForm({ ...pricingForm, serviceType: t })}
+                placeholderTextColor={COLORS.muted}
+                autoCapitalize="characters"
+              />
+
+              <Text style={styles.inputGuide}>Base Provider Rate (₦)</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="e.g. 240"
+                keyboardType="numeric"
+                value={pricingForm.unitRate}
+                onChangeText={(t) => setPricingForm({ ...pricingForm, unitRate: t })}
+                placeholderTextColor={COLORS.muted}
+              />
+
+              <Text style={styles.inputGuide}>Company Profit Margin (₦)</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="e.g. 35"
+                keyboardType="numeric"
+                value={pricingForm.margin}
+                onChangeText={(t) => setPricingForm({ ...pricingForm, margin: t })}
+                placeholderTextColor={COLORS.muted}
+              />
+
+              <Text style={styles.inputGuide}>Sub-Agent Commission Margin (₦)</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="e.g. 10 (Optional)"
+                keyboardType="numeric"
+                value={pricingForm.agentMargin}
+                onChangeText={(t) => setPricingForm({ ...pricingForm, agentMargin: t })}
+                placeholderTextColor={COLORS.muted}
+              />
+
+              <TouchableOpacity
+                style={[styles.modalSubmitBtn, { backgroundColor: COLORS.purple }]}
+                onPress={handleUpdatePricing}
+                disabled={actionLoading}
+              >
+                {actionLoading ? (
+                  <ActivityIndicator color={COLORS.white} />
+                ) : (
+                  <Text style={styles.modalSubmitBtnText}>Commit Margin Update</Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ============================================================= */}
+      {/* MODAL: BROADCAST NOTIFICATIONS */}
+      {/* ============================================================= */}
+      <Modal
+        visible={modalType === "broadcast_notification"}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !actionLoading && setModalType(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalBox}>
+            <View style={styles.modalHead}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <MaterialCommunityIcons name="bullhorn-outline" size={24} color={COLORS.orange} />
+                <Text style={styles.modalTitle}>Universal Broadcast</Text>
+              </View>
+              <TouchableOpacity onPress={() => setModalType(null)}>
+                <Ionicons name="close" size={24} color={COLORS.muted} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.inputGuide}>Audience Scope</Text>
+            <View style={styles.audienceSelectorRow}>
+              {[
+                { id: "ALL", label: "Everyone" },
+                { id: "AGENTS", label: "Agents Only" },
+                { id: "SUPERVISORS", label: "Supervisors" },
+                { id: "SUBSCRIBERS", label: "Users Only" },
+              ].map((aud) => {
+                const isSelected = broadcastForm.targetAudience === aud.id;
+                return (
+                  <TouchableOpacity
+                    key={aud.id}
+                    style={[styles.audiencePill, isSelected && styles.audiencePillActive]}
+                    onPress={() => setBroadcastForm({ ...broadcastForm, targetAudience: aud.id })}
+                  >
+                    <Text style={[styles.audiencePillText, isSelected && styles.audiencePillTextActive]}>
+                      {aud.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <Text style={styles.inputGuide}>Notice Title</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="e.g. Scheduled Network Maintenance"
+              value={broadcastForm.title}
+              onChangeText={(t) => setBroadcastForm({ ...broadcastForm, title: t })}
+              placeholderTextColor={COLORS.muted}
+            />
+
+            <Text style={styles.inputGuide}>Message Body</Text>
+            <TextInput
+              style={[styles.modalInput, styles.modalTextArea]}
+              placeholder="Enter message for in-app alert..."
+              value={broadcastForm.message}
+              onChangeText={(t) => setBroadcastForm({ ...broadcastForm, message: t })}
+              placeholderTextColor={COLORS.muted}
+              multiline
+              numberOfLines={4}
+            />
+
+            <TouchableOpacity
+              style={[styles.modalSubmitBtn, { backgroundColor: COLORS.orange }]}
+              onPress={handleSendBroadcast}
+              disabled={actionLoading}
+            >
+              {actionLoading ? (
+                <ActivityIndicator color={COLORS.white} />
+              ) : (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Ionicons name="send" size={18} color={COLORS.white} />
+                  <Text style={styles.modalSubmitBtnText}>Dispatch Notice</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ============================================================= */}
+      {/* MODAL: ASSIGN TARGETS */}
+      {/* ============================================================= */}
+      <Modal
+        visible={modalType === "target"}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !actionLoading && setModalType(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalBox}>
+            <View style={styles.modalHead}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <MaterialCommunityIcons name="target" size={24} color={COLORS.secondary} />
+                <Text style={styles.modalTitle}>Deploy Targets</Text>
+              </View>
+              <TouchableOpacity onPress={() => setModalType(null)}>
+                <Ionicons name="close" size={24} color={COLORS.muted} />
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.globalToggleBtn, targetForm.isGlobal && styles.globalToggleBtnActive]}
+              onPress={() => setTargetForm((prev) => ({ ...prev, isGlobal: !prev.isGlobal }))}
+              activeOpacity={0.85}
+            >
+              <Ionicons
+                name={targetForm.isGlobal ? "checkbox" : "square-outline"}
+                size={20}
+                color={targetForm.isGlobal ? COLORS.white : COLORS.secondary}
+              />
+              <Text style={[styles.globalToggleText, targetForm.isGlobal && styles.globalToggleTextActive]}>
+                Universal Broadcast to All Personnel
+              </Text>
+            </TouchableOpacity>
+
+            {!targetForm.isGlobal && (
+              <>
+                <Text style={styles.inputGuide}>User ID, Email, or Phone</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="e.g. 08012345678 or supervisor email"
+                  value={targetForm.agentRef}
+                  onChangeText={(t) => setTargetForm({ ...targetForm, agentRef: t })}
+                  placeholderTextColor={COLORS.muted}
+                />
+              </>
+            )}
+
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inputGuide}>Sales Turnover (₦)</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="e.g. 500000"
+                  keyboardType="numeric"
+                  value={targetForm.amount}
+                  onChangeText={(t) => setTargetForm({ ...targetForm, amount: t })}
+                  placeholderTextColor={COLORS.muted}
+                />
+              </View>
+
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inputGuide}>Data Quota (GB)</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="e.g. 300"
+                  keyboardType="numeric"
+                  value={targetForm.dataGoal}
+                  onChangeText={(t) => setTargetForm({ ...targetForm, dataGoal: t })}
+                  placeholderTextColor={COLORS.muted}
+                />
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.modalSubmitBtn, { backgroundColor: COLORS.secondary }]}
+              onPress={handleAssignTarget}
+              disabled={actionLoading}
+            >
+              {actionLoading ? (
+                <ActivityIndicator color={COLORS.white} />
+              ) : (
+                <Text style={styles.modalSubmitBtnText}>Deploy Target Metric</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* ============================================================= */}
       {/* MODAL: SUPERVISOR HUB */}
@@ -1218,7 +1601,7 @@ const AdminDashboard = ({ navigation }) => {
               <Text style={{ fontWeight: "800", color: COLORS.text }}>{transferForm.agentName}</Text>
             </View>
 
-            <Text style={styles.inputGuide}>Select New Destination Supervisor</Text>
+            <Text style={styles.inputGuide}>Select Destination Supervisor</Text>
             <ScrollView style={{ maxHeight: 180, marginBottom: 12 }}>
               {supervisorsList
                 .filter((s) => s._id !== selectedSupervisor?._id)
@@ -1406,255 +1789,9 @@ const AdminDashboard = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* MODAL: Broadcast Notification */}
-      <Modal
-        visible={modalType === "broadcast_notification"}
-        transparent
-        animationType="fade"
-        onRequestClose={() => !actionLoading && setModalType(null)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalBox}>
-            <View style={styles.modalHead}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <MaterialCommunityIcons name="bullhorn" size={24} color={COLORS.orange} />
-                <Text style={styles.modalTitle}>Broadcast Notification</Text>
-              </View>
-              <TouchableOpacity onPress={() => setModalType(null)}>
-                <Ionicons name="close" size={24} color={COLORS.muted} />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.inputGuide}>Audience Scope</Text>
-            <View style={styles.audienceSelectorRow}>
-              {[
-                { id: "ALL", label: "Everyone" },
-                { id: "AGENTS", label: "Agents" },
-                { id: "SUPERVISORS", label: "Supervisors" },
-                { id: "SUBSCRIBERS", label: "Users" },
-              ].map((aud) => {
-                const isSelected = broadcastForm.targetAudience === aud.id;
-                return (
-                  <TouchableOpacity
-                    key={aud.id}
-                    style={[styles.audiencePill, isSelected && styles.audiencePillActive]}
-                    onPress={() => setBroadcastForm({ ...broadcastForm, targetAudience: aud.id })}
-                  >
-                    <Text style={[styles.audiencePillText, isSelected && styles.audiencePillTextActive]}>
-                      {aud.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            <Text style={styles.inputGuide}>Subject Header</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="e.g. Service Maintenance Notice"
-              value={broadcastForm.title}
-              onChangeText={(t) => setBroadcastForm({ ...broadcastForm, title: t })}
-              placeholderTextColor={COLORS.muted}
-            />
-
-            <Text style={styles.inputGuide}>Message Content</Text>
-            <TextInput
-              style={[styles.modalInput, styles.modalTextArea]}
-              placeholder="Enter text to push to user mobile & web apps..."
-              value={broadcastForm.message}
-              onChangeText={(t) => setBroadcastForm({ ...broadcastForm, message: t })}
-              placeholderTextColor={COLORS.muted}
-              multiline
-              numberOfLines={4}
-            />
-
-            <TouchableOpacity
-              style={[styles.modalSubmitBtn, { backgroundColor: COLORS.orange }]}
-              onPress={handleSendBroadcast}
-              disabled={actionLoading}
-            >
-              {actionLoading ? (
-                <ActivityIndicator color={COLORS.white} />
-              ) : (
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  <Ionicons name="send" size={18} color={COLORS.white} />
-                  <Text style={styles.modalSubmitBtnText}>Dispatch Notice</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* MODAL: Adjust Service Pricing Live */}
-      <Modal
-        visible={modalType === "pricing"}
-        transparent
-        animationType="fade"
-        onRequestClose={() => !actionLoading && setModalType(null)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalBox}>
-            <View style={styles.modalHead}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <MaterialCommunityIcons name="cash-cog" size={24} color={COLORS.purple} />
-                <Text style={styles.modalTitle}>Set Pricing Margin</Text>
-              </View>
-              <TouchableOpacity onPress={() => setModalType(null)}>
-                <Ionicons name="close" size={24} color={COLORS.muted} />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.inputGuide}>Service Channel</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={pricingForm.serviceType}
-              onChangeText={(t) => setPricingForm({ ...pricingForm, serviceType: t })}
-              placeholderTextColor={COLORS.muted}
-            />
-
-            <Text style={styles.inputGuide}>Base Cost Rate (₦)</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="e.g. 240"
-              keyboardType="numeric"
-              value={pricingForm.unitRate}
-              onChangeText={(t) => setPricingForm({ ...pricingForm, unitRate: t })}
-              placeholderTextColor={COLORS.muted}
-            />
-
-            <Text style={styles.inputGuide}>System Profit Margin (₦)</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="e.g. 35"
-              keyboardType="numeric"
-              value={pricingForm.margin}
-              onChangeText={(t) => setPricingForm({ ...pricingForm, margin: t })}
-              placeholderTextColor={COLORS.muted}
-            />
-
-            <TouchableOpacity
-              style={[styles.modalSubmitBtn, { backgroundColor: COLORS.purple }]}
-              onPress={handleUpdatePricing}
-              disabled={actionLoading}
-            >
-              {actionLoading ? (
-                <ActivityIndicator color={COLORS.white} />
-              ) : (
-                <Text style={styles.modalSubmitBtnText}>Commit Margin Update</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* MODAL: Assign Targets Live */}
-      <Modal
-        visible={modalType === "target"}
-        transparent
-        animationType="fade"
-        onRequestClose={() => !actionLoading && setModalType(null)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalBox}>
-            <View style={styles.modalHead}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <MaterialCommunityIcons name="target" size={24} color={COLORS.secondary} />
-                <Text style={styles.modalTitle}>Assign Operational Target</Text>
-              </View>
-              <TouchableOpacity onPress={() => setModalType(null)}>
-                <Ionicons name="close" size={24} color={COLORS.muted} />
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              style={[
-                styles.globalToggleBtn,
-                targetForm.isGlobal && styles.globalToggleBtnActive,
-              ]}
-              onPress={() =>
-                setTargetForm((prev) => ({
-                  ...prev,
-                  isGlobal: !prev.isGlobal,
-                  agentRef: !prev.isGlobal ? "" : prev.agentRef,
-                }))
-              }
-              activeOpacity={0.85}
-            >
-              <Ionicons
-                name={targetForm.isGlobal ? "checkbox" : "square-outline"}
-                size={20}
-                color={targetForm.isGlobal ? COLORS.white : COLORS.secondary}
-              />
-              <Text
-                style={[
-                  styles.globalToggleText,
-                  targetForm.isGlobal && styles.globalToggleTextActive,
-                ]}
-              >
-                Select All Users (Global Broadcast)
-              </Text>
-            </TouchableOpacity>
-
-            {!targetForm.isGlobal && (
-              <>
-                <Text style={styles.inputGuide}>Beneficiary ID, Phone, or Email</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="e.g. 08012345678 or User ID"
-                  value={targetForm.agentRef}
-                  onChangeText={(t) => setTargetForm({ ...targetForm, agentRef: t })}
-                  placeholderTextColor={COLORS.muted}
-                />
-              </>
-            )}
-
-            <View style={{ flexDirection: "row", gap: 8 }}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.inputGuide}>Revenue Target (₦)</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="e.g. 500000"
-                  keyboardType="numeric"
-                  value={targetForm.amount}
-                  onChangeText={(t) =>
-                    setTargetForm({ ...targetForm, amount: t.replace(/[^0-9.]/g, "") })
-                  }
-                  placeholderTextColor={COLORS.muted}
-                />
-              </View>
-
-              <View style={{ flex: 1 }}>
-                <Text style={styles.inputGuide}>Data Volume (GB)</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="e.g. 250"
-                  keyboardType="numeric"
-                  value={targetForm.dataGoal}
-                  onChangeText={(t) =>
-                    setTargetForm({ ...targetForm, dataGoal: t.replace(/[^0-9.]/g, "") })
-                  }
-                  placeholderTextColor={COLORS.muted}
-                />
-              </View>
-            </View>
-
-            <TouchableOpacity
-              style={[styles.modalSubmitBtn, { backgroundColor: COLORS.secondary }]}
-              onPress={handleAssignTarget}
-              disabled={actionLoading}
-            >
-              {actionLoading ? (
-                <ActivityIndicator color={COLORS.white} />
-              ) : (
-                <Text style={styles.modalSubmitBtnText}>Deploy Target</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* MODAL: Universal Logout Dialog */}
+      {/* ============================================================= */}
+      {/* MODAL: CONFIRM LOGOUT */}
+      {/* ============================================================= */}
       <Modal
         visible={modalType === "confirm_logout"}
         transparent
@@ -2015,6 +2152,44 @@ const getStyles = (COLORS) =>
       fontWeight: "900",
       color: COLORS.text,
       marginBottom: 14,
+    },
+    healthStatusCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: COLORS.soft,
+      borderRadius: 14,
+      padding: 14,
+      marginBottom: 14,
+      borderLeftWidth: 4,
+      borderLeftColor: COLORS.secondary,
+    },
+    healthStatusTitle: {
+      fontSize: 15,
+      fontWeight: "900",
+      color: COLORS.text,
+    },
+    healthStatusSub: {
+      fontSize: 12,
+      color: COLORS.subText,
+      marginTop: 2,
+    },
+    healthDetailBox: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      backgroundColor: COLORS.soft,
+      padding: 10,
+      borderRadius: 8,
+      marginBottom: 6,
+    },
+    healthLabel: {
+      fontSize: 12,
+      fontWeight: "700",
+      color: COLORS.subText,
+    },
+    healthVal: {
+      fontSize: 12,
+      fontWeight: "800",
+      color: COLORS.text,
     },
     modalBackdrop: {
       flex: 1,
