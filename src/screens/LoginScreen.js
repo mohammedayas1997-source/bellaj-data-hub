@@ -187,6 +187,8 @@ const LoginScreen = ({ navigation }) => {
 
     try {
       const endpoints = [
+        `${BASE_URL}/users/login`,
+        `${BASE_URL}/api/v1/users/login`,
         `${BASE_URL}/auth/login`,
         `${BASE_URL}/api/v1/auth/login`,
         `${BASE_URL}/login`,
