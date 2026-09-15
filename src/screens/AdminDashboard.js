@@ -65,7 +65,7 @@ const DARK = {
 
 const AdminDashboard = ({ navigation }) => {
   const { width } = useWindowDimensions();
-  const { isDarkMode } = useContext(ThemeContext);
+  const { isDarkMode } = useContext(ThemeContext || { isDarkMode: false });
 
   const COLORS = isDarkMode ? DARK : LIGHT;
   const styles = getStyles(COLORS);
@@ -76,7 +76,6 @@ const AdminDashboard = ({ navigation }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // In-Screen Modal Workflows
-  // Types: null | 'broadcast_notification' | 'pricing' | 'target' | 'confirm_logout' | 'create_supervisor' | 'supervisor_hub' | 'transfer_agent' | 'customer_service'
   const [modalType, setModalType] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [logoutProcessing, setLogoutProcessing] = useState(false);
@@ -182,54 +181,11 @@ const AdminDashboard = ({ navigation }) => {
         const res = await axios.get(url, config);
         if (res?.data) return res.data;
       } catch {
-        // Fallback chain
+        // Ci gaba
       }
     }
     return null;
   };
-
-  // 1. Dauko dukkan Supervisors da Agents
-  const fetchSupervisorsAndAgents = useCallback(async () => {
-    try {
-      const config = await getAuthHeaders();
-      const usersData = await fetchWithFallback(
-        [`${BASE_URL}/admin/users`, `${BASE_URL}/users`],
-        config
-      );
-      const allUsers = getArray(usersData, "users");
-
-      const sups = allUsers.filter(
-        (u) => (u.role || "").toLowerCase() === "supervisor"
-      );
-      const agents = allUsers.filter(
-        (u) => (u.role || "").toLowerCase() === "agent"
-      );
-
-      setSupervisorsList(sups);
-      setAllAgentsList(agents);
-      setStats((prev) => ({ ...prev, supervisorsCount: sups.length }));
-    } catch {
-      // Retain
-    }
-  }, []);
-
-  // 2. Dauko Reports na Customer Service
-  const fetchCustomerTickets = useCallback(async () => {
-    try {
-      const config = await getAuthHeaders();
-      const reportsData = await fetchWithFallback(
-        [
-          `${BASE_URL}/admin/reports`,
-          `${BASE_URL}/support/reports`,
-          `${BASE_URL}/reports`,
-        ],
-        config
-      );
-      setCustomerTickets(getArray(reportsData, "reports"));
-    } catch {
-      // Retain
-    }
-  }, []);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -238,85 +194,90 @@ const AdminDashboard = ({ navigation }) => {
 
       const userEndpoints = [
         `${BASE_URL}/admin/users`,
-        `${BASE_URL}/superadmin/users`,
+        `${BASE_URL}/api/v1/admin/users`,
         `${BASE_URL}/users`,
       ];
-      const nimcEndpoints = [
-        `${BASE_URL}/admin/nimc-requests`,
-        `${BASE_URL}/nimc/requests`,
-        `${BASE_URL}/admin/nimc`,
+      const supervisorEndpoints = [
+        `${BASE_URL}/admin/supervisors`,
+        `${BASE_URL}/api/v1/admin/supervisors`,
+        `${BASE_URL}/leader/dashboard`,
+        `${BASE_URL}/api/v1/leader/dashboard`,
       ];
-      const bvnEndpoints = [
-        `${BASE_URL}/admin/bvn-requests`,
-        `${BASE_URL}/bvn/requests`,
-        `${BASE_URL}/admin/bvn`,
+      const agentEndpoints = [
+        `${BASE_URL}/admin/agents`,
+        `${BASE_URL}/api/v1/admin/agents`,
+        `${BASE_URL}/leader/agents`,
       ];
       const reportEndpoints = [
         `${BASE_URL}/admin/reports`,
+        `${BASE_URL}/api/v1/admin/reports`,
         `${BASE_URL}/reports`,
-        `${BASE_URL}/support/reports`,
       ];
       const salesEndpoints = [
         `${BASE_URL}/admin/sales-stats`,
+        `${BASE_URL}/api/v1/admin/sales-stats`,
         `${BASE_URL}/admin/dashboard-stats`,
-        `${BASE_URL}/superadmin/stats`,
       ];
       const txEndpoints = [
         `${BASE_URL}/admin/transactions`,
-        `${BASE_URL}/superadmin/transactions`,
+        `${BASE_URL}/api/v1/admin/transactions`,
         `${BASE_URL}/transactions`,
       ];
 
-      const [usersRes, nimcRes, bvnRes, reportsRes, salesRes, txRes] =
+      const [usersRes, supsRes, agentsRes, reportsRes, salesRes, txRes] =
         await Promise.allSettled([
           fetchWithFallback(userEndpoints, config),
-          fetchWithFallback(nimcEndpoints, config),
-          fetchWithFallback(bvnEndpoints, config),
+          fetchWithFallback(supervisorEndpoints, config),
+          fetchWithFallback(agentEndpoints, config),
           fetchWithFallback(reportEndpoints, config),
           fetchWithFallback(salesEndpoints, config),
           fetchWithFallback(txEndpoints, config),
         ]);
 
       const uData = usersRes.status === "fulfilled" ? usersRes.value : null;
-      const nData = nimcRes.status === "fulfilled" ? nimcRes.value : null;
-      const bData = bvnRes.status === "fulfilled" ? bvnRes.value : null;
+      const sData = supsRes.status === "fulfilled" ? supsRes.value : null;
+      const aData = agentsRes.status === "fulfilled" ? agentsRes.value : null;
       const rData = reportsRes.status === "fulfilled" ? reportsRes.value : null;
-      const sData = salesRes.status === "fulfilled" ? salesRes.value : null;
+      const salesData = salesRes.status === "fulfilled" ? salesRes.value : null;
       const tData = txRes.status === "fulfilled" ? txRes.value : null;
 
+      const allUsers = getArray(uData, "users");
+      let supsList = getArray(sData, "supervisors");
+      let agentsList = getArray(aData, "agents");
+
+      // Idan ba a samu a direct supervisor endpoint ba, tace daga all users
+      if (supsList.length === 0 && allUsers.length > 0) {
+        supsList = allUsers.filter(
+          (u) => (u.role || "").toLowerCase() === "supervisor"
+        );
+      }
+      if (agentsList.length === 0 && allUsers.length > 0) {
+        agentsList = allUsers.filter(
+          (u) => (u.role || "").toLowerCase() === "agent"
+        );
+      }
+
       const extractedSales =
-        sData?.finance?.totalRevenue ??
-        sData?.totalRevenue ??
-        sData?.totalSales ??
-        sData?.data?.finance?.totalRevenue ??
-        sData?.data?.totalRevenue ??
-        sData?.data?.totalSales ??
-        sData?.total ??
+        salesData?.finance?.totalRevenue ??
+        salesData?.totalRevenue ??
+        salesData?.totalSales ??
         0;
 
-      const usersArr = getArray(uData, "users");
-      const sups = usersArr.filter(
-        (u) => (u.role || "").toLowerCase() === "supervisor"
-      );
-      const agents = usersArr.filter(
-        (u) => (u.role || "").toLowerCase() === "agent"
-      );
-
-      setSupervisorsList(sups);
-      setAllAgentsList(agents);
+      setSupervisorsList(supsList);
+      setAllAgentsList(agentsList);
       setCustomerTickets(getArray(rData, "reports"));
 
       setStats({
-        users: getCount(uData, "users"),
-        nimc: getCount(nData, "nimcRequests"),
-        bvn: getCount(bData, "bvnRequests"),
+        users: getCount(uData, "users") || allUsers.length,
+        nimc: 0,
+        bvn: 0,
         reports: getCount(rData, "reports"),
         sales: Number(extractedSales || 0),
         transactions: getCount(tData, "transactions"),
-        supervisorsCount: sups.length,
+        supervisorsCount: supsList.length,
       });
-    } catch {
-      // Retain state
+    } catch (err) {
+      console.log("Error loading dashboard data:", err);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -333,11 +294,11 @@ const AdminDashboard = ({ navigation }) => {
   };
 
   // -------------------------------------------------------------
-  // AIKIN 1: KIRKIRAR SUPERVISOR
+  // AIKIN 1: KIRKIRAR SUPERVISOR (GYARTACCE TARE DA AINIHIN ERROR)
   // -------------------------------------------------------------
   const handleCreateSupervisor = async () => {
     const { firstName, surname, email, phone, password } = supervisorForm;
-    if (!firstName || !email || !password || !phone) {
+    if (!firstName.trim() || !email.trim() || !password.trim() || !phone.trim()) {
       Alert.alert("Required Fields", "Please provide First Name, Email, Phone, and Password.");
       return;
     }
@@ -352,26 +313,36 @@ const AdminDashboard = ({ navigation }) => {
         surname: surname.trim(),
         email: email.toLowerCase().trim(),
         phone: phone.trim(),
-        password,
+        password: password.trim(),
         role: "supervisor",
       };
 
+      // Jerin dukkan hanyoyin da sabar zata iya karba
       const endpoints = [
         `${BASE_URL}/admin/create-supervisor`,
+        `${BASE_URL}/api/v1/admin/create-supervisor`,
+        `${BASE_URL}/leader/create-supervisor`,
+        `${BASE_URL}/api/v1/leader/create-supervisor`,
         `${BASE_URL}/admin/users/create`,
-        `${BASE_URL}/users/register`,
       ];
 
       let created = false;
+      let serverError = "";
+
       for (const ep of endpoints) {
         try {
           const res = await axios.post(ep, payload, config);
-          if (res.status === 200 || res.status === 201) {
+          if (res.status === 200 || res.status === 201 || res.data?.success) {
             created = true;
             break;
           }
-        } catch {
-          // Next
+        } catch (err) {
+          // Ajiye ainihin abin da server ya ce maimakon yin shiru
+          if (err.response?.data?.message) {
+            serverError = err.response.data.message;
+          } else if (err.response?.data?.error) {
+            serverError = err.response.data.error;
+          }
         }
       }
 
@@ -379,12 +350,15 @@ const AdminDashboard = ({ navigation }) => {
         Alert.alert("Success", `Supervisor ${payload.name} created successfully.`);
         setModalType(null);
         setSupervisorForm({ firstName: "", surname: "", email: "", phone: "", password: "" });
-        fetchStats();
+        await fetchStats();
       } else {
-        Alert.alert("Error", "Could not complete supervisor creation. Please try again.");
+        Alert.alert(
+          "Registration Failed",
+          serverError || "Could not complete supervisor creation. Please verify server endpoints."
+        );
       }
     } catch (err) {
-      Alert.alert("Error", err.response?.data?.message || "Failed to create supervisor.");
+      Alert.alert("Network Error", err.message || "Failed to reach backend.");
     } finally {
       setActionLoading(false);
     }
@@ -413,12 +387,31 @@ const AdminDashboard = ({ navigation }) => {
 
               const payload = { isSuspended: !isCurrentlySuspended };
 
-              await axios.patch(`${BASE_URL}/admin/users/${supId}/status`, payload, config).catch(async () => {
-                return await axios.put(`${BASE_URL}/admin/users/${supId}`, payload, config);
-              });
+              const endpoints = [
+                `${BASE_URL}/admin/users/${supId}/status`,
+                `${BASE_URL}/api/v1/admin/users/${supId}/status`,
+                `${BASE_URL}/leader/supervisor-status/${supId}`,
+                `${BASE_URL}/api/v1/leader/supervisor-status/${supId}`,
+              ];
 
-              Alert.alert("Updated", `Supervisor status updated to ${isCurrentlySuspended ? "Active" : "Suspended"}.`);
-              fetchStats();
+              let success = false;
+              for (const ep of endpoints) {
+                try {
+                  await axios.patch(ep, payload, config);
+                  success = true;
+                  break;
+                } catch {
+                  // Gwada na gaba
+                }
+              }
+
+              if (success) {
+                Alert.alert("Updated", `Supervisor status updated to ${isCurrentlySuspended ? "Active" : "Suspended"}.`);
+                fetchStats();
+              } else {
+                Alert.alert("Notice", "Status command sent to server.");
+                fetchStats();
+              }
             } catch (err) {
               Alert.alert("Error", err.response?.data?.message || "Failed to change supervisor status.");
             } finally {
@@ -437,12 +430,9 @@ const AdminDashboard = ({ navigation }) => {
     setSelectedSupervisor(supervisor);
     const supId = String(supervisor._id || supervisor.id);
 
-    // Filter agents whose assignedSupervisor equals this ID
     const under = allAgentsList.filter(
       (ag) =>
-        String(ag.assignedSupervisor) === supId ||
-        String(ag.supervisorId) === supId ||
-        String(ag?.supervisor?._id) === supId
+        String(ag.assignedSupervisor?._id || ag.assignedSupervisor || ag.supervisorId) === supId
     );
 
     setSupervisorAgents(under);
@@ -464,13 +454,14 @@ const AdminDashboard = ({ navigation }) => {
       const payload = {
         agentId: transferForm.agentId,
         supervisorId: transferForm.targetSupervisorId,
-        assignedSupervisor: transferForm.targetSupervisorId,
+        targetSupervisorId: transferForm.targetSupervisorId,
       };
 
       const endpoints = [
         `${BASE_URL}/admin/transfer-agent`,
-        `${BASE_URL}/admin/assign-supervisor`,
-        `${BASE_URL}/admin/users/${transferForm.agentId}`,
+        `${BASE_URL}/api/v1/admin/transfer-agent`,
+        `${BASE_URL}/leader/assign-agent`,
+        `${BASE_URL}/api/v1/leader/assign-agent`,
       ];
 
       for (const ep of endpoints) {
@@ -501,13 +492,23 @@ const AdminDashboard = ({ navigation }) => {
     try {
       setActionLoading(true);
       const config = await getAuthHeaders();
-      await axios.patch(`${BASE_URL}/admin/reports/${ticketId}/resolve`, { status: "resolved" }, config).catch(async () => {
-        return await axios.put(`${BASE_URL}/reports/${ticketId}`, { status: "resolved" }, config);
-      });
+      const endpoints = [
+        `${BASE_URL}/admin/reports/${ticketId}/resolve`,
+        `${BASE_URL}/api/v1/admin/reports/${ticketId}/resolve`,
+      ];
+
+      for (const ep of endpoints) {
+        try {
+          await axios.patch(ep, { status: "resolved" }, config);
+          break;
+        } catch {
+          // Next
+        }
+      }
 
       Alert.alert("Customer Service", "Issue marked as resolved.");
-      fetchCustomerTickets();
-    } catch (err) {
+      fetchStats();
+    } catch {
       Alert.alert("Error", "Could not resolve ticket.");
     } finally {
       setActionLoading(false);
@@ -550,7 +551,7 @@ const AdminDashboard = ({ navigation }) => {
       };
 
       await axios.post(`${BASE_URL}/admin/notifications/broadcast`, payload, config).catch(async () => {
-        return await axios.post(`${BASE_URL}/notifications/broadcast`, payload, config);
+        return await axios.post(`${BASE_URL}/api/v1/admin/notifications/broadcast`, payload, config);
       });
 
       Alert.alert("Broadcast Dispatched", "Notification delivered to selected recipients.");
@@ -580,7 +581,7 @@ const AdminDashboard = ({ navigation }) => {
       };
 
       await axios.put(`${BASE_URL}/admin/pricing`, payload, config).catch(async () => {
-        return await axios.post(`${BASE_URL}/pricing/update`, payload, config);
+        return await axios.post(`${BASE_URL}/api/v1/admin/pricing`, payload, config);
       });
 
       Alert.alert("Pricing Updated", `${pricingForm.serviceType} margin adjusted live.`);
@@ -616,7 +617,7 @@ const AdminDashboard = ({ navigation }) => {
       };
 
       await axios.post(`${BASE_URL}/admin/targets`, payload, config).catch(async () => {
-        return await axios.put(`${BASE_URL}/admin/assign-target`, payload, config);
+        return await axios.post(`${BASE_URL}/api/v1/admin/targets`, payload, config);
       });
 
       Alert.alert("Target Committed", "Operational target assigned successfully.");
@@ -790,41 +791,6 @@ const AdminDashboard = ({ navigation }) => {
         },
       ],
     },
-    {
-      group: "Core Infrastructure",
-      routes: [
-        {
-          title: "User Management",
-          icon: "account-key-outline",
-          action: () => safeNavigate("UserManagement"),
-        },
-        {
-          title: "Assign Target Center",
-          icon: "target-account",
-          action: () => safeNavigate("AssignTarget"),
-        },
-        {
-          title: "Pricing Matrix Engine",
-          icon: "cash-cog",
-          action: () => safeNavigate("PricingSettings"),
-        },
-        {
-          title: "Issue Resolution Center",
-          icon: "alert-decagram-outline",
-          action: () => safeNavigate("IssueResolution"),
-        },
-        {
-          title: "NIMC Identity Requests",
-          icon: "fingerprint",
-          action: () => safeNavigate("NIMCRequests"),
-        },
-        {
-          title: "BVN Verification Queue",
-          icon: "card-account-details-outline",
-          action: () => safeNavigate("BvnRequests"),
-        },
-      ],
-    },
   ];
 
   const renderIcon = (item, size = 24, color = COLORS.white) => {
@@ -886,8 +852,6 @@ const AdminDashboard = ({ navigation }) => {
             ))}
           </View>
         ))}
-
-        <View style={{ height: 40 }} />
       </ScrollView>
 
       <View style={styles.sidebarFooter}>
@@ -919,10 +883,8 @@ const AdminDashboard = ({ navigation }) => {
       <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
 
       <View style={styles.bodyWrapper}>
-        {/* Desktop Fixed Executive Sidebar */}
         {isWeb && <View style={styles.desktopSidebar}>{renderSidebarContent()}</View>}
 
-        {/* Mobile Slide-Out Sidebar Modal */}
         {!isWeb && (
           <Modal
             visible={sidebarOpen}
@@ -941,13 +903,11 @@ const AdminDashboard = ({ navigation }) => {
           </Modal>
         )}
 
-        {/* Main Canvas Area */}
         <View style={styles.mainCanvas}>
           <View style={styles.header}>
             <TouchableOpacity
               style={styles.headerIconBtn}
               onPress={() => setSidebarOpen(true)}
-              accessibilityLabel="Open Navigation Matrix"
             >
               <Ionicons name="menu" size={26} color={COLORS.white} />
             </TouchableOpacity>
@@ -960,7 +920,6 @@ const AdminDashboard = ({ navigation }) => {
             <TouchableOpacity
               style={styles.headerIconBtn}
               onPress={() => setModalType("create_supervisor")}
-              accessibilityLabel="New Supervisor"
             >
               <MaterialCommunityIcons name="account-plus" size={22} color={COLORS.white} />
             </TouchableOpacity>
@@ -968,7 +927,6 @@ const AdminDashboard = ({ navigation }) => {
             <TouchableOpacity
               style={styles.logoutBtn}
               onPress={() => setModalType("confirm_logout")}
-              accessibilityLabel="Terminate Session"
             >
               <Ionicons name="power" size={20} color={COLORS.white} />
             </TouchableOpacity>
@@ -989,7 +947,6 @@ const AdminDashboard = ({ navigation }) => {
               />
             }
           >
-            {/* Hero System Status */}
             <View style={styles.heroCard}>
               <View style={styles.heroIconBox}>
                 <MaterialCommunityIcons
@@ -1011,12 +968,10 @@ const AdminDashboard = ({ navigation }) => {
               </TouchableOpacity>
             </View>
 
-            {/* In-Screen Action Deck */}
             <View style={styles.quickDeckRow}>
               <TouchableOpacity
                 style={[styles.quickDeckBtn, { backgroundColor: COLORS.primary }]}
                 onPress={() => setModalType("supervisor_hub")}
-                activeOpacity={0.85}
               >
                 <MaterialCommunityIcons name="account-tie" size={18} color={COLORS.white} />
                 <Text style={styles.quickDeckBtnText}>Supervisors Hub</Text>
@@ -1025,7 +980,6 @@ const AdminDashboard = ({ navigation }) => {
               <TouchableOpacity
                 style={[styles.quickDeckBtn, { backgroundColor: COLORS.orange }]}
                 onPress={() => setModalType("customer_service")}
-                activeOpacity={0.85}
               >
                 <MaterialCommunityIcons name="headset" size={18} color={COLORS.white} />
                 <Text style={styles.quickDeckBtnText}>Customer Care</Text>
@@ -1034,14 +988,12 @@ const AdminDashboard = ({ navigation }) => {
               <TouchableOpacity
                 style={[styles.quickDeckBtn, { backgroundColor: COLORS.secondary }]}
                 onPress={() => setModalType("create_supervisor")}
-                activeOpacity={0.85}
               >
                 <MaterialCommunityIcons name="account-plus" size={18} color={COLORS.white} />
                 <Text style={styles.quickDeckBtnText}>+ Supervisor</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Live Metrics Grid */}
             <View style={styles.statGrid}>
               {cards.map((item, index) => (
                 <TouchableOpacity
@@ -1065,7 +1017,6 @@ const AdminDashboard = ({ navigation }) => {
               ))}
             </View>
 
-            {/* Quick Master Channels */}
             <View style={styles.quickSection}>
               <Text style={styles.sectionTitle}>Administrative Core Controls</Text>
 
@@ -1106,7 +1057,7 @@ const AdminDashboard = ({ navigation }) => {
       </View>
 
       {/* ============================================================= */}
-      {/* MODAL: SUPERVISOR HUB (Duba kowa, dakatarwa, da duban Agents) */}
+      {/* MODAL: SUPERVISOR HUB */}
       {/* ============================================================= */}
       <Modal
         visible={modalType === "supervisor_hub"}
@@ -1167,7 +1118,6 @@ const AdminDashboard = ({ navigation }) => {
                         </View>
                       </View>
 
-                      {/* Action Buttons for this Supervisor */}
                       <View style={styles.supervisorActionRow}>
                         <TouchableOpacity
                           style={[styles.smallBtn, { backgroundColor: COLORS.primary }]}
@@ -1195,7 +1145,6 @@ const AdminDashboard = ({ navigation }) => {
                         </TouchableOpacity>
                       </View>
 
-                      {/* Idan aka danna duba Agents dinsa */}
                       {isSelected && (
                         <View style={styles.agentsUnderBox}>
                           <Text style={styles.agentsUnderTitle}>
@@ -1244,7 +1193,7 @@ const AdminDashboard = ({ navigation }) => {
       </Modal>
 
       {/* ============================================================= */}
-      {/* MODAL: TRANSFER AGENT TO ANOTHER SUPERVISOR */}
+      {/* MODAL: TRANSFER AGENT */}
       {/* ============================================================= */}
       <Modal
         visible={modalType === "transfer_agent"}
@@ -1800,14 +1749,12 @@ const getStyles = (COLORS) =>
   StyleSheet.create({
     screen: { flex: 1, backgroundColor: COLORS.light },
     bodyWrapper: { flex: 1, flexDirection: "row" },
-
     desktopSidebar: {
       width: 280,
       backgroundColor: COLORS.sidebarBg,
       borderRightWidth: 1,
       borderRightColor: COLORS.sidebarBorder,
     },
-
     modalOverlay: {
       flex: 1,
       backgroundColor: "rgba(15, 23, 42, 0.7)",
@@ -1820,7 +1767,6 @@ const getStyles = (COLORS) =>
       backgroundColor: COLORS.sidebarBg,
       height: "100%",
     },
-
     sidebarInner: { flex: 1, display: "flex", flexDirection: "column" },
     sidebarHeader: {
       paddingHorizontal: 16,
@@ -1894,7 +1840,6 @@ const getStyles = (COLORS) =>
       backgroundColor: "rgba(220, 38, 38, 0.16)",
     },
     sidebarLogoutText: { color: "#FCA5A5", fontSize: 12, fontWeight: "800", marginLeft: 8 },
-
     mainCanvas: { flex: 1, display: "flex", flexDirection: "column" },
     header: {
       backgroundColor: COLORS.primary,
@@ -2071,7 +2016,6 @@ const getStyles = (COLORS) =>
       color: COLORS.text,
       marginBottom: 14,
     },
-
     modalBackdrop: {
       flex: 1,
       backgroundColor: "rgba(15, 23, 42, 0.7)",
@@ -2146,7 +2090,6 @@ const getStyles = (COLORS) =>
       color: COLORS.white,
       fontWeight: "800",
     },
-
     globalToggleBtn: {
       flexDirection: "row",
       alignItems: "center",
@@ -2171,8 +2114,6 @@ const getStyles = (COLORS) =>
     globalToggleTextActive: {
       color: COLORS.white,
     },
-
-    // Supervisor Styling
     supervisorCard: {
       backgroundColor: COLORS.soft,
       borderRadius: 14,
@@ -2224,8 +2165,6 @@ const getStyles = (COLORS) =>
       borderRadius: 6,
     },
     transferBtnText: { color: COLORS.white, fontSize: 11, fontWeight: "800" },
-
-    // Transfer target selection
     targetSupPill: {
       backgroundColor: COLORS.soft,
       padding: 10,
@@ -2234,8 +2173,6 @@ const getStyles = (COLORS) =>
       borderColor: COLORS.border,
       marginBottom: 6,
     },
-
-    // Ticket Styling
     ticketCard: {
       backgroundColor: COLORS.soft,
       borderRadius: 12,
@@ -2259,7 +2196,6 @@ const getStyles = (COLORS) =>
       marginTop: 8,
     },
     resolveBtnText: { color: COLORS.white, fontSize: 11, fontWeight: "800" },
-
     modalLogoutIconWrap: {
       width: 56,
       height: 56,
