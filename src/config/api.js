@@ -1,4 +1,4 @@
-// Misali idan a Vercel/Render backend din yake:
-const BASE_URL = "https://bellaj-data-server1-r08bnzaww-abdulrahman-mohammeds-projects.vercel.app/api/v1";
+const BASE_URL =
+  process.env.API_BASE_URL || "https://bellaj-data-server.onrender.com/api/v1";
 
 export default BASE_URL;
