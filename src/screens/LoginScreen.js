@@ -186,12 +186,12 @@ const LoginScreen = ({ navigation }) => {
     setLoading(true);
 
     try {
+      // Tabbatar an fara gwada ingantattun hanyoyin auth na backend
       const endpoints = [
-        `${BASE_URL}/users/login`,
-        `${BASE_URL}/api/v1/users/login`,
-        `${BASE_URL}/auth/login`,
         `${BASE_URL}/api/v1/auth/login`,
-        `${BASE_URL}/login`,
+        `${BASE_URL}/auth/login`,
+        `${BASE_URL}/api/v1/users/login`,
+        `${BASE_URL}/users/login`,
       ];
 
       let response = null;
@@ -202,19 +202,30 @@ const LoginScreen = ({ navigation }) => {
           const res = await axios.post(
             url,
             { email: cleanEmail, password },
-            { timeout: 25000 }
+            { 
+              headers: { "Content-Type": "application/json" },
+              timeout: 15000 
+            }
           );
-          if (res?.data) {
+          if (res?.data?.token || res?.data?.success) {
             response = res;
             break;
           }
         } catch (err) {
           lastErr = err;
+          // Idan kuskuren 401 ne (Wrong Password/Email), tsaya nan take kada ka sake bata lokaci a wasu hanyoyin
+          if (err?.response?.status === 401 || err?.response?.status === 400 || err?.response?.status === 403) {
+            throw err;
+          }
         }
       }
 
       if (!response && lastErr) {
         throw lastErr;
+      }
+
+      if (!response) {
+        throw new Error("Unable to establish connection with authentication server.");
       }
 
       const token = getToken(response.data);
@@ -252,7 +263,6 @@ const LoginScreen = ({ navigation }) => {
       await AsyncStorage.setItem("userData", JSON.stringify(finalUserData));
       await AsyncStorage.setItem("userRole", verifiedRole);
 
-      // Tambayi mai amfani idan yana son fingerprint
       if (isBiometricSupported) {
         const biometricSetting = await AsyncStorage.getItem("useBiometricLogin");
         if (biometricSetting !== "true") {
@@ -280,16 +290,21 @@ const LoginScreen = ({ navigation }) => {
 
       redirectUser(verifiedRole);
     } catch (error) {
+      console.error("Login process caught error:", error);
       const status = error?.response?.status;
       const serverMessage =
         error?.response?.data?.message || error?.response?.data?.error;
 
       if (status === 401) {
-        setErrorMessage("Invalid credentials. Please verify email and password.");
+        setErrorMessage(serverMessage || "Invalid email address or password.");
+      } else if (status === 403) {
+        setErrorMessage(serverMessage || "Account access restricted. Contact support.");
       } else if (status === 404) {
-        setErrorMessage("Login service unavailable. Verify server endpoints.");
+        setErrorMessage("Authentication endpoint not found on server (404).");
       } else {
-        setErrorMessage(serverMessage || "Login failed. Please verify credentials.");
+        setErrorMessage(
+          serverMessage || error.message || "Login failed. Please verify credentials."
+        );
       }
     } finally {
       setLoading(false);
