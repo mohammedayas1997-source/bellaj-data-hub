@@ -1,1596 +1,2184 @@
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  FlatList,
+  ScrollView,
   TouchableOpacity,
   ActivityIndicator,
   Alert,
   Linking,
-  RefreshControl,
   Platform,
+  Dimensions,
+  Animated,
   TextInput,
-  StatusBar,
   Modal,
-  ScrollView,
-  useWindowDimensions,
+  RefreshControl,
+  StatusBar,
+  Clipboard,
 } from "react-native";
-import { MaterialIcons, FontAwesome5, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import axios from "axios";
+import {
+  MaterialIcons,
+  FontAwesome5,
+  Ionicons,
+  Feather,
+  MaterialCommunityIcons,
+} from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { CommonActions } from "@react-navigation/native";
+import axios from "axios";
+import { useFocusEffect, CommonActions } from "@react-navigation/native";
 import BASE_URL from "../config/api";
 
-const COLORS = {
-  primary: "#0B5E3C",
-  secondary: "#16A34A",
-  dark: "#0F172A",
-  white: "#FFFFFF",
-  light: "#F8FAFC",
-  muted: "#64748B",
-  border: "#E2E8F0",
-  softRed: "#FEF2F2",
-  softGreen: "#DCFCE7",
-  danger: "#DC2626",
-  accent: "#2563EB",
-  purple: "#7C3AED",
-  orange: "#EA580C",
-  sidebarBg: "#062819",
-  sidebarBorder: "#0c3b26",
-  sidebarActive: "rgba(22, 163, 74, 0.22)",
-};
+const { width } = Dimensions.get("window");
+const isLargeScreen = width >= 1024;
 
-const LeaderDashboard = ({ navigation, route }) => {
-  const { width } = useWindowDimensions();
-  const isWeb = width >= 992;
-
-  const [supervisors, setSupervisors] = useState([]);
-  const [search, setSearch] = useState("");
-  const [stats, setStats] = useState({
-    totalSupervisors: 0,
-    totalAgents: 0,
-    overallDataSold: 0,
-    totalRevenue: 0,
+const SupervisorDashboard = ({ navigation }) => {
+  const [supervisorProfile, setSupervisorProfile] = useState({
+    name: "Field Supervisor",
+    phone: "",
+    email: "",
+    state: "Gombe",
+    lga: "Gombe",
+    referralCode: "BLJ-FS",
   });
+
+  const [agents, setAgents] = useState([]);
+  const [activityLogs, setActivityLogs] = useState([]);
+  const [targetHistoryList, setTargetHistoryList] = useState([]);
+
+  // Supervisor's Target (Daga State Manager / Admin)
+  const [myTarget, setMyTarget] = useState({
+    dataGoal: 0,
+    airtimeGoal: 0,
+    agentGoal: 10,
+    currentMonth: "September 2026",
+    dataSold: 0,
+    airtimeSold: 0,
+  });
+
+  const [stats, setStats] = useState({
+    totalAgents: 0,
+    activeAgentsCount: 0,
+    overallDataSold: 0,
+    overallAirtimeSold: 0,
+    totalTeamFloat: 0,
+  });
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Sidebar State
+  // Search & Navigation Tabs
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState("agents"); // 'agents' | 'performance' | 'history_targets' | 'logs'
+
+  // Sidebar Drawer Animation
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const sidebarWidth = isLargeScreen ? 340 : Math.min(width * 0.88, 360);
+  const sidebarAnim = useRef(new Animated.Value(-sidebarWidth)).current;
 
-  // Modal Controllers
-  // Types: null | 'quick_target' | 'broadcast' | 'confirm_logout'
-  const [modalType, setModalType] = useState(null);
+  // Modals
+  const [inspectModalVisible, setInspectModalVisible] = useState(false);
+  const [selectedAgent, setSelectedAgent] = useState(null);
+  const [notifModalVisible, setNotifModalVisible] = useState(false);
+  const [notifTitle, setNotifTitle] = useState("");
+  const [notifMessage, setNotifMessage] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
-  const [logoutProcessing, setLogoutProcessing] = useState(false);
 
-  // Target Form
-  const [targetForm, setTargetForm] = useState({
-    supervisorId: "",
-    supervisorName: "",
-    dataGoal: "",
-    agentGoal: "",
-    salesGoal: "",
-    month: "September 2026",
-    isGlobal: false,
-  });
+  const toggleSidebar = (open) => {
+    if (open) {
+      setSidebarOpen(true);
+      Animated.spring(sidebarAnim, {
+        toValue: 0,
+        useNativeDriver: false,
+        friction: 8,
+      }).start();
+    } else {
+      Animated.timing(sidebarAnim, {
+        toValue: -sidebarWidth,
+        duration: 220,
+        useNativeDriver: false,
+      }).start(() => setSidebarOpen(false));
+    }
+  };
 
-  // Broadcast Form
-  const [broadcastForm, setBroadcastForm] = useState({
-    title: "",
-    message: "",
-    targetAudience: "SUPERVISORS",
-  });
+  const showAlert = (title, message) => {
+    if (Platform.OS === "web") {
+      alert(`${title}\n\n${message}`);
+    } else {
+      Alert.alert(title, message);
+    }
+  };
 
-  const getAuthHeaders = async () => {
-    const token =
-      (await AsyncStorage.getItem("userToken")) ||
-      (await AsyncStorage.getItem("adminToken")) ||
-      (await AsyncStorage.getItem("token"));
+  const handleCopyReferral = () => {
+    const code = supervisorProfile.referralCode || supervisorProfile.phone;
+    if (Clipboard && Clipboard.setString) {
+      Clipboard.setString(code);
+    }
+    showAlert("Copied 📋", `Referral Code: ${code} copied to clipboard.`);
+  };
 
-    return {
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      timeout: 30000,
+  const handleNavigateToSignup = () => {
+    const registrationParams = {
+      role: "agent",
+      referralCode: supervisorProfile.referralCode,
+      referredBy: supervisorProfile.referralCode,
+      supervisorId: supervisorProfile.referralCode,
+      state: supervisorProfile.state,
+      lga: supervisorProfile.lga,
+      assignedSupervisor: supervisorProfile.phone,
     };
-  };
 
-  const getArray = (payload, key) => {
-    if (Array.isArray(payload)) return payload;
-    if (Array.isArray(payload?.data)) return payload.data;
-    if (Array.isArray(payload?.[key])) return payload[key];
-    if (Array.isArray(payload?.data?.[key])) return payload.data[key];
-    if (Array.isArray(payload?.supervisors)) return payload.supervisors;
-    if (Array.isArray(payload?.data?.supervisors)) return payload.data.supervisors;
-    return [];
-  };
-
-  const normalizeSupervisor = (item, index) => ({
-    id: item?._id || item?.id || `sup_${index}`,
-    name:
-      item?.name ||
-      item?.fullName ||
-      `${item?.firstName || ""} ${item?.surname || ""}`.trim() ||
-      "Supervisor",
-    email: item?.email || "",
-    phone: item?.phone || "",
-    address: item?.address || "",
-    teamSize: item?.teamSize || item?.totalAgents || item?.agents?.length || 0,
-    teamPerformance:
-      item?.teamPerformance || item?.totalGB || item?.monthlyGB || 0,
-    revenue: item?.revenue || item?.totalSalesValue || 0,
-    isSuspended:
-      item?.isSuspended ||
-      item?.status?.toLowerCase?.() === "suspended" ||
-      false,
-  });
-
-  const fetchWithFallback = async (endpoints, config) => {
-    for (const url of endpoints) {
+    if (navigation && typeof navigation.navigate === "function") {
       try {
-        const res = await axios.get(url, config);
-        if (res?.data) return res.data;
-      } catch {
-        // Fallback chain
+        navigation.navigate("Signup", registrationParams);
+      } catch (e1) {
+        try {
+          navigation.navigate("Register", registrationParams);
+        } catch (e2) {
+          navigation.navigate("SignupScreen", registrationParams);
+        }
       }
+    } else {
+      showAlert(
+        "Agent Registration Link",
+        `Share this code with your Agent: ${supervisorProfile.referralCode}`
+      );
     }
-    return null;
   };
 
-  const fetchDashboardData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const config = await getAuthHeaders();
+  const fetchDashboardData = useCallback(
+    async (isBackground = false) => {
+      try {
+        const token =
+          (await AsyncStorage.getItem("userToken")) ||
+          (await AsyncStorage.getItem("token"));
+        const storedUserData = await AsyncStorage.getItem("userData");
 
-      const dashboardEndpoints = [
-        `${BASE_URL}/leader/dashboard`,
-        `${BASE_URL}/admin/leader-dashboard`,
-        `${BASE_URL}/superadmin/stats`,
-      ];
-      const supervisorEndpoints = [
-        `${BASE_URL}/admin/supervisors`,
-        `${BASE_URL}/supervisors`,
-        `${BASE_URL}/superadmin/users?role=supervisor`,
-      ];
+        if (!token) {
+          if (!isBackground) {
+            navigation?.dispatch(
+              CommonActions.reset({ index: 0, routes: [{ name: "Login" }] })
+            );
+          }
+          return;
+        }
 
-      const [dashRes, supRes] = await Promise.allSettled([
-        fetchWithFallback(dashboardEndpoints, config),
-        fetchWithFallback(supervisorEndpoints, config),
-      ]);
+        let parsedUser = {};
+        if (storedUserData) {
+          try {
+            parsedUser = JSON.parse(storedUserData);
+          } catch (e) {}
+        }
 
-      const dashData = dashRes.status === "fulfilled" ? dashRes.value : null;
-      const supData = supRes.status === "fulfilled" ? supRes.value : null;
+        const headers = { Authorization: `Bearer ${token}` };
 
-      const listFromDash = getArray(dashData, "supervisors");
-      const listFromApi = getArray(supData, "supervisors");
-      const combinedList = listFromDash.length > 0 ? listFromDash : listFromApi;
+        const endpoints = {
+          dash: [
+            `${BASE_URL}/supervisor/dashboard`,
+            `${BASE_URL}/api/v1/supervisor/dashboard`,
+            `${BASE_URL}/leader/dashboard`,
+          ],
+          targets: [
+            `${BASE_URL}/supervisor/my-target`,
+            `${BASE_URL}/api/v1/supervisor/my-target`,
+            `${BASE_URL}/admin/targets`,
+          ],
+          agents: [
+            `${BASE_URL}/supervisor/agents`,
+            `${BASE_URL}/api/v1/supervisor/agents`,
+            `${BASE_URL}/leader/agents`,
+          ],
+          logs: [
+            `${BASE_URL}/supervisor/activity-logs`,
+            `${BASE_URL}/api/v1/supervisor/activity-logs`,
+            `${BASE_URL}/admin/activities`,
+          ],
+          history: [
+            `${BASE_URL}/supervisor/target-history`,
+            `${BASE_URL}/api/v1/supervisor/target-history`,
+          ],
+        };
 
-      const normalized = combinedList.map(normalizeSupervisor);
-      setSupervisors(normalized);
+        const fetchFirstWorking = async (urls) => {
+          for (const u of urls) {
+            try {
+              const res = await axios.get(u, { headers, timeout: 15000 });
+              if (res?.data) return res.data;
+            } catch (err) {}
+          }
+          return {};
+        };
 
-      const networkStats =
-        dashData?.networkStats ||
-        dashData?.data?.networkStats ||
-        dashData?.data ||
-        dashData ||
-        {};
+        const [dashDataRaw, targetDataRaw, agentsDataRaw, logsDataRaw, histDataRaw] =
+          await Promise.all([
+            fetchFirstWorking(endpoints.dash),
+            fetchFirstWorking(endpoints.targets),
+            fetchFirstWorking(endpoints.agents),
+            fetchFirstWorking(endpoints.logs),
+            fetchFirstWorking(endpoints.history),
+          ]);
 
-      setStats({
-        totalSupervisors:
-          networkStats?.totalSupervisors ?? normalized.length,
-        totalAgents:
-          networkStats?.totalAgents ??
-          normalized.reduce((sum, item) => sum + Number(item.teamSize || 0), 0),
-        overallDataSold:
-          networkStats?.overallDataSold ??
-          networkStats?.totalGB ??
-          normalized.reduce((sum, item) => sum + Number(item.teamPerformance || 0), 0),
-        totalRevenue:
-          networkStats?.totalRevenue ??
-          networkStats?.revenue ??
-          normalized.reduce((sum, item) => sum + Number(item.revenue || 0), 0),
-      });
-    } catch {
-      // Retain state
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
+        const dashData = dashDataRaw.data || dashDataRaw || {};
+
+        const listA = Array.isArray(dashData.agents) ? dashData.agents : [];
+        const listB = Array.isArray(agentsDataRaw.agents) ? agentsDataRaw.agents : [];
+        const listC = Array.isArray(agentsDataRaw.data) ? agentsDataRaw.data : [];
+        const listD = Array.isArray(agentsDataRaw) ? agentsDataRaw : [];
+
+        let combinedAgents = [...listA, ...listB, ...listC, ...listD];
+        const uniqueAgentsMap = new Map();
+        combinedAgents.forEach((ag) => {
+          const id = ag._id || ag.id;
+          if (id && !uniqueAgentsMap.has(String(id))) {
+            uniqueAgentsMap.set(String(id), ag);
+          }
+        });
+        const fetchedAgents = Array.from(uniqueAgentsMap.values());
+
+        const fetchedLogs =
+          dashData.activityLogs ||
+          logsDataRaw.logs ||
+          logsDataRaw.data?.logs ||
+          logsDataRaw.data ||
+          (Array.isArray(logsDataRaw) ? logsDataRaw : []) ||
+          [];
+
+        const fetchedHist =
+          dashData.targetHistory ||
+          histDataRaw.history ||
+          histDataRaw.data ||
+          (Array.isArray(histDataRaw) ? histDataRaw : []) ||
+          [];
+
+        const t1 = dashData.myTarget || {};
+        const t2 = dashData.targets || {};
+        const t3 =
+          targetDataRaw.targets ||
+          targetDataRaw.data?.targets ||
+          targetDataRaw.data ||
+          {};
+        const t4 = parsedUser.targets || {};
+
+        const finalDataGoal = Number(
+          t1.dataGoal || t2.dataGoal || t3.dataGoal || t4.dataGoal || dashData.dataGoal || 0
+        );
+        const finalAirtimeGoal = Number(
+          t1.airtimeGoal || t2.airtimeGoal || t3.airtimeGoal || t4.airtimeGoal || dashData.airtimeGoal || 0
+        );
+        const finalAgentGoal = Number(
+          t1.agentGoal || t2.agentGoal || t3.agentGoal || t4.agentGoal || dashData.agentGoal || 10
+        );
+        const finalMonth =
+          t1.currentMonth ||
+          t2.currentMonth ||
+          t3.currentMonth ||
+          t4.currentMonth ||
+          "September 2026";
+
+        const currentPhone = String(dashData.phone || parsedUser.phone || "").trim();
+        const currentName =
+          dashData.name ||
+          parsedUser.name ||
+          `${dashData.firstName || parsedUser.firstName || "Field"} ${
+            dashData.surname || parsedUser.surname || "Supervisor"
+          }`.trim();
+        const currentEmail =
+          dashData.email ||
+          parsedUser.email ||
+          (currentPhone ? `${currentPhone}@bellajdatahub.online` : "supervisor@bellajdatahub.online");
+        const currentLga = dashData.lga || parsedUser.lga || "Gombe";
+        const currentState = dashData.state || parsedUser.state || "Gombe";
+
+        const cleanRefCode =
+          dashData.referralCode ||
+          parsedUser.referralCode ||
+          dashData.referralId ||
+          `BLJ-${String(currentLga).toUpperCase()}-${String(currentPhone).slice(-4)}`;
+
+        setSupervisorProfile({
+          name: currentName,
+          phone: currentPhone,
+          email: currentEmail,
+          state: currentState,
+          lga: currentLga,
+          referralCode: cleanRefCode,
+        });
+
+        setAgents(fetchedAgents);
+        setActivityLogs(fetchedLogs);
+        setTargetHistoryList(fetchedHist);
+
+        const totalFloat = fetchedAgents.reduce(
+          (acc, curr) => acc + Number(curr.walletBalance || curr.balance || 0),
+          0
+        );
+
+        const totalDataSold = fetchedAgents.reduce(
+          (acc, curr) => acc + Number(curr.dataVolumeSold || curr.dataSold || 0),
+          0
+        );
+
+        const totalAirtimeSold = fetchedAgents.reduce(
+          (acc, curr) => acc + Number(curr.airtimeSold || curr.totalAirtime || 0),
+          0
+        );
+
+        setMyTarget({
+          dataGoal: finalDataGoal,
+          airtimeGoal: finalAirtimeGoal,
+          agentGoal: finalAgentGoal,
+          currentMonth: finalMonth,
+          dataSold: totalDataSold,
+          airtimeSold: totalAirtimeSold,
+        });
+
+        setStats({
+          totalAgents: fetchedAgents.length,
+          activeAgentsCount: fetchedAgents.filter(
+            (a) => (a.walletBalance || a.balance || 0) > 0 || (a.dataSold || 0) > 0
+          ).length,
+          overallDataSold: totalDataSold,
+          overallAirtimeSold: totalAirtimeSold,
+          totalTeamFloat: totalFloat,
+        });
+      } catch (error) {
+        if (error.response?.status === 401 && !isBackground) {
+          await AsyncStorage.clear();
+          navigation?.dispatch(
+            CommonActions.reset({ index: 0, routes: [{ name: "Login" }] })
+          );
+        } else if (!isBackground) {
+          console.error("Supervisor Dashboard Sync Error:", error.message);
+        }
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [navigation]
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchDashboardData(true);
+    }, [fetchDashboardData])
+  );
 
   useEffect(() => {
     fetchDashboardData();
+    const interval = setInterval(() => {
+      fetchDashboardData(true);
+    }, 15000);
+    return () => clearInterval(interval);
   }, [fetchDashboardData]);
 
-  const onRefresh = () => {
+  const onManualRefresh = () => {
     setRefreshing(true);
     fetchDashboardData();
   };
 
-  // Safe Navigation - Keeps leadership context intact
-  const safeNavigate = (screenName, params = {}) => {
-    setSidebarOpen(false);
-    if (!screenName || screenName === "LeaderDashboard") return;
-
-    try {
-      navigation.navigate(screenName, {
-        fromLeaderDashboard: true,
-        backScreen: "LeaderDashboard",
-        ...params,
-      });
-    } catch {
-      Alert.alert("Module Notice", `Module '${screenName}' is preparing.`);
-    }
-  };
-
-  const goBack = () => {
-    if (route?.params?.backScreen && route.params.backScreen !== "LeaderDashboard") {
-      navigation.navigate(route.params.backScreen);
-      return;
-    }
-    if (navigation.canGoBack?.()) {
-      navigation.goBack();
-      return;
-    }
-    // Stay locked to LeaderDashboard as safe baseline
-  };
-
-  const performLogout = async () => {
-    try {
-      setLogoutProcessing(true);
+  const handleLogout = async () => {
+    const doLogout = async () => {
       await AsyncStorage.multiRemove([
         "userToken",
-        "adminToken",
         "token",
         "userData",
         "userRole",
-        "overrideRole",
-        "isSuperAdminOverride",
+        "adminToken",
       ]);
+      navigation?.dispatch(
+        CommonActions.reset({ index: 0, routes: [{ name: "Login" }] })
+      );
+    };
 
-      setModalType(null);
-      setSidebarOpen(false);
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      if (window.confirm("Do you want to log out from Field Supervisor session?")) {
+        doLogout();
+      }
+    } else {
+      Alert.alert("Confirm Logout", "Exit current Field Supervisor session?", [
+        { text: "Cancel", style: "cancel" },
+        { text: "Logout", style: "destructive", onPress: doLogout },
+      ]);
+    }
+  };
 
-      try {
-        navigation.dispatch(
-          CommonActions.reset({
-            index: 0,
-            routes: [{ name: "Login" }],
-          })
+  const handleBroadcastToAgents = async () => {
+    if (!notifTitle.trim() || !notifMessage.trim()) {
+      return showAlert("Validation Error", "Directive Title and Message Body are required.");
+    }
+
+    setActionLoading(true);
+    try {
+      const token =
+        (await AsyncStorage.getItem("userToken")) ||
+        (await AsyncStorage.getItem("token"));
+      const res = await axios.post(
+        `${BASE_URL}/admin/notifications/broadcast`,
+        {
+          title: notifTitle.trim(),
+          message: notifMessage.trim(),
+          target: "AGENTS",
+          category: "LGA_DIRECTIVE",
+          lga: supervisorProfile.lga,
+          state: supervisorProfile.state,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (res.data?.success || res.status === 200) {
+        showAlert(
+          "Directive Dispatched 🚀",
+          `Alert sent to all agents in ${supervisorProfile.lga} LGA.`
         );
-        return;
-      } catch {
-        // Fallback
+        setNotifModalVisible(false);
+        setNotifTitle("");
+        setNotifMessage("");
       }
-
-      navigation.navigate("Login");
-    } catch {
-      if (Platform.OS === "web" && typeof window !== "undefined") {
-        window.location.reload();
-      }
-    } finally {
-      setLogoutProcessing(false);
-    }
-  };
-
-  const handleSuspend = async (id, currentStatus) => {
-    try {
-      const config = await getAuthHeaders();
-      const endpoints = [
-        `${BASE_URL}/leader/supervisor-status/${id}`,
-        `${BASE_URL}/admin/supervisors/toggle-status/${id}`,
-        `${BASE_URL}/admin/suspend-user/${id}`,
-      ];
-
-      let updated = false;
-      for (const url of endpoints) {
-        try {
-          const res = await axios.patch(url, { isSuspended: !currentStatus }, config);
-          if (res.status === 200 || res.status === 201) {
-            updated = true;
-            break;
-          }
-        } catch {
-          // Next
-        }
-      }
-
-      if (updated) {
-        Alert.alert("Status Updated", `Supervisor status set to ${currentStatus ? "Active" : "Suspended"}.`);
-        fetchDashboardData();
-      } else {
-        setSupervisors((prev) =>
-          prev.map((s) => (s.id === id ? { ...s, isSuspended: !currentStatus } : s))
-        );
-        Alert.alert("Notice", "Local state updated successfully.");
-      }
-    } catch {
-      Alert.alert("Notice", "Could not complete status update.");
-    }
-  };
-
-  const handleDownloadReport = async () => {
-    try {
-      const headers = await getAuthHeaders();
-      const token = headers.headers.Authorization?.replace("Bearer ", "");
-      const url = `${BASE_URL}/admin/reports/full${token ? `?token=${encodeURIComponent(token)}` : ""}`;
-      await Linking.openURL(url);
-    } catch {
-      Alert.alert("Report Notice", "Audit report endpoint staging download.");
-    }
-  };
-
-  // Direct In-Screen Target Assignment
-  const handleAssignQuickTarget = async () => {
-    if (!targetForm.dataGoal && !targetForm.agentGoal && !targetForm.salesGoal) {
-      Alert.alert("Goal Required", "Please specify at least one quota metric.");
-      return;
-    }
-
-    try {
-      setActionLoading(true);
-      const config = await getAuthHeaders();
-
-      const targetId = targetForm.isGlobal ? "GLOBAL_ALL" : targetForm.supervisorId;
-
-      const payload = {
-        supervisorId: targetId,
-        targetUserId: targetId,
-        isGlobal: targetForm.isGlobal,
-        dataGoal: Number(targetForm.dataGoal || 0),
-        agentGoal: Number(targetForm.agentGoal || 0),
-        salesGoal: Number(targetForm.salesGoal || 0),
-        month: targetForm.month,
-      };
-
-      const endpoints = [
-        `${BASE_URL}/leader/assign-target`,
-        `${BASE_URL}/admin/targets`,
-        `${BASE_URL}/admin/assign-target`,
-      ];
-
-      let success = false;
-      for (const url of endpoints) {
-        try {
-          const res = await axios.post(url, payload, config).catch(async () => {
-            return await axios.put(url, payload, config);
-          });
-          if (res?.status === 200 || res?.status === 201) {
-            success = true;
-            break;
-          }
-        } catch {
-          // Next
-        }
-      }
-
-      if (success) {
-        Alert.alert("Target Committed", "Performance target scheduled successfully.");
-      } else {
-        Alert.alert("Target Saved", "Target deployed to local state.");
-      }
-
-      setModalType(null);
-      setTargetForm({
-        supervisorId: "",
-        supervisorName: "",
-        dataGoal: "",
-        agentGoal: "",
-        salesGoal: "",
-        month: "September 2026",
-        isGlobal: false,
-      });
     } catch (err) {
-      Alert.alert("Action Failed", err.response?.data?.message || "Could not deploy target.");
+      showAlert("Broadcast Error", err.response?.data?.message || err.message);
     } finally {
       setActionLoading(false);
     }
   };
 
-  // Direct In-Screen Broadcast Notification
-  const handleSendBroadcast = async () => {
-    if (!broadcastForm.title.trim() || !broadcastForm.message.trim()) {
-      Alert.alert("Required", "Please provide title and announcement body.");
-      return;
-    }
+  const filteredAgents = agents.filter((ag) => {
+    const matchSearch =
+      (ag.name || `${ag.firstName || ""} ${ag.surname || ""}`)
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase()) ||
+      (ag.phone || "").includes(searchQuery) ||
+      (ag.email || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (ag.address || "").toLowerCase().includes(searchQuery.toLowerCase());
+    return matchSearch;
+  });
 
-    try {
-      setActionLoading(true);
-      const config = await getAuthHeaders();
+  const dataProgress =
+    myTarget.dataGoal > 0
+      ? Math.min(Math.round(((myTarget.dataSold || 0) / myTarget.dataGoal) * 100), 100)
+      : 0;
 
-      const payload = {
-        title: broadcastForm.title.trim(),
-        message: broadcastForm.message.trim(),
-        target: broadcastForm.targetAudience,
-        audience: broadcastForm.targetAudience,
-      };
+  const airtimeProgress =
+    myTarget.airtimeGoal > 0
+      ? Math.min(Math.round(((myTarget.airtimeSold || 0) / myTarget.airtimeGoal) * 100), 100)
+      : 0;
 
-      await axios.post(`${BASE_URL}/admin/notifications/broadcast`, payload, config).catch(async () => {
-        return await axios.post(`${BASE_URL}/notifications/broadcast`, payload, config);
-      });
-
-      Alert.alert("Broadcast Dispatched", "Announcement sent successfully.");
-      setModalType(null);
-      setBroadcastForm({ title: "", message: "", targetAudience: "SUPERVISORS" });
-    } catch {
-      Alert.alert("Broadcast Alert", "Announcement queued for distribution.");
-      setModalType(null);
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const filteredSupervisors = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    if (!query) return supervisors;
-
-    return supervisors.filter(
-      (item) =>
-        item.name?.toLowerCase().includes(query) ||
-        item.email?.toLowerCase().includes(query) ||
-        item.phone?.toLowerCase().includes(query)
-    );
-  }, [search, supervisors]);
-
-  // Sidebar Navigation Links
-  const sidebarNavGroups = [
-    {
-      group: "Leadership Actions",
-      routes: [
-        {
-          title: "Assign Operational Target",
-          icon: "target",
-          action: () => safeNavigate("AssignTarget"),
-        },
-        {
-          title: "Broadcast Network Alert",
-          icon: "bullhorn-outline",
-          action: () => {
-            setSidebarOpen(false);
-            setModalType("broadcast");
-          },
-        },
-        {
-          title: "Enroll Field Supervisor",
-          icon: "person-add-outline",
-          action: () => safeNavigate("CreateSupervisor"),
-        },
-      ],
-    },
-    {
-      group: "Team & Operations",
-      routes: [
-        {
-          title: "Manage Field Agents",
-          icon: "account-multiple-check-outline",
-          action: () => safeNavigate("ManageAgents"),
-        },
-        {
-          title: "Audit Sales & Volume History",
-          icon: "history",
-          action: () => safeNavigate("SalesHistory"),
-        },
-        {
-          title: "Network Notifications",
-          icon: "bell-outline",
-          action: () => safeNavigate("Notifications"),
-        },
-      ],
-    },
-  ];
-
-  const renderSidebarContent = () => (
-    <View style={styles.sidebarInner}>
-      <View style={styles.sidebarHeader}>
-        <View style={styles.sidebarBadgeBox}>
-          <MaterialCommunityIcons name="shield-account" size={26} color={COLORS.white} />
-        </View>
-        <View style={{ flex: 1, marginLeft: 12 }}>
-          <Text style={styles.sidebarBrandTitle}>Bellaj Data Hub</Text>
-          <Text style={styles.sidebarBrandTag}>Executive Leader Terminal</Text>
-        </View>
-        {!isWeb && (
-          <TouchableOpacity
-            style={styles.sidebarCloseBtn}
-            onPress={() => setSidebarOpen(false)}
-          >
-            <Ionicons name="close" size={22} color={COLORS.white} />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false} style={styles.sidebarScroll}>
-        <TouchableOpacity
-          style={[styles.sidebarMenuItem, styles.sidebarMenuItemActive]}
-          onPress={() => setSidebarOpen(false)}
-        >
-          <MaterialCommunityIcons name="view-dashboard" size={20} color={COLORS.white} />
-          <Text style={[styles.sidebarMenuText, styles.sidebarMenuTextActive]}>
-            Executive Overview
-          </Text>
-        </TouchableOpacity>
-
-        {sidebarNavGroups.map((section, sIdx) => (
-          <View key={sIdx} style={styles.sidebarSection}>
-            <Text style={styles.sidebarSectionTitle}>{section.group}</Text>
-            {section.routes.map((route, rIdx) => (
-              <TouchableOpacity
-                key={rIdx}
-                style={styles.sidebarMenuItem}
-                onPress={route.action}
-                activeOpacity={0.7}
-              >
-                <MaterialCommunityIcons
-                  name={route.icon}
-                  size={19}
-                  color="#94A3B8"
-                />
-                <Text style={styles.sidebarMenuText}>{route.title}</Text>
-                <Ionicons name="chevron-forward" size={14} color="#64748B" />
-              </TouchableOpacity>
-            ))}
-          </View>
-        ))}
-
-        <View style={{ height: 40 }} />
-      </ScrollView>
-
-      <View style={styles.sidebarFooter}>
-        <TouchableOpacity
-          style={styles.sidebarLogoutBtn}
-          onPress={() => {
-            setSidebarOpen(false);
-            setModalType("confirm_logout");
-          }}
-        >
-          <Ionicons name="power" size={18} color="#FCA5A5" />
-          <Text style={styles.sidebarLogoutText}>Sign Out of Executive Console</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-
-  const renderSupervisor = ({ item }) => (
-    <View style={styles.supCard}>
-      <View style={styles.cardHeader}>
-        <View style={styles.supInfo}>
-          <View style={styles.avatarCircle}>
-            <FontAwesome5 name="user-tie" size={20} color={COLORS.primary} />
-          </View>
-
-          <View style={styles.supTextBox}>
-            <Text style={styles.supName}>{item.name}</Text>
-            <Text style={styles.supRole}>
-              {item.email || item.phone || "Regional Field Supervisor"}
-            </Text>
-          </View>
-        </View>
-
-        <TouchableOpacity
-          style={[
-            styles.statusAction,
-            {
-              backgroundColor: item.isSuspended
-                ? COLORS.softGreen
-                : COLORS.softRed,
-            },
-          ]}
-          onPress={() => handleSuspend(item.id, item.isSuspended)}
-        >
-          <MaterialIcons
-            name={item.isSuspended ? "play-arrow" : "pause"}
-            size={22}
-            color={item.isSuspended ? COLORS.secondary : COLORS.danger}
-          />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.statsRow}>
-        <View style={styles.miniStat}>
-          <Ionicons name="people" size={16} color={COLORS.secondary} />
-          <Text style={styles.miniStatText}>{item.teamSize} Agents Active</Text>
-        </View>
-
-        <View style={styles.miniStat}>
-          <MaterialIcons name="storage" size={16} color={COLORS.secondary} />
-          <Text style={styles.miniStatText}>
-            {Number(item.teamPerformance || 0).toLocaleString()} GB Distributed
-          </Text>
-        </View>
-      </View>
-
-      <View style={styles.contactRow}>
-        <TouchableOpacity
-          style={styles.iconBtn}
-          onPress={() =>
-            item.phone
-              ? Linking.openURL(`tel:${item.phone}`)
-              : Alert.alert("Phone", "No phone number available.")
-          }
-        >
-          <MaterialIcons name="call" size={18} color={COLORS.secondary} />
-          <Text style={styles.iconBtnText}>Call</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.iconBtn}
-          onPress={() =>
-            safeNavigate("ManageAgents", {
-              supervisorId: item.id,
-              supervisorName: item.name,
-            })
-          }
-        >
-          <Ionicons name="people-outline" size={18} color={COLORS.accent} />
-          <Text style={[styles.iconBtnText, { color: COLORS.accent }]}>Agents</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.iconBtn}
-          onPress={() => {
-            setTargetForm({
-              supervisorId: item.id,
-              supervisorName: item.name,
-              dataGoal: "",
-              agentGoal: "",
-              salesGoal: "",
-              month: "September 2026",
-              isGlobal: false,
-            });
-            setModalType("quick_target");
-          }}
-        >
-          <MaterialIcons name="track-changes" size={18} color={COLORS.primary} />
-          <Text style={[styles.iconBtnText, { color: COLORS.primary }]}>
-            Set Target
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+  const agentProgress =
+    myTarget.agentGoal > 0
+      ? Math.min(Math.round((stats.totalAgents / myTarget.agentGoal) * 100), 100)
+      : 0;
 
   if (loading) {
     return (
       <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loaderText}>Establishing Secure Leader Matrix...</Text>
+        <StatusBar barStyle="light-content" backgroundColor="#062819" />
+        <ActivityIndicator size="large" color="#22C55E" />
+        <Text style={styles.loaderTitle}>
+          {supervisorProfile.lga.toUpperCase()} LGA FIELD OPERATIONS
+        </Text>
+        <Text style={styles.loaderText}>Connecting to Live Bellaj Hub Outlets...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.screen}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
+    <View style={styles.mainWrapper}>
+      <StatusBar barStyle="light-content" backgroundColor="#062819" />
 
-      <View style={styles.bodyWrapper}>
-        {/* Desktop Fixed Sidebar */}
-        {isWeb && <View style={styles.desktopSidebar}>{renderSidebarContent()}</View>}
+      {/* TOP COMMAND BAR */}
+      <View style={styles.topBar}>
+        <TouchableOpacity
+          style={styles.menuIconBtn}
+          onPress={() => toggleSidebar(true)}
+          activeOpacity={0.7}
+        >
+          <Feather name="menu" size={24} color="#ffffff" />
+        </TouchableOpacity>
 
-        {/* Mobile Slide-Out Modal Sidebar */}
-        {!isWeb && (
-          <Modal
-            visible={sidebarOpen}
-            animationType="fade"
-            transparent
-            onRequestClose={() => setSidebarOpen(false)}
-          >
-            <View style={styles.modalOverlay}>
-              <TouchableOpacity
-                style={styles.modalBackdropTap}
-                activeOpacity={1}
-                onPress={() => setSidebarOpen(false)}
-              />
-              <View style={styles.mobileSidebarContainer}>{renderSidebarContent()}</View>
-            </View>
-          </Modal>
-        )}
-
-        {/* Main Canvas Area */}
-        <View style={styles.mainCanvas}>
-          <View style={styles.header}>
-            <TouchableOpacity
-              style={styles.headerIconBtn}
-              onPress={() => setSidebarOpen(true)}
-              accessibilityLabel="Open Navigation Matrix"
-            >
-              <Ionicons name="menu" size={26} color={COLORS.white} />
-            </TouchableOpacity>
-
-            <View style={styles.headerTextBox}>
-              <Text style={styles.headerTitle}>Executive Leader Hub</Text>
-              <Text style={styles.headerSubtitle}>Supervisor Performance & Network Operations</Text>
-            </View>
-
-            <TouchableOpacity
-              style={styles.headerIconBtn}
-              onPress={() => safeNavigate("AssignTarget")}
-              accessibilityLabel="Target Center"
-            >
-              <MaterialCommunityIcons name="target" size={22} color={COLORS.white} />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.logoutBtn}
-              onPress={() => setModalType("confirm_logout")}
-              accessibilityLabel="Log Out"
-            >
-              <Ionicons name="power" size={20} color={COLORS.white} />
-            </TouchableOpacity>
+        <View style={styles.topBrandGroup}>
+          <View style={styles.stateBadge}>
+            <View style={styles.livePulseDot} />
+            <Text style={styles.stateBadgeText}>
+              {supervisorProfile.lga.toUpperCase()} LGA FIELD SUPERVISOR
+            </Text>
           </View>
+          <Text style={styles.topBrandTitle}>
+            {supervisorProfile.state.toUpperCase()} STATE • {stats.totalAgents} OUTLETS
+          </Text>
+        </View>
 
-          <FlatList
-            data={filteredSupervisors}
-            keyExtractor={(item, index) => String(item.id || index)}
-            renderItem={renderSupervisor}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                colors={[COLORS.primary]}
-              />
-            }
-            ListHeaderComponent={
-              <View>
-                {/* Hero Card */}
-                <View style={styles.heroCard}>
-                  <View style={styles.heroIcon}>
-                    <MaterialCommunityIcons name="shield-account" size={32} color={COLORS.white} />
-                  </View>
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <TouchableOpacity
+            style={[styles.avatarBtn, { marginRight: 8 }]}
+            onPress={handleNavigateToSignup}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="person-add" size={16} color="#86EFAC" />
+          </TouchableOpacity>
 
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.heroTitle}>Regional Network Command</Text>
-                    <Text style={styles.heroText}>
-                      Audit regional field supervisors, evaluate team volume throughput, and deploy targets in real time.
-                    </Text>
-                  </View>
+          <TouchableOpacity
+            style={[styles.avatarBtn, { marginRight: 8 }]}
+            onPress={() => setNotifModalVisible(true)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="megaphone-outline" size={16} color="#86EFAC" />
+          </TouchableOpacity>
 
-                  <TouchableOpacity style={styles.refreshBtn} onPress={fetchDashboardData}>
-                    <Ionicons name="sync" size={20} color={COLORS.white} />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Quick Action Buttons Deck */}
-                <View style={styles.quickDeckRow}>
-                  <TouchableOpacity
-                    style={[styles.quickDeckBtn, { backgroundColor: COLORS.secondary }]}
-                    onPress={() => safeNavigate("AssignTarget")}
-                    activeOpacity={0.85}
-                  >
-                    <MaterialCommunityIcons name="target-account" size={18} color={COLORS.white} />
-                    <Text style={styles.quickDeckBtnText}>Assign Target</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.quickDeckBtn, { backgroundColor: COLORS.orange }]}
-                    onPress={() => setModalType("broadcast")}
-                    activeOpacity={0.85}
-                  >
-                    <Ionicons name="megaphone" size={18} color={COLORS.white} />
-                    <Text style={styles.quickDeckBtnText}>Broadcast Alert</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.quickDeckBtn, { backgroundColor: COLORS.accent }]}
-                    onPress={() => safeNavigate("CreateSupervisor")}
-                    activeOpacity={0.85}
-                  >
-                    <Ionicons name="person-add" size={18} color={COLORS.white} />
-                    <Text style={styles.quickDeckBtnText}>Add Supervisor</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Metric Summary Cards */}
-                <View style={styles.statGrid}>
-                  <View style={[styles.statBox, { borderLeftColor: COLORS.primary }]}>
-                    <View style={[styles.statIcon, { backgroundColor: COLORS.primary }]}>
-                      <Ionicons name="people" size={18} color={COLORS.white} />
-                    </View>
-                    <Text style={styles.statLabel}>Supervisors</Text>
-                    <Text style={styles.statValue}>{stats.totalSupervisors}</Text>
-                  </View>
-
-                  <View style={[styles.statBox, { borderLeftColor: COLORS.secondary }]}>
-                    <View style={[styles.statIcon, { backgroundColor: COLORS.secondary }]}>
-                      <MaterialCommunityIcons name="account-group" size={18} color={COLORS.white} />
-                    </View>
-                    <Text style={styles.statLabel}>Field Agents</Text>
-                    <Text style={styles.statValue}>{stats.totalAgents}</Text>
-                  </View>
-
-                  <View style={[styles.statBox, { borderLeftColor: COLORS.dark }]}>
-                    <View style={[styles.statIcon, { backgroundColor: COLORS.dark }]}>
-                      <MaterialIcons name="storage" size={18} color={COLORS.white} />
-                    </View>
-                    <Text style={styles.statLabel}>Volume Sold</Text>
-                    <Text style={styles.statValue}>{Number(stats.overallDataSold || 0).toLocaleString()} GB</Text>
-                  </View>
-
-                  <View style={[styles.statBox, { borderLeftColor: COLORS.purple }]}>
-                    <View style={[styles.statIcon, { backgroundColor: COLORS.purple }]}>
-                      <MaterialIcons name="attach-money" size={18} color={COLORS.white} />
-                    </View>
-                    <Text style={styles.statLabel}>Total Turnover</Text>
-                    <Text style={styles.statValue}>₦{Number(stats.totalRevenue || 0).toLocaleString()}</Text>
-                  </View>
-                </View>
-
-                {/* Search Bar */}
-                <View style={styles.searchBar}>
-                  <Ionicons name="search" size={18} color={COLORS.muted} />
-                  <TextInput
-                    placeholder="Search supervisor by name, email, or phone..."
-                    placeholderTextColor={COLORS.muted}
-                    value={search}
-                    onChangeText={setSearch}
-                    style={styles.searchInput}
-                    autoCapitalize="none"
-                  />
-                  {search.length > 0 && (
-                    <TouchableOpacity onPress={() => setSearch("")}>
-                      <Ionicons name="close-circle" size={18} color={COLORS.muted} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                <View style={styles.sectionTitleRow}>
-                  <Text style={styles.sectionTitle}>Field Supervisors Directory</Text>
-                  <TouchableOpacity
-                    style={styles.addBtn}
-                    onPress={() => safeNavigate("CreateSupervisor")}
-                  >
-                    <Ionicons name="person-add" size={16} color={COLORS.white} />
-                    <Text style={styles.addBtnText}>Enroll New</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            }
-            ListEmptyComponent={
-              <View style={styles.emptyBox}>
-                <MaterialIcons name="groups" size={42} color={COLORS.muted} />
-                <Text style={styles.emptyTitle}>No Supervisor Accounts Resolved</Text>
-                <Text style={styles.emptyText}>
-                  Enrolled supervisors will display in this regional directory when active.
-                </Text>
-              </View>
-            }
-            ListFooterComponent={
-              <TouchableOpacity style={styles.downloadBtn} onPress={handleDownloadReport} activeOpacity={0.88}>
-                <Ionicons name="cloud-download-outline" size={20} color={COLORS.white} />
-                <Text style={styles.downloadBtnText}>EXPORT COMPREHENSIVE REPORT</Text>
-              </TouchableOpacity>
-            }
-            contentContainerStyle={styles.listContent}
-          />
+          <TouchableOpacity
+            style={[styles.avatarBtn, styles.logoutIconBtn]}
+            onPress={handleLogout}
+            activeOpacity={0.7}
+          >
+            <Feather name="log-out" size={16} color="#EF4444" />
+          </TouchableOpacity>
         </View>
       </View>
 
-      {/* MODAL 1: Quick Target Deployment */}
-      <Modal
-        visible={modalType === "quick_target"}
-        transparent
-        animationType="fade"
-        onRequestClose={() => !actionLoading && setModalType(null)}
+      {/* MAIN NAVIGATION TABS */}
+      <View style={styles.mainNavBar}>
+        <TouchableOpacity
+          style={[styles.mainNavTab, activeTab === "agents" && styles.mainNavTabActive]}
+          onPress={() => setActiveTab("agents")}
+        >
+          <Ionicons
+            name="people"
+            size={15}
+            color={activeTab === "agents" ? "#0B5E3C" : "#64748b"}
+          />
+          <Text
+            style={[
+              styles.mainNavTabText,
+              activeTab === "agents" && styles.mainNavTabTextActive,
+            ]}
+          >
+            Outlets ({filteredAgents.length})
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.mainNavTab,
+            activeTab === "performance" && styles.mainNavTabActive,
+          ]}
+          onPress={() => setActiveTab("performance")}
+        >
+          <MaterialCommunityIcons
+            name="chart-timeline-variant-shimmer"
+            size={15}
+            color={activeTab === "performance" ? "#0B5E3C" : "#64748b"}
+          />
+          <Text
+            style={[
+              styles.mainNavTabText,
+              activeTab === "performance" && styles.mainNavTabTextActive,
+            ]}
+          >
+            Overview
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.mainNavTab,
+            activeTab === "history_targets" && styles.mainNavTabActive,
+          ]}
+          onPress={() => setActiveTab("history_targets")}
+        >
+          <MaterialIcons
+            name="history-edu"
+            size={16}
+            color={activeTab === "history_targets" ? "#0B5E3C" : "#64748b"}
+          />
+          <Text
+            style={[
+              styles.mainNavTabText,
+              activeTab === "history_targets" && styles.mainNavTabTextActive,
+            ]}
+          >
+            Target History
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.mainNavTab, activeTab === "logs" && styles.mainNavTabActive]}
+          onPress={() => setActiveTab("logs")}
+        >
+          <Feather
+            name="activity"
+            size={14}
+            color={activeTab === "logs" ? "#0B5E3C" : "#64748b"}
+          />
+          <Text
+            style={[
+              styles.mainNavTabText,
+              activeTab === "logs" && styles.mainNavTabTextActive,
+            ]}
+          >
+            Logs
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* DASHBOARD SCROLL AREA */}
+      <ScrollView
+        style={styles.scrollArea}
+        contentContainerStyle={styles.scrollContentContainer}
+        nestedScrollEnabled={true}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onManualRefresh}
+            tintColor="#0B5E3C"
+          />
+        }
       >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalBox}>
-            <View style={styles.modalHead}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <MaterialCommunityIcons name="target" size={24} color={COLORS.secondary} />
-                <Text style={styles.modalTitle}>Set Target Quota</Text>
+        <View style={styles.contentCenterWrapper}>
+          {/* SECTION 1: SUPERVISOR TARGET MONITORING CARD */}
+          <View style={styles.executiveTargetCardDark}>
+            <View style={styles.execHeaderRowDark}>
+              <View>
+                <Text style={styles.execBadgeTextDark}>MANAGEMENT TARGET ALLOCATION</Text>
+                <Text style={styles.execTitleTextDark}>
+                  {myTarget.currentMonth.toUpperCase()} QUOTA PROGRESS
+                </Text>
               </View>
-              <TouchableOpacity onPress={() => setModalType(null)}>
-                <Ionicons name="close" size={24} color={COLORS.muted} />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.targetBeneficiaryLabel}>
-              Assigning goal to:{" "}
-              <Text style={{ fontWeight: "900", color: COLORS.dark }}>
-                {targetForm.supervisorName || "Selected Supervisor"}
-              </Text>
-            </Text>
-
-            <View style={{ flexDirection: "row", gap: 8 }}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.inputGuide}>Data Volume (GB)</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="e.g. 500"
-                  keyboardType="numeric"
-                  value={targetForm.dataGoal}
-                  onChangeText={(t) => setTargetForm({ ...targetForm, dataGoal: t.replace(/[^0-9.]/g, "") })}
-                  placeholderTextColor={COLORS.muted}
-                />
-              </View>
-
-              <View style={{ flex: 1 }}>
-                <Text style={styles.inputGuide}>New Agents Quota</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="e.g. 10"
-                  keyboardType="numeric"
-                  value={targetForm.agentGoal}
-                  onChangeText={(t) => setTargetForm({ ...targetForm, agentGoal: t.replace(/[^0-9.]/g, "") })}
-                  placeholderTextColor={COLORS.muted}
-                />
+              <View style={styles.liveTrackingBadge}>
+                <View style={styles.livePulseDot} />
+                <Text style={styles.liveTrackingBadgeText}>LIVE MONITOR</Text>
               </View>
             </View>
 
-            <Text style={styles.inputGuide}>Revenue Target (₦)</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="e.g. 300000"
-              keyboardType="numeric"
-              value={targetForm.salesGoal}
-              onChangeText={(t) => setTargetForm({ ...targetForm, salesGoal: t.replace(/[^0-9.]/g, "") })}
-              placeholderTextColor={COLORS.muted}
-            />
+            <View style={styles.execMetricsGrid}>
+              {/* 1. Data Target */}
+              <View style={styles.execMetricBoxDark}>
+                <Text style={[styles.execMetricLabelDark, { color: "#86EFAC" }]}>
+                  DATA TARGET (GB)
+                </Text>
+                <Text style={styles.execMetricValueDark}>
+                  {myTarget.dataSold} / {myTarget.dataGoal} GB
+                </Text>
+                <View style={styles.execProgressBarBgDark}>
+                  <View
+                    style={[
+                      styles.execProgressBarFill,
+                      { width: `${dataProgress}%`, backgroundColor: "#22C55E" },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.execPercentSubDark}>{dataProgress}% Completed</Text>
+              </View>
 
-            <Text style={styles.inputGuide}>Target Month</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="e.g. September 2026"
-              value={targetForm.month}
-              onChangeText={(t) => setTargetForm({ ...targetForm, month: t })}
-              placeholderTextColor={COLORS.muted}
-            />
+              {/* 2. Airtime Target */}
+              <View style={styles.execMetricBoxDark}>
+                <Text style={[styles.execMetricLabelDark, { color: "#FBBF24" }]}>
+                  AIRTIME TARGET (₦)
+                </Text>
+                <Text style={styles.execMetricValueDark}>
+                  ₦{Number(myTarget.airtimeSold).toLocaleString()} / ₦
+                  {Number(myTarget.airtimeGoal).toLocaleString()}
+                </Text>
+                <View style={styles.execProgressBarBgDark}>
+                  <View
+                    style={[
+                      styles.execProgressBarFill,
+                      { width: `${airtimeProgress}%`, backgroundColor: "#F59E0B" },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.execPercentSubDark}>
+                  {airtimeProgress}% Quota Achieved
+                </Text>
+              </View>
 
-            <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
-              <TouchableOpacity
-                style={[styles.modalSubmitBtn, { flex: 1, backgroundColor: COLORS.accent }]}
-                onPress={() => {
-                  setModalType(null);
-                  safeNavigate("AssignTarget");
+              {/* 3. Agent Enrollment Target */}
+              <View style={styles.execMetricBoxDark}>
+                <Text style={[styles.execMetricLabelDark, { color: "#38BDF8" }]}>
+                  AGENT ENROLLMENT
+                </Text>
+                <Text style={styles.execMetricValueDark}>
+                  {stats.totalAgents} / {myTarget.agentGoal || 10}
+                </Text>
+                <View style={styles.execProgressBarBgDark}>
+                  <View
+                    style={[
+                      styles.execProgressBarFill,
+                      { width: `${agentProgress}%`, backgroundColor: "#38BDF8" },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.execPercentSubDark}>
+                  {agentProgress}% Outlets Registered
+                </Text>
+              </View>
+
+              {/* 4. Team Float Balance */}
+              <View style={styles.execMetricBoxDark}>
+                <Text style={[styles.execMetricLabelDark, { color: "#C084FC" }]}>
+                  TOTAL TEAM FLOAT
+                </Text>
+                <Text style={styles.execMetricValueDark}>
+                  ₦{Number(stats.totalTeamFloat).toLocaleString()}
+                </Text>
+                <View style={styles.execProgressBarBgDark}>
+                  <View
+                    style={[
+                      styles.execProgressBarFill,
+                      { width: `100%`, backgroundColor: "#A855F7" },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.execPercentSubDark}>Live Float Balance</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* SECTION 2: REFERRAL CODE & OUTLET INVITATION CARD */}
+          <View style={styles.referralBannerCard}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  flex: 1,
+                  marginRight: 10,
                 }}
               >
-                <Text style={styles.modalSubmitBtnText}>Open Full Center</Text>
-              </TouchableOpacity>
-
+                <View style={styles.referralIconWrap}>
+                  <MaterialCommunityIcons
+                    name="ticket-percent"
+                    size={22}
+                    color="#0B5E3C"
+                  />
+                </View>
+                <View style={{ marginLeft: 10, flex: 1 }}>
+                  <Text style={styles.referralCardTitle}>
+                    Supervisor Referral Code (Real-Time)
+                  </Text>
+                  <Text style={styles.referralCardSub}>
+                    Auto-binds agent to your LGA supervision during Signup
+                  </Text>
+                </View>
+              </View>
               <TouchableOpacity
-                style={[styles.modalSubmitBtn, { flex: 1, backgroundColor: COLORS.secondary }]}
-                onPress={handleAssignQuickTarget}
-                disabled={actionLoading}
+                style={styles.copyRefBtn}
+                onPress={handleCopyReferral}
+                activeOpacity={0.8}
               >
-                {actionLoading ? (
-                  <ActivityIndicator color={COLORS.white} />
-                ) : (
-                  <Text style={styles.modalSubmitBtnText}>Commit Target</Text>
-                )}
+                <Feather name="copy" size={13} color="#ffffff" />
+                <Text style={styles.copyRefBtnText}>
+                  {supervisorProfile.referralCode}
+                </Text>
               </TouchableOpacity>
             </View>
+          </View>
+
+          {/* SECTION 3: SUMMARY ACTIONS ROW */}
+          <View style={styles.actionRowContainer}>
+            <TouchableOpacity
+              style={styles.actionBtnFull}
+              onPress={handleNavigateToSignup}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="person-add" size={15} color="#ffffff" />
+              <Text style={styles.actionBtnFullText}>
+                + REGISTER AGENT ({stats.totalAgents}/{myTarget.agentGoal})
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionBtnSecondary}
+              onPress={() => setNotifModalVisible(true)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="megaphone-outline" size={15} color="#0B5E3C" />
+              <Text style={styles.actionBtnSecondaryText}>DIRECTIVE</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* SEARCH BAR */}
+          <View style={styles.searchBar}>
+            <Ionicons
+              name="search"
+              size={16}
+              color="#64748b"
+              style={{ marginRight: 8 }}
+            />
+            <TextInput
+              style={styles.searchInput}
+              placeholder={`Search ${supervisorProfile.lga} Agents by name, phone, email, or address...`}
+              placeholderTextColor="#94a3b8"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {searchQuery ? (
+              <TouchableOpacity onPress={() => setSearchQuery("")}>
+                <Ionicons name="close-circle" size={16} color="#64748b" />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+
+          {/* TAB 1: RETAIL AGENTS DIRECTORY */}
+          {activeTab === "agents" && (
+            <View style={styles.tabContentWrapper}>
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionHeaderLabel}>
+                  GRASSROOT RETAIL OUTLETS & TARGETS ({filteredAgents.length})
+                </Text>
+                <TouchableOpacity
+                  style={styles.actionPillBtn}
+                  onPress={handleNavigateToSignup}
+                >
+                  <Ionicons name="person-add" size={13} color="#ffffff" />
+                  <Text style={styles.actionPillBtnText}>+ ADD AGENT</Text>
+                </TouchableOpacity>
+              </View>
+
+              {filteredAgents.length > 0 ? (
+                filteredAgents.map((ag, index) => {
+                  const agId = ag._id || ag.id;
+                  const agName =
+                    ag.name ||
+                    `${ag.firstName || ""} ${ag.surname || ""}`.trim() ||
+                    "Retail Agent";
+                  const agPhone = ag.phone || "No Phone";
+                  const agEmail =
+                    ag.email || `${agPhone}@bellajdatahub.online`;
+                  const agFloat = Number(ag.walletBalance || ag.balance || 0);
+
+                  const agDataGoal = Number(ag.targets?.dataGoal || ag.dataGoal || 0);
+                  const agAirtimeGoal = Number(
+                    ag.targets?.airtimeGoal || ag.airtimeGoal || 0
+                  );
+                  const agDataSold = Number(ag.dataVolumeSold || ag.dataSold || 0);
+                  const agAirtimeSold = Number(ag.airtimeSold || 0);
+
+                  const agDataProg =
+                    agDataGoal > 0
+                      ? Math.min(Math.round((agDataSold / agDataGoal) * 100), 100)
+                      : 0;
+                  const agAirProg =
+                    agAirtimeGoal > 0
+                      ? Math.min(Math.round((agAirtimeSold / agAirtimeGoal) * 100), 100)
+                      : 0;
+
+                  return (
+                    <View key={agId || index.toString()} style={styles.agentCard}>
+                      <View style={styles.agentCardTop}>
+                        <View style={styles.agentMainInfo}>
+                          <View style={styles.agentAvatar}>
+                            <FontAwesome5 name="store" size={15} color="#0B5E3C" />
+                          </View>
+                          <View style={{ marginLeft: 10, flex: 1 }}>
+                            <Text style={styles.agentNameText}>{agName}</Text>
+                            <Text style={styles.agentLocationTag}>
+                              📍 {ag.lga || supervisorProfile.lga} LGA • 📞 {agPhone}
+                            </Text>
+                            <Text style={styles.emailTagText}>✉️ {agEmail}</Text>
+                            {ag.address ? (
+                              <Text style={styles.addressTagText}>
+                                🏬 {ag.address}
+                              </Text>
+                            ) : null}
+                          </View>
+                        </View>
+
+                        <View style={{ alignItems: "flex-end" }}>
+                          <Text style={styles.agentSalesText}>
+                            ₦{agFloat.toLocaleString()}
+                          </Text>
+                          <Text style={styles.agentSalesSub}>Float Balance</Text>
+                        </View>
+                      </View>
+
+                      {/* QUOTA & SALES BAR */}
+                      <View style={styles.agentTargetBox}>
+                        <View style={styles.agentTargetHeaderRow}>
+                          <Text style={styles.agentTargetBoxTitle}>
+                            ASSIGNED MONTHLY QUOTA
+                          </Text>
+                          <Text style={styles.agentTargetMonthText}>
+                            {ag.targets?.currentMonth || myTarget.currentMonth}
+                          </Text>
+                        </View>
+
+                        {/* Data Target Bar */}
+                        <View style={styles.agentTargetMetricRow}>
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              justifyContent: "space-between",
+                              marginBottom: 3,
+                            }}
+                          >
+                            <Text style={styles.targetMetricName}>
+                              Data: {agDataSold} / {agDataGoal} GB
+                            </Text>
+                            <Text
+                              style={[
+                                styles.targetMetricName,
+                                { color: "#0B5E3C", fontWeight: "bold" },
+                              ]}
+                            >
+                              {agDataProg}%
+                            </Text>
+                          </View>
+                          <View style={styles.agentMiniProgBg}>
+                            <View
+                              style={[
+                                styles.agentMiniProgFill,
+                                { width: `${agDataProg}%`, backgroundColor: "#22C55E" },
+                              ]}
+                            />
+                          </View>
+                        </View>
+
+                        {/* Airtime Target Bar */}
+                        <View style={[styles.agentTargetMetricRow, { marginTop: 6 }]}>
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              justifyContent: "space-between",
+                              marginBottom: 3,
+                            }}
+                          >
+                            <Text style={styles.targetMetricName}>
+                              Airtime: ₦{agAirtimeSold.toLocaleString()} / ₦
+                              {agAirtimeGoal.toLocaleString()}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.targetMetricName,
+                                { color: "#D97706", fontWeight: "bold" },
+                              ]}
+                            >
+                              {agAirProg}%
+                            </Text>
+                          </View>
+                          <View style={styles.agentMiniProgBg}>
+                            <View
+                              style={[
+                                styles.agentMiniProgFill,
+                                { width: `${agAirProg}%`, backgroundColor: "#F59E0B" },
+                              ]}
+                            />
+                          </View>
+                        </View>
+                      </View>
+
+                      {/* Action Row */}
+                      <View style={styles.agentCardBottom}>
+                        <TouchableOpacity
+                          style={styles.inspectBtn}
+                          onPress={() => {
+                            setSelectedAgent(ag);
+                            setInspectModalVisible(true);
+                          }}
+                        >
+                          <Feather name="eye" size={12} color="#0B5E3C" />
+                          <Text style={styles.inspectBtnText}>Inspect Live Outlet</Text>
+                        </TouchableOpacity>
+
+                        <View style={{ flexDirection: "row", alignItems: "center" }}>
+                          <TouchableOpacity
+                            style={styles.agentCallIconBtn}
+                            onPress={() => Linking.openURL(`tel:${agPhone}`)}
+                          >
+                            <Ionicons name="call" size={13} color="#0B5E3C" />
+                          </TouchableOpacity>
+
+                          {ag.email ? (
+                            <TouchableOpacity
+                              style={[styles.agentCallIconBtn, { marginLeft: 6 }]}
+                              onPress={() => Linking.openURL(`mailto:${ag.email}`)}
+                            >
+                              <Ionicons name="mail" size={13} color="#16A34A" />
+                            </TouchableOpacity>
+                          ) : null}
+                        </View>
+                      </View>
+                    </View>
+                  );
+                })
+              ) : (
+                <View style={styles.emptyFeed}>
+                  <Ionicons name="people-outline" size={36} color="#94a3b8" />
+                  <Text style={styles.emptyFeedText}>
+                    No retail agents registered in {supervisorProfile.lga} LGA yet.
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* TAB 2: OVERVIEW */}
+          {activeTab === "performance" && (
+            <View style={styles.tabContentWrapper}>
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionHeaderLabel}>TARGET QUOTA BREAKDOWN</Text>
+              </View>
+
+              <View style={styles.performanceCard}>
+                <Text style={styles.perfCardTitle}>Data Target Assigned</Text>
+                <View style={styles.perfProgressBarBg}>
+                  <View
+                    style={[
+                      styles.perfProgressBarFill,
+                      { width: `${dataProgress}%`, backgroundColor: "#22C55E" },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.perfSubText}>
+                  {myTarget.dataSold} GB sold out of {myTarget.dataGoal} GB assigned
+                  target ({dataProgress}%).
+                </Text>
+              </View>
+
+              <View style={styles.performanceCard}>
+                <Text style={styles.perfCardTitle}>Airtime Sales Target</Text>
+                <View style={styles.perfProgressBarBg}>
+                  <View
+                    style={[
+                      styles.perfProgressBarFill,
+                      { width: `${airtimeProgress}%`, backgroundColor: "#F59E0B" },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.perfSubText}>
+                  ₦{Number(myTarget.airtimeSold).toLocaleString()} sold out of ₦
+                  {Number(myTarget.airtimeGoal).toLocaleString()} quota ({airtimeProgress}
+                  %).
+                </Text>
+              </View>
+
+              <View style={styles.performanceCard}>
+                <Text style={styles.perfCardTitle}>
+                  Agent Enrollment Quota (Recruitment Goal)
+                </Text>
+                <View style={styles.perfProgressBarBg}>
+                  <View
+                    style={[
+                      styles.perfProgressBarFill,
+                      { width: `${agentProgress}%`, backgroundColor: "#38BDF8" },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.perfSubText}>
+                  {stats.totalAgents} out of {myTarget.agentGoal} retail agents onboarded
+                  ({agentProgress}%).
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* TAB 3: TARGET HISTORY */}
+          {activeTab === "history_targets" && (
+            <View style={styles.tabContentWrapper}>
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionHeaderLabel}>
+                  TARGET ALLOCATION HISTORY ARCHIVE
+                </Text>
+              </View>
+
+              {/* Current Month Card */}
+              <View style={styles.historyCardHighlight}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <Text style={styles.historyCardMonth}>
+                    {myTarget.currentMonth.toUpperCase()} (CURRENT)
+                  </Text>
+                  <View style={styles.activePill}>
+                    <Text style={styles.activePillText}>ACTIVE</Text>
+                  </View>
+                </View>
+                <View style={styles.historyMetricsGrid}>
+                  <Text style={styles.historyMetricText}>
+                    🎯 Data:{" "}
+                    <Text style={{ fontWeight: "bold", color: "#0B5E3C" }}>
+                      {myTarget.dataGoal} GB
+                    </Text>
+                  </Text>
+                  <Text style={styles.historyMetricText}>
+                    🎯 Airtime:{" "}
+                    <Text style={{ fontWeight: "bold", color: "#D97706" }}>
+                      ₦{Number(myTarget.airtimeGoal).toLocaleString()}
+                    </Text>
+                  </Text>
+                  <Text style={styles.historyMetricText}>
+                    🎯 Agents:{" "}
+                    <Text style={{ fontWeight: "bold", color: "#16A34A" }}>
+                      {myTarget.agentGoal} Outlets
+                    </Text>
+                  </Text>
+                </View>
+              </View>
+
+              {targetHistoryList.length > 0 ? (
+                targetHistoryList.map((hist, idx) => (
+                  <View key={hist._id || idx.toString()} style={styles.historyCard}>
+                    <Text style={styles.historyCardMonth}>
+                      {hist.month || hist.currentMonth || "Previous Month"}
+                    </Text>
+                    <View style={styles.historyMetricsGrid}>
+                      <Text style={styles.historyMetricText}>
+                        Data Goal: {hist.dataGoal || 0} GB
+                      </Text>
+                      <Text style={styles.historyMetricText}>
+                        Airtime Goal: ₦{Number(hist.airtimeGoal || 0).toLocaleString()}
+                      </Text>
+                      <Text style={styles.historyMetricText}>
+                        Agent Goal: {hist.agentGoal || 10}
+                      </Text>
+                    </View>
+                  </View>
+                ))
+              ) : null}
+            </View>
+          )}
+
+          {/* TAB 4: DISPATCH LOGS */}
+          {activeTab === "logs" && (
+            <View style={styles.tabContentWrapper}>
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionHeaderLabel}>
+                  REAL-TIME FIELD DISPATCH LOGS
+                </Text>
+              </View>
+
+              {activityLogs.length > 0 ? (
+                activityLogs.map((log) => (
+                  <View key={log._id || Math.random().toString()} style={styles.logCard}>
+                    <Text style={styles.logDetailsText}>
+                      {log.details || log.action || "Field operation recorded."}
+                    </Text>
+                    <Text style={styles.logActorText}>
+                      Time:{" "}
+                      {log.createdAt
+                        ? new Date(log.createdAt).toLocaleTimeString()
+                        : "Live"}
+                    </Text>
+                  </View>
+                ))
+              ) : (
+                <View style={styles.emptyFeed}>
+                  <Feather name="activity" size={34} color="#94a3b8" />
+                  <Text style={styles.emptyFeedText}>
+                    No dispatch logs recorded yet.
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+        </View>
+      </ScrollView>
+
+      {/* MODAL 1: INSPECT LIVE AGENT TELEMETRY */}
+      <Modal visible={inspectModalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View
+            style={[styles.modalCard, { width: isLargeScreen ? "60%" : "95%" }]}
+          >
+            <View style={styles.modalHeaderRow}>
+              <View>
+                <Text style={styles.modalCardTitle}>{selectedAgent?.name}</Text>
+                <Text style={styles.modalCardSubtitle}>
+                  📞 {selectedAgent?.phone} • ✉️ {selectedAgent?.email}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setInspectModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={styles.inspectSummaryBanner}>
+                <View style={styles.inspectBannerBox}>
+                  <Text style={styles.inspectBannerLabel}>Wallet Balance</Text>
+                  <Text style={[styles.inspectBannerValue, { color: "#0B5E3C" }]}>
+                    ₦
+                    {Number(
+                      selectedAgent?.walletBalance || selectedAgent?.balance || 0
+                    ).toLocaleString()}
+                  </Text>
+                </View>
+                <View style={styles.inspectBannerDivider} />
+                <View style={styles.inspectBannerBox}>
+                  <Text style={styles.inspectBannerLabel}>Data Sold</Text>
+                  <Text style={[styles.inspectBannerValue, { color: "#16A34A" }]}>
+                    {selectedAgent?.dataVolumeSold || selectedAgent?.dataSold || 0} GB
+                  </Text>
+                </View>
+              </View>
+
+              <Text style={styles.formFieldLabel}>ALLOCATED MONTHLY TARGET</Text>
+              <View style={styles.quotaInfoBox}>
+                <Text style={styles.quotaInfoText}>
+                  🎯 Data Quota:{" "}
+                  <Text style={{ fontWeight: "bold", color: "#0B5E3C" }}>
+                    {Number(
+                      selectedAgent?.targets?.dataGoal || selectedAgent?.dataGoal || 0
+                    )}{" "}
+                    GB
+                  </Text>
+                </Text>
+                <Text style={styles.quotaInfoText}>
+                  🎯 Airtime Quota:{" "}
+                  <Text style={{ fontWeight: "bold", color: "#D97706" }}>
+                    ₦
+                    {Number(
+                      selectedAgent?.targets?.airtimeGoal ||
+                        selectedAgent?.airtimeGoal ||
+                        0
+                    ).toLocaleString()}
+                  </Text>
+                </Text>
+              </View>
+
+              <Text style={styles.formFieldLabel}>OUTLET LOCATION</Text>
+              <Text style={styles.outletAddressText}>
+                📍{" "}
+                {selectedAgent?.address ||
+                  `Registered under ${supervisorProfile.lga} LGA`}
+              </Text>
+            </ScrollView>
           </View>
         </View>
       </Modal>
 
-      {/* MODAL 2: Broadcast Alert */}
-      <Modal
-        visible={modalType === "broadcast"}
-        transparent
-        animationType="fade"
-        onRequestClose={() => !actionLoading && setModalType(null)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalBox}>
-            <View style={styles.modalHead}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <Ionicons name="megaphone" size={24} color={COLORS.orange} />
-                <Text style={styles.modalTitle}>Broadcast Network Alert</Text>
+      {/* MODAL 2: DIRECTIVE BROADCAST */}
+      <Modal visible={notifModalVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeaderRow}>
+              <View>
+                <Text style={styles.modalCardTitle}>Broadcast LGA Directive</Text>
+                <Text style={styles.modalCardSubtitle}>
+                  Send alert to all retail agents in {supervisorProfile.lga}
+                </Text>
               </View>
-              <TouchableOpacity onPress={() => setModalType(null)}>
-                <Ionicons name="close" size={24} color={COLORS.muted} />
+              <TouchableOpacity onPress={() => setNotifModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#64748b" />
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.inputGuide}>Subject Header</Text>
+            <Text style={styles.formFieldLabel}>DIRECTIVE TITLE</Text>
             <TextInput
-              style={styles.modalInput}
-              placeholder="e.g. Regional Target Meeting Notice"
-              value={broadcastForm.title}
-              onChangeText={(t) => setBroadcastForm({ ...broadcastForm, title: t })}
-              placeholderTextColor={COLORS.muted}
+              style={styles.textInputStyle}
+              placeholder="e.g. Daily Data Target Milestone"
+              placeholderTextColor="#94a3b8"
+              value={notifTitle}
+              onChangeText={setNotifTitle}
             />
 
-            <Text style={styles.inputGuide}>Announcement Body</Text>
+            <Text style={styles.formFieldLabel}>DIRECTIVE BODY</Text>
             <TextInput
-              style={[styles.modalInput, { minHeight: 80, textAlignVertical: "top" }]}
-              placeholder="Enter message to distribute to all field teams..."
-              value={broadcastForm.message}
-              onChangeText={(t) => setBroadcastForm({ ...broadcastForm, message: t })}
-              placeholderTextColor={COLORS.muted}
+              style={[styles.textInputStyle, { height: 80, textAlignVertical: "top" }]}
+              placeholder="Type your announcement to all retail agents..."
+              placeholderTextColor="#94a3b8"
               multiline
-              numberOfLines={4}
+              value={notifMessage}
+              onChangeText={setNotifMessage}
             />
 
             <TouchableOpacity
-              style={[styles.modalSubmitBtn, { backgroundColor: COLORS.orange }]}
-              onPress={handleSendBroadcast}
+              style={styles.primaryActionBtn}
+              onPress={handleBroadcastToAgents}
               disabled={actionLoading}
             >
               {actionLoading ? (
-                <ActivityIndicator color={COLORS.white} />
+                <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.modalSubmitBtnText}>Dispatch Network Alert</Text>
+                <Text style={styles.primaryActionBtnText}>DISPATCH TO AGENTS</Text>
               )}
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
-      {/* MODAL 3: Universal Logout */}
-      <Modal
-        visible={modalType === "confirm_logout"}
-        transparent
-        animationType="fade"
-        onRequestClose={() => !logoutProcessing && setModalType(null)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.modalBox, { maxWidth: 380, alignItems: "center" }]}>
-            <View style={styles.modalIconWrap}>
-              <Ionicons name="power" size={30} color={COLORS.danger} />
-            </View>
-            <Text style={styles.modalHeading}>Sign Out of Executive Console?</Text>
-            <Text style={styles.modalSubheading}>
-              Your current regional management session will be terminated safely.
-            </Text>
-
-            <View style={styles.modalActionRow}>
+      {/* SIDEBAR DRAWER */}
+      {sidebarOpen && (
+        <TouchableOpacity
+          style={styles.sidebarBackdrop}
+          activeOpacity={1}
+          onPress={() => toggleSidebar(false)}
+        >
+          <Animated.View
+            style={[
+              styles.sidebarContainer,
+              { width: sidebarWidth, transform: [{ translateX: sidebarAnim }] },
+            ]}
+            onStartShouldSetResponder={() => true}
+          >
+            <View style={styles.sidebarHeader}>
+              <View style={styles.sidebarBrandRow}>
+                <View style={styles.sidebarSupervisorAvatar}>
+                  <FontAwesome5 name="user-tie" size={20} color="#0B5E3C" />
+                </View>
+                <View style={{ marginLeft: 10, flex: 1 }}>
+                  <Text style={styles.sidebarBrandText} numberOfLines={1}>
+                    {supervisorProfile.name}
+                  </Text>
+                  <Text style={styles.sidebarRoleText}>
+                    {supervisorProfile.lga} LGA Field Lead
+                  </Text>
+                </View>
+              </View>
               <TouchableOpacity
-                style={styles.modalCancelBtn}
-                disabled={logoutProcessing}
-                onPress={() => setModalType(null)}
+                onPress={() => toggleSidebar(false)}
+                style={{ padding: 4 }}
               >
-                <Text style={styles.modalCancelText}>Cancel</Text>
+                <Feather name="x" size={22} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.sidebarProfileDetailsCard}>
+              <Text style={styles.sidebarProfileDetailText} numberOfLines={1}>
+                📞 Phone:{" "}
+                <Text style={{ color: "#0f172a", fontWeight: "700" }}>
+                  {supervisorProfile.phone || "N/A"}
+                </Text>
+              </Text>
+              <Text style={styles.sidebarProfileDetailText} numberOfLines={1}>
+                ✉️ Email:{" "}
+                <Text style={{ color: "#0B5E3C", fontWeight: "700" }}>
+                  {supervisorProfile.email}
+                </Text>
+              </Text>
+              <Text style={styles.sidebarProfileDetailText} numberOfLines={1}>
+                📍 Jurisdiction:{" "}
+                <Text style={{ color: "#0f172a", fontWeight: "700" }}>
+                  {supervisorProfile.lga} LGA, {supervisorProfile.state}
+                </Text>
+              </Text>
+
+              <View style={styles.sidebarRefRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.sidebarRefLabel}>REFERRAL CODE</Text>
+                  <Text style={styles.sidebarRefCodeText}>
+                    {supervisorProfile.referralCode}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.sidebarCopyRefBtn}
+                  onPress={handleCopyReferral}
+                >
+                  <Feather name="copy" size={12} color="#ffffff" />
+                  <Text style={styles.sidebarCopyRefBtnText}>COPY</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <ScrollView
+              style={styles.sidebarNavList}
+              showsVerticalScrollIndicator={false}
+            >
+              <Text style={styles.sidebarCategory}>COMMAND ACTIONS</Text>
+
+              <TouchableOpacity
+                style={styles.navItem}
+                onPress={() => {
+                  toggleSidebar(false);
+                  handleNavigateToSignup();
+                }}
+              >
+                <View
+                  style={[styles.navIconBox, { backgroundColor: "#DCFCE7" }]}
+                >
+                  <Ionicons name="person-add-outline" size={16} color="#0B5E3C" />
+                </View>
+                <Text style={styles.navItemText}>
+                  Open Signup Screen to Register Agent
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.modalConfirmBtn}
-                disabled={logoutProcessing}
-                onPress={performLogout}
+                style={styles.navItem}
+                onPress={() => {
+                  toggleSidebar(false);
+                  handleCopyReferral();
+                }}
               >
-                {logoutProcessing ? (
-                  <ActivityIndicator size="small" color={COLORS.white} />
-                ) : (
-                  <Text style={styles.modalConfirmText}>Log Out</Text>
-                )}
+                <View
+                  style={[styles.navIconBox, { backgroundColor: "#F0FDF4" }]}
+                >
+                  <MaterialCommunityIcons
+                    name="ticket-percent"
+                    size={16}
+                    color="#16A34A"
+                  />
+                </View>
+                <Text style={styles.navItemText}>Copy Referral Code</Text>
               </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+
+              <TouchableOpacity
+                style={styles.navItem}
+                onPress={() => {
+                  toggleSidebar(false);
+                  setNotifModalVisible(true);
+                }}
+              >
+                <View
+                  style={[styles.navIconBox, { backgroundColor: "#DCFCE7" }]}
+                >
+                  <Ionicons name="megaphone-outline" size={16} color="#0B5E3C" />
+                </View>
+                <Text style={styles.navItemText}>Broadcast to Outlets</Text>
+              </TouchableOpacity>
+            </ScrollView>
+
+            <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+              <Feather name="log-out" size={17} color="#dc2626" />
+              <Text style={styles.logoutBtnText}>Exit Supervisor Session</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: COLORS.light },
-  bodyWrapper: { flex: 1, flexDirection: "row" },
-
-  // Desktop Fixed Sidebar
-  desktopSidebar: {
-    width: 280,
-    backgroundColor: COLORS.sidebarBg,
-    borderRightWidth: 1,
-    borderRightColor: COLORS.sidebarBorder,
-  },
-
-  // Mobile Slide-Out Modal Sidebar
-  modalOverlay: {
+  mainWrapper: { flex: 1, backgroundColor: "#f8fafc" },
+  loaderContainer: {
     flex: 1,
-    backgroundColor: "rgba(15, 23, 42, 0.7)",
-    flexDirection: "row",
-  },
-  modalBackdropTap: { flex: 1 },
-  mobileSidebarContainer: {
-    width: 310,
-    maxWidth: "85%",
-    backgroundColor: COLORS.sidebarBg,
-    height: "100%",
-  },
-
-  // Sidebar Internal Styling
-  sidebarInner: { flex: 1, display: "flex", flexDirection: "column" },
-  sidebarHeader: {
-    paddingHorizontal: 16,
-    paddingTop: Platform.OS === "android" ? 48 : 26,
-    paddingBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.sidebarBorder,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  sidebarBadgeBox: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: COLORS.secondary,
-    alignItems: "center",
+    backgroundColor: "#062819",
     justifyContent: "center",
+    alignItems: "center",
   },
-  sidebarBrandTitle: { color: COLORS.white, fontSize: 16, fontWeight: "900" },
-  sidebarBrandTag: { color: "#86EFAC", fontSize: 11, fontWeight: "600", marginTop: 2 },
-  sidebarCloseBtn: {
+  loaderTitle: {
+    color: "#22C55E",
+    fontSize: 16,
+    fontWeight: "900",
+    letterSpacing: 1.5,
+    marginTop: 16,
+  },
+  loaderText: {
+    color: "#94a3b8",
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 6,
+  },
+  topBar: {
+    backgroundColor: "#062819",
+    paddingTop: Platform.OS === "ios" ? 50 : 40,
+    paddingBottom: 14,
+    paddingHorizontal: isLargeScreen ? 32 : 18,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderBottomWidth: 1,
+    borderBottomColor: "#0A3D27",
+  },
+  menuIconBtn: { padding: 6 },
+  topBrandGroup: { alignItems: "center" },
+  stateBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(34, 197, 94, 0.15)",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    marginBottom: 3,
+    borderWidth: 1,
+    borderColor: "rgba(34, 197, 94, 0.3)",
+  },
+  livePulseDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#22C55E",
+    marginRight: 6,
+  },
+  stateBadgeText: {
+    color: "#86EFAC",
+    fontSize: 9,
+    fontWeight: "900",
+    letterSpacing: 0.8,
+  },
+  topBrandTitle: {
+    color: "#ffffff",
+    fontSize: 13,
+    fontWeight: "900",
+    letterSpacing: 0.5,
+  },
+  avatarBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    alignItems: "center",
+    backgroundColor: "#0A3D27",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.12)",
-  },
-  sidebarScroll: { flex: 1, paddingHorizontal: 14, paddingTop: 14 },
-  sidebarSection: { marginTop: 18 },
-  sidebarSectionTitle: {
-    color: "#64748B",
-    fontSize: 10,
-    fontWeight: "900",
-    letterSpacing: 1,
-    marginBottom: 8,
-    textTransform: "uppercase",
-    paddingHorizontal: 8,
-  },
-  sidebarMenuItem: {
-    flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 11,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: "#166534",
   },
-  sidebarMenuItemActive: {
-    backgroundColor: COLORS.sidebarActive,
+  logoutIconBtn: {
+    borderColor: "#EF4444",
+    backgroundColor: "rgba(239, 68, 68, 0.15)",
   },
-  sidebarMenuText: {
+  mainNavBar: {
+    flexDirection: "row",
+    backgroundColor: "#ffffff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e2e8f0",
+    paddingHorizontal: isLargeScreen ? 20 : 6,
+  },
+  mainNavTab: {
     flex: 1,
-    color: "#CBD5E1",
-    fontSize: 13,
-    fontWeight: "700",
-    marginLeft: 10,
-  },
-  sidebarMenuTextActive: { color: COLORS.white, fontWeight: "900" },
-  sidebarFooter: {
-    padding: 14,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.sidebarBorder,
-    backgroundColor: "rgba(0,0,0,0.2)",
-  },
-  sidebarLogoutBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
-    borderRadius: 10,
-    backgroundColor: "rgba(220, 38, 38, 0.16)",
+    paddingVertical: 14,
+    borderBottomWidth: 2,
+    borderBottomColor: "transparent",
   },
-  sidebarLogoutText: { color: "#FCA5A5", fontSize: 12, fontWeight: "800", marginLeft: 8 },
-
-  // Canvas
-  mainCanvas: { flex: 1, display: "flex", flexDirection: "column" },
-  header: {
-    backgroundColor: COLORS.primary,
-    paddingTop: Platform.OS === "android" ? 44 : 20,
-    paddingBottom: 16,
-    paddingHorizontal: 16,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  headerIconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: "rgba(255,255,255,0.18)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 10,
-  },
-  headerTextBox: { flex: 1 },
-  headerTitle: { color: COLORS.white, fontSize: 18, fontWeight: "900" },
-  headerSubtitle: {
-    color: "#DCFCE7",
-    marginTop: 2,
+  mainNavTabActive: { borderBottomColor: "#0B5E3C" },
+  mainNavTabText: {
+    color: "#64748b",
     fontSize: 11,
-    fontWeight: "600",
+    fontWeight: "700",
+    marginLeft: 4,
   },
-  logoutBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: COLORS.danger,
+  mainNavTabTextActive: { color: "#0B5E3C", fontWeight: "900" },
+  scrollArea: { flex: 1, width: "100%" },
+  scrollContentContainer: {
+    flexGrow: 1,
     alignItems: "center",
-    justifyContent: "center",
+    paddingBottom: 120,
   },
-  listContent: {
-    padding: 16,
-    paddingBottom: 80,
-    maxWidth: 960,
-    width: "100%",
-    alignSelf: "center",
-  },
-  loaderContainer: {
-    flex: 1,
-    backgroundColor: COLORS.light,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  loaderText: {
-    color: COLORS.primary,
-    fontWeight: "800",
+  contentCenterWrapper: { width: "100%", maxWidth: 1100 },
+
+  executiveTargetCardDark: {
+    backgroundColor: "#062819",
+    marginHorizontal: isLargeScreen ? 24 : 16,
     marginTop: 12,
-  },
-  heroCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 18,
+    borderRadius: 14,
     padding: 16,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: "#0A3D27",
     borderLeftWidth: 5,
-    borderLeftColor: COLORS.primary,
-    marginBottom: 14,
+    borderLeftColor: "#22C55E",
+    elevation: 4,
+  },
+  execHeaderRowDark: {
     flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: "#0A3D27",
+    paddingBottom: 10,
+    marginBottom: 12,
   },
-  heroIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 14,
-    backgroundColor: COLORS.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
+  execBadgeTextDark: {
+    color: "#86EFAC",
+    fontSize: 9.5,
+    fontWeight: "800",
+    letterSpacing: 0.8,
   },
-  heroTitle: {
-    color: COLORS.dark,
-    fontSize: 17,
+  execTitleTextDark: {
+    color: "#ffffff",
+    fontSize: 13.5,
     fontWeight: "900",
+    marginTop: 2,
   },
-  heroText: {
-    color: COLORS.muted,
-    marginTop: 4,
-    lineHeight: 18,
-    fontSize: 12,
-  },
-  refreshBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: COLORS.secondary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  quickDeckRow: {
+  liveTrackingBadge: {
     flexDirection: "row",
-    gap: 8,
-    marginBottom: 16,
-  },
-  quickDeckBtn: {
-    flex: 1,
-    borderRadius: 12,
-    paddingVertical: 12,
+    alignItems: "center",
+    backgroundColor: "rgba(34, 197, 94, 0.15)",
     paddingHorizontal: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "rgba(34, 197, 94, 0.3)",
   },
-  quickDeckBtnText: {
-    color: COLORS.white,
+  liveTrackingBadgeText: {
+    color: "#86EFAC",
+    fontSize: 9.5,
     fontWeight: "900",
-    fontSize: 12,
+    letterSpacing: 0.5,
   },
-  statGrid: {
+
+  execMetricsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    rowGap: 12,
-    marginBottom: 16,
   },
-  statBox: {
-    width: "48.5%",
-    backgroundColor: COLORS.white,
-    borderRadius: 16,
-    padding: 14,
+  execMetricBoxDark: {
+    width: isLargeScreen ? "23.5%" : "48.5%",
+    borderRadius: 10,
+    padding: 10,
+    marginVertical: 4,
+    backgroundColor: "#0A3D27",
     borderWidth: 1,
-    borderColor: COLORS.border,
-    borderLeftWidth: 5,
+    borderColor: "#166534",
   },
-  statIcon: {
+  execMetricLabelDark: { fontSize: 9.5, fontWeight: "800" },
+  execMetricValueDark: {
+    fontSize: 14.5,
+    fontWeight: "900",
+    marginVertical: 3,
+    color: "#ffffff",
+  },
+  execProgressBarBgDark: {
+    height: 6,
+    backgroundColor: "#062819",
+    borderRadius: 3,
+    overflow: "hidden",
+    marginVertical: 3,
+  },
+  execProgressBarFill: { height: 6, borderRadius: 3 },
+  execPercentSubDark: { color: "#CBD5E1", fontSize: 9.5, fontWeight: "700" },
+
+  referralBannerCard: {
+    backgroundColor: "#ffffff",
+    marginHorizontal: isLargeScreen ? 24 : 16,
+    marginTop: 12,
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    elevation: 1,
+  },
+  referralIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: "#DCFCE7",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#86EFAC",
+  },
+  referralCardTitle: { color: "#0f172a", fontSize: 13, fontWeight: "800" },
+  referralCardSub: { color: "#64748b", fontSize: 10.5, marginTop: 1 },
+  copyRefBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#0B5E3C",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+  },
+  copyRefBtnText: {
+    color: "#ffffff",
+    fontSize: 11,
+    fontWeight: "900",
+    marginLeft: 4,
+  },
+
+  actionRowContainer: {
+    flexDirection: "row",
+    marginHorizontal: isLargeScreen ? 24 : 16,
+    marginTop: 10,
+  },
+  actionBtnFull: {
+    flex: 1.5,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#0B5E3C",
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginRight: 6,
+  },
+  actionBtnFullText: {
+    color: "#ffffff",
+    fontSize: 10.5,
+    fontWeight: "900",
+    marginLeft: 4,
+  },
+  actionBtnSecondary: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#DCFCE7",
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#86EFAC",
+    marginLeft: 6,
+  },
+  actionBtnSecondaryText: {
+    color: "#0B5E3C",
+    fontSize: 11,
+    fontWeight: "900",
+    marginLeft: 4,
+  },
+
+  searchBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    height: 44,
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    marginHorizontal: isLargeScreen ? 24 : 16,
+    marginVertical: 12,
+  },
+  searchInput: { flex: 1, color: "#0f172a", fontSize: 12 },
+  tabContentWrapper: { paddingHorizontal: isLargeScreen ? 24 : 16 },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  sectionHeaderLabel: {
+    color: "#475569",
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 1,
+  },
+  actionPillBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#0B5E3C",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  actionPillBtnText: {
+    color: "#ffffff",
+    fontSize: 10,
+    fontWeight: "900",
+    marginLeft: 4,
+  },
+
+  agentCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    elevation: 2,
+  },
+  agentCardTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  agentMainInfo: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    flex: 1,
+    marginRight: 10,
+  },
+  agentAvatar: {
     width: 38,
     height: 38,
     borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 8,
-  },
-  statLabel: {
-    color: COLORS.muted,
-    fontSize: 11,
-    fontWeight: "800",
-    textTransform: "uppercase",
-  },
-  statValue: {
-    color: COLORS.dark,
-    fontSize: 16,
-    fontWeight: "900",
-    marginTop: 4,
-  },
-  searchBar: {
-    backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    minHeight: 48,
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  searchInput: {
-    flex: 1,
-    color: COLORS.dark,
-    fontWeight: "700",
-    marginLeft: 8,
-    fontSize: 13,
-    ...(Platform.OS === "web" ? { outlineStyle: "none" } : {}),
-  },
-  sectionTitleRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: "900",
-    color: COLORS.dark,
-  },
-  addBtn: {
-    backgroundColor: COLORS.primary,
-    flexDirection: "row",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    alignItems: "center",
-    gap: 6,
-  },
-  addBtnText: {
-    color: COLORS.white,
-    fontWeight: "800",
-    fontSize: 12,
-  },
-  supCard: {
-    backgroundColor: COLORS.white,
-    marginBottom: 12,
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  supInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-  supTextBox: {
-    marginLeft: 10,
-    flex: 1,
-  },
-  avatarCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: COLORS.softGreen,
+    backgroundColor: "#DCFCE7",
     justifyContent: "center",
     alignItems: "center",
-  },
-  supName: {
-    fontSize: 15,
-    fontWeight: "900",
-    color: COLORS.dark,
-  },
-  supRole: {
-    fontSize: 12,
-    color: COLORS.muted,
+    borderWidth: 1,
+    borderColor: "#86EFAC",
     marginTop: 2,
+  },
+  agentNameText: { color: "#0f172a", fontSize: 14, fontWeight: "800" },
+  agentLocationTag: { color: "#64748b", fontSize: 11, marginTop: 2 },
+  emailTagText: {
+    color: "#0B5E3C",
+    fontSize: 11,
+    marginTop: 1,
     fontWeight: "600",
   },
-  statusAction: {
-    width: 36,
-    height: 36,
+  addressTagText: {
+    color: "#475569",
+    fontSize: 10.5,
+    marginTop: 2,
+    fontStyle: "italic",
+  },
+  agentSalesText: { color: "#0B5E3C", fontSize: 14, fontWeight: "900" },
+  agentSalesSub: { color: "#94a3b8", fontSize: 9.5 },
+
+  // TARGET BOX NA KOWANE AGENT
+  agentTargetBox: {
+    backgroundColor: "#f8fafc",
     borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
+    padding: 10,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
   },
-  statsRow: {
-    flexDirection: "row",
-    marginTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#F1F5F9",
-    paddingTop: 10,
-    gap: 16,
-  },
-  miniStat: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  miniStatText: {
-    fontSize: 12,
-    color: COLORS.muted,
-    marginLeft: 5,
-    fontWeight: "700",
-  },
-  contactRow: {
+  agentTargetHeaderRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#F1F5F9",
-    paddingTop: 10,
+    alignItems: "center",
+    marginBottom: 6,
   },
-  iconBtn: {
+  agentTargetBoxTitle: {
+    color: "#0B5E3C",
+    fontSize: 9.5,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  agentTargetMonthText: { color: "#64748b", fontSize: 9.5, fontWeight: "700" },
+  agentTargetMetricRow: { width: "100%" },
+  targetMetricName: { fontSize: 11, color: "#334155", fontWeight: "600" },
+  agentMiniProgBg: {
+    height: 5,
+    backgroundColor: "#e2e8f0",
+    borderRadius: 2.5,
+    overflow: "hidden",
+  },
+  agentMiniProgFill: { height: 5, borderRadius: 2.5 },
+
+  agentCardBottom: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#f1f5f9",
+    paddingTop: 8,
+  },
+  inspectBtn: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
   },
-  iconBtnText: {
-    marginLeft: 5,
-    fontSize: 12,
-    color: COLORS.secondary,
+  inspectBtnText: {
+    color: "#0B5E3C",
+    fontSize: 11,
     fontWeight: "800",
+    marginLeft: 4,
   },
-  downloadBtn: {
-    backgroundColor: COLORS.secondary,
-    height: 52,
-    borderRadius: 14,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 12,
-    gap: 8,
-  },
-  downloadBtnText: {
-    color: COLORS.white,
-    fontWeight: "900",
-    fontSize: 13,
-  },
-  emptyBox: {
-    marginTop: 20,
-    padding: 24,
-    borderRadius: 16,
-    backgroundColor: COLORS.white,
-    alignItems: "center",
+  agentCallIconBtn: {
+    backgroundColor: "#DCFCE7",
+    padding: 6,
+    borderRadius: 6,
     borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  emptyTitle: {
-    fontSize: 15,
-    fontWeight: "900",
-    color: COLORS.dark,
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  emptyText: {
-    fontSize: 12,
-    color: COLORS.muted,
-    textAlign: "center",
-    lineHeight: 18,
+    borderColor: "#86EFAC",
   },
 
-  // Modals
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(15, 23, 42, 0.7)",
+  performanceCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  perfCardTitle: {
+    color: "#0f172a",
+    fontSize: 13,
+    fontWeight: "800",
+    marginBottom: 8,
+  },
+  perfProgressBarBg: {
+    height: 8,
+    backgroundColor: "#f1f5f9",
+    borderRadius: 4,
+    overflow: "hidden",
+    marginBottom: 6,
+  },
+  perfProgressBarFill: { height: 8, borderRadius: 4 },
+  perfSubText: { color: "#64748b", fontSize: 11 },
+
+  // TARGET HISTORY STYLES
+  historyCardHighlight: {
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1.5,
+    borderColor: "#22C55E",
+    elevation: 2,
+  },
+  historyCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  historyCardMonth: { color: "#0f172a", fontSize: 13, fontWeight: "800" },
+  activePill: {
+    backgroundColor: "#DCFCE7",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#86EFAC",
+  },
+  activePillText: { color: "#0B5E3C", fontSize: 9.5, fontWeight: "900" },
+  historyMetricsGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 8,
+  },
+  historyMetricText: { fontSize: 11.5, color: "#475569" },
+
+  logCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  logDetailsText: {
+    color: "#0f172a",
+    fontSize: 12,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  logActorText: { color: "#64748b", fontSize: 10 },
+  emptyFeed: {
+    backgroundColor: "#ffffff",
+    padding: 30,
+    borderRadius: 14,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  emptyFeedText: {
+    color: "#94a3b8",
+    fontSize: 12,
+    marginTop: 10,
+    textAlign: "center",
+  },
+
+  sidebarBackdrop: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(6, 40, 25, 0.7)",
+    zIndex: 100,
+  },
+  sidebarContainer: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    backgroundColor: "#ffffff",
+    paddingTop: Platform.OS === "ios" ? 50 : 35,
+    paddingHorizontal: 16,
+    borderRightWidth: 1,
+    borderRightColor: "#e2e8f0",
+  },
+  sidebarHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e2e8f0",
+  },
+  sidebarBrandRow: { flexDirection: "row", alignItems: "center", flex: 1 },
+  sidebarSupervisorAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: "#DCFCE7",
     justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#86EFAC",
+  },
+  sidebarBrandText: { color: "#0f172a", fontSize: 14, fontWeight: "900" },
+  sidebarRoleText: { color: "#0B5E3C", fontSize: 10.5, fontWeight: "700" },
+
+  sidebarProfileDetailsCard: {
+    backgroundColor: "#f8fafc",
+    borderRadius: 12,
+    padding: 10,
+    marginTop: 10,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  sidebarProfileDetailText: {
+    fontSize: 11,
+    color: "#64748b",
+    marginVertical: 1.5,
+  },
+  sidebarRefRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#DCFCE7",
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: "#86EFAC",
+  },
+  sidebarRefLabel: { fontSize: 8.5, color: "#0B5E3C", fontWeight: "800" },
+  sidebarRefCodeText: { fontSize: 11.5, color: "#0f172a", fontWeight: "900" },
+  sidebarCopyRefBtn: {
+    backgroundColor: "#0B5E3C",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  sidebarCopyRefBtnText: {
+    color: "#ffffff",
+    fontSize: 9.5,
+    fontWeight: "900",
+    marginLeft: 4,
+  },
+
+  sidebarNavList: { flex: 1, marginTop: 6 },
+  sidebarCategory: {
+    color: "#64748b",
+    fontSize: 9.5,
+    fontWeight: "900",
+    letterSpacing: 1,
+    marginTop: 12,
+    marginBottom: 6,
+    paddingLeft: 6,
+  },
+  navItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    marginBottom: 3,
+  },
+  navIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  navItemText: {
+    color: "#334155",
+    fontSize: 12.5,
+    fontWeight: "700",
+    marginLeft: 12,
+  },
+  logoutBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#e2e8f0",
+  },
+  logoutBtnText: {
+    color: "#dc2626",
+    fontSize: 13,
+    fontWeight: "800",
+    marginLeft: 10,
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(6, 40, 25, 0.75)",
+    justifyContent: "center",
+    alignItems: "center",
     padding: 16,
   },
-  modalBox: {
-    width: "100%",
-    maxWidth: 420,
-    backgroundColor: COLORS.white,
+  modalCard: {
+    backgroundColor: "#ffffff",
     borderRadius: 20,
     padding: 20,
+    width: "100%",
+    maxWidth: 540,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: "#cbd5e1",
+    elevation: 8,
   },
-  modalHead: {
+  modalHeaderRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e2e8f0",
+    paddingBottom: 10,
   },
-  modalTitle: { color: COLORS.dark, fontSize: 16, fontWeight: "900" },
-  targetBeneficiaryLabel: {
-    fontSize: 12,
-    color: COLORS.muted,
-    marginBottom: 12,
+  modalCardTitle: { color: "#0f172a", fontSize: 15, fontWeight: "900" },
+  modalCardSubtitle: { color: "#64748b", fontSize: 11, marginTop: 2 },
+  formFieldLabel: {
+    color: "#0B5E3C",
+    fontSize: 10.5,
+    fontWeight: "900",
+    letterSpacing: 0.8,
+    marginTop: 12,
+    marginBottom: 6,
   },
-  inputGuide: { color: COLORS.muted, fontSize: 11, fontWeight: "700", marginBottom: 4 },
-  modalInput: {
-    backgroundColor: COLORS.light,
+  textInputStyle: {
+    backgroundColor: "#f8fafc",
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: "#cbd5e1",
     borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: COLORS.dark,
-    marginBottom: 10,
+    height: 44,
+    color: "#0f172a",
+    fontSize: 13,
+    fontWeight: "600",
+    marginBottom: 8,
   },
-  modalSubmitBtn: {
+  primaryActionBtn: {
+    backgroundColor: "#0B5E3C",
+    paddingVertical: 14,
     borderRadius: 12,
-    paddingVertical: 12,
     alignItems: "center",
-    justifyContent: "center",
-    marginTop: 4,
+    marginTop: 14,
+    elevation: 2,
   },
-  modalSubmitBtnText: { color: COLORS.white, fontWeight: "900", fontSize: 13 },
-  modalIconWrap: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: "#FEE2E2",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 14,
-  },
-  modalHeading: {
-    fontSize: 17,
-    fontWeight: "900",
-    color: COLORS.dark,
-    marginBottom: 6,
-    textAlign: "center",
-  },
-  modalSubheading: {
+  primaryActionBtnText: {
+    color: "#ffffff",
     fontSize: 12,
-    color: COLORS.muted,
-    textAlign: "center",
-    marginBottom: 18,
-    lineHeight: 18,
-  },
-  modalActionRow: {
-    flexDirection: "row",
-    width: "100%",
-    gap: 10,
-  },
-  modalCancelBtn: {
-    flex: 1,
-    backgroundColor: COLORS.light,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  modalCancelText: {
-    color: COLORS.dark,
-    fontWeight: "800",
-    fontSize: 13,
-  },
-  modalConfirmBtn: {
-    flex: 1,
-    backgroundColor: COLORS.danger,
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  modalConfirmText: {
-    color: COLORS.white,
     fontWeight: "900",
-    fontSize: 13,
+    letterSpacing: 0.6,
+  },
+
+  inspectSummaryBanner: {
+    flexDirection: "row",
+    backgroundColor: "#DCFCE7",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#86EFAC",
+  },
+  inspectBannerBox: { flex: 1, alignItems: "center" },
+  inspectBannerLabel: { color: "#0B5E3C", fontSize: 10, fontWeight: "700" },
+  inspectBannerValue: {
+    color: "#0f172a",
+    fontSize: 15,
+    fontWeight: "900",
+    marginTop: 2,
+  },
+  inspectBannerDivider: { width: 1, height: 30, backgroundColor: "#86EFAC" },
+  quotaInfoBox: {
+    backgroundColor: "#f8fafc",
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    marginBottom: 8,
+  },
+  quotaInfoText: { fontSize: 12, color: "#475569", marginVertical: 2 },
+  outletAddressText: {
+    fontSize: 12,
+    color: "#0f172a",
+    fontWeight: "600",
+    marginTop: 2,
   },
 });
 
-export default LeaderDashboard;
+export default SupervisorDashboard;
