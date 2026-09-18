@@ -101,7 +101,9 @@ const AdminDashboard = ({ navigation }) => {
   const [customerTickets, setCustomerTickets] = useState([]);
   const [pricingList, setPricingList] = useState([]);
 
-  // Create Supervisor Form
+  // Create Supervisor Form & Visibility State
+  const [showSupervisorPassword, setShowSupervisorPassword] = useState(false);
+  const [supervisorSuccessMsg, setSupervisorSuccessMsg] = useState("");
   const [supervisorForm, setSupervisorForm] = useState({
     firstName: "",
     surname: "",
@@ -331,6 +333,7 @@ const AdminDashboard = ({ navigation }) => {
 
     try {
       setActionLoading(true);
+      setSupervisorSuccessMsg("");
       const config = await getAuthHeaders();
       const payload = {
         name: `${firstName} ${surname}`.trim(),
@@ -363,10 +366,13 @@ const AdminDashboard = ({ navigation }) => {
       }
 
       if (created) {
-        Alert.alert("Success", `Supervisor ${payload.name} created successfully.`);
-        setModalType(null);
+        setSupervisorSuccessMsg(`An kirkiro Supervisor ${payload.name} cikin nasara!`);
         setSupervisorForm({ firstName: "", surname: "", email: "", phone: "", password: "" });
         await fetchStats();
+        setTimeout(() => {
+          setSupervisorSuccessMsg("");
+          setModalType(null);
+        }, 2200);
       } else {
         Alert.alert("Registration Failed", errMsg || "Could not register supervisor.");
       }
@@ -772,6 +778,7 @@ const AdminDashboard = ({ navigation }) => {
           icon: "account-plus",
           action: () => {
             setSidebarOpen(false);
+            setSupervisorSuccessMsg("");
             setModalType("create_supervisor");
           },
         },
@@ -1089,7 +1096,10 @@ const AdminDashboard = ({ navigation }) => {
                 icon="account-plus"
                 title="Register New Field Supervisor Profile"
                 color={COLORS.secondary}
-                onPress={() => setModalType("create_supervisor")}
+                onPress={() => {
+                  setSupervisorSuccessMsg("");
+                  setModalType("create_supervisor");
+                }}
               />
               <QuickAction
                 COLORS={COLORS}
@@ -1705,7 +1715,7 @@ const AdminDashboard = ({ navigation }) => {
       </Modal>
 
       {/* ============================================================= */}
-      {/* MODAL: CREATE SUPERVISOR */}
+      {/* MODAL: CREATE SUPERVISOR (TARE DA PASSWORD TOGGLE & SUCCESS) */}
       {/* ============================================================= */}
       <Modal
         visible={modalType === "create_supervisor"}
@@ -1720,10 +1730,23 @@ const AdminDashboard = ({ navigation }) => {
                 <MaterialCommunityIcons name="account-plus" size={24} color={COLORS.primary} />
                 <Text style={styles.modalTitle}>Register Supervisor</Text>
               </View>
-              <TouchableOpacity onPress={() => setModalType(null)}>
+              <TouchableOpacity
+                onPress={() => {
+                  setSupervisorSuccessMsg("");
+                  setModalType(null);
+                }}
+              >
                 <Ionicons name="close" size={24} color={COLORS.muted} />
               </TouchableOpacity>
             </View>
+
+            {/* Success Banner */}
+            {supervisorSuccessMsg ? (
+              <View style={styles.successBanner}>
+                <Ionicons name="checkmark-circle" size={20} color={COLORS.secondary} />
+                <Text style={styles.successBannerText}>{supervisorSuccessMsg}</Text>
+              </View>
+            ) : null}
 
             <Text style={styles.inputGuide}>First Name</Text>
             <TextInput
@@ -1765,14 +1788,27 @@ const AdminDashboard = ({ navigation }) => {
             />
 
             <Text style={styles.inputGuide}>Temporary Password</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Minimum 6 characters"
-              secureTextEntry
-              value={supervisorForm.password}
-              onChangeText={(t) => setSupervisorForm({ ...supervisorForm, password: t })}
-              placeholderTextColor={COLORS.muted}
-            />
+            <View style={styles.passwordInputContainer}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Minimum 6 characters"
+                secureTextEntry={!showSupervisorPassword}
+                value={supervisorForm.password}
+                onChangeText={(t) => setSupervisorForm({ ...supervisorForm, password: t })}
+                placeholderTextColor={COLORS.muted}
+              />
+              <TouchableOpacity
+                style={styles.eyeButton}
+                onPress={() => setShowSupervisorPassword(!showSupervisorPassword)}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={showSupervisorPassword ? "eye-off-outline" : "eye-outline"}
+                  size={20}
+                  color={COLORS.muted}
+                />
+              </TouchableOpacity>
+            </View>
 
             <TouchableOpacity
               style={[styles.modalSubmitBtn, { backgroundColor: COLORS.primary }]}
@@ -2225,6 +2261,43 @@ const getStyles = (COLORS) =>
       fontSize: 14,
       color: COLORS.text,
       marginBottom: 10,
+    },
+    passwordInputContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: COLORS.soft,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      borderRadius: 10,
+      marginBottom: 10,
+      paddingRight: 10,
+    },
+    passwordInput: {
+      flex: 1,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontSize: 14,
+      color: COLORS.text,
+    },
+    eyeButton: {
+      padding: 6,
+    },
+    successBanner: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: "#DCFCE7",
+      borderWidth: 1,
+      borderColor: "#86EFAC",
+      borderRadius: 10,
+      padding: 10,
+      marginBottom: 12,
+      gap: 8,
+    },
+    successBannerText: {
+      color: "#15803D",
+      fontSize: 13,
+      fontWeight: "800",
+      flex: 1,
     },
     modalTextArea: {
       minHeight: 80,
