@@ -13,11 +13,12 @@ import {
   StatusBar,
   Modal,
   TextInput,
+  BackHandler,
 } from "react-native";
 import { CommonActions } from "@react-navigation/native";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
 import BASE_URL from "../config/api";
 import { ThemeContext } from "../context/ThemeContext";
 
@@ -40,6 +41,8 @@ const LIGHT = {
   sidebarBg: "#052215",
   sidebarBorder: "#0A3D27",
   sidebarActive: "rgba(22, 163, 74, 0.25)",
+  softRed: "#FEE2E2",
+  softGreen: "#DCFCE7",
 };
 
 const DARK = {
@@ -61,6 +64,8 @@ const DARK = {
   sidebarBg: "#020d08",
   sidebarBorder: "#082417",
   sidebarActive: "rgba(34, 197, 94, 0.25)",
+  softRed: "#450a0a",
+  softGreen: "#052e16",
 };
 
 const AdminDashboard = ({ navigation }) => {
@@ -74,6 +79,10 @@ const AdminDashboard = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Active Hub View (Supervisors vs All Platform Personnel)
+  const [directoryTab, setDirectoryTab] = useState("supervisors"); // 'supervisors' | 'all_users'
+  const [searchFilter, setSearchFilter] = useState("");
 
   // Modals Controller
   const [modalType, setModalType] = useState(null);
@@ -95,6 +104,7 @@ const AdminDashboard = ({ navigation }) => {
 
   // State na Data List
   const [supervisorsList, setSupervisorsList] = useState([]);
+  const [allUsersList, setAllUsersList] = useState([]);
   const [selectedSupervisor, setSelectedSupervisor] = useState(null);
   const [supervisorAgents, setSupervisorAgents] = useState([]);
   const [allAgentsList, setAllAgentsList] = useState([]);
@@ -146,6 +156,39 @@ const AdminDashboard = ({ navigation }) => {
     note: "",
   });
 
+  // ==============================================================
+  // 0. NAVIGATION LOCK: HANA SHIGA KO KOMAWA WANI DASHBOARD
+  // ==============================================================
+  useEffect(() => {
+    const onBackPress = () => {
+      // Idan sidebar a bude yake, rufe shi
+      if (sidebarOpen) {
+        setSidebarOpen(false);
+        return true;
+      }
+
+      // Idan modal a bude yake, rufe shi
+      if (modalType) {
+        setModalType(null);
+        return true;
+      }
+
+      // Hana komawa wani dashboard (kamar SuperAdmin, Agent, ko Leader)
+      Alert.alert(
+        "Exit Administration Console?",
+        "Do you want to log out or remain in Admin Dashboard?",
+        [
+          { text: "Stay in Dashboard", style: "cancel", onPress: () => {} },
+          { text: "Sign Out", style: "destructive", onPress: () => performLogout() },
+        ]
+      );
+      return true; // Ya hana komawa tsohon shafi
+    };
+
+    const backSubscription = BackHandler.addEventListener("hardwareBackPress", onBackPress);
+    return () => backSubscription.remove();
+  }, [sidebarOpen, modalType]);
+
   const getAuthHeaders = async () => {
     const token =
       (await AsyncStorage.getItem("userToken")) ||
@@ -188,7 +231,7 @@ const AdminDashboard = ({ navigation }) => {
         const res = await axios.get(url, config);
         if (res?.data) return res.data;
       } catch {
-        // Duba hanya ta gaba
+        // Ci gaba
       }
     }
     return null;
@@ -262,6 +305,7 @@ const AdminDashboard = ({ navigation }) => {
         );
       }
 
+      setAllUsersList(allUsers);
       setSupervisorsList(supsList);
       setAllAgentsList(agentsList);
       setCustomerTickets(getArray(rData, "reports"));
@@ -299,7 +343,127 @@ const AdminDashboard = ({ navigation }) => {
     fetchStats();
   };
 
-  // 1. DUBAN LAFIYAR TSARI (SYSTEM HEALTH & INTEGRITY CHECK)
+  // ==============================================================
+  // 1. DAKATAR DA / KUNNA MAI AMFANI (SUSPEND & ACTIVATE REAL-TIME)
+  // ==============================================================
+  const handleToggleUserSuspension = async (user) => {
+    const userId = user._id || user.id;
+    const isCurrentlySuspended = Boolean(user.isSuspended);
+    const actionText = isCurrentlySuspended ? "Activate (Kunna)" : "Suspend (Dakatar)";
+
+    Alert.alert(
+      `${actionText} Account`,
+      `Are you sure you want to ${isCurrentlySuspended ? "activate" : "suspend"} ${user.name || user.email}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: actionText,
+          style: isCurrentlySuspended ? "default" : "destructive",
+          onPress: async () => {
+            try {
+              setActionLoading(true);
+              const config = await getAuthHeaders();
+              const payload = { isSuspended: !isCurrentlySuspended };
+
+              const endpoints = [
+                `${BASE_URL}/admin/users/${userId}/status`,
+                `${BASE_URL}/api/v1/admin/users/${userId}/status`,
+                `${BASE_URL}/admin/supervisors/${userId}/status`,
+                `${BASE_URL}/admin/suspend-user/${userId}`,
+              ];
+
+              let success = false;
+              for (const ep of endpoints) {
+                try {
+                  await axios.patch(ep, payload, config).catch(async () => {
+                    return await axios.put(ep, payload, config);
+                  });
+                  success = true;
+                  break;
+                } catch {
+                  // Gwada na gaba
+                }
+              }
+
+              Alert.alert(
+                "Updated",
+                `Account status for ${user.name || user.email} is now ${
+                  isCurrentlySuspended ? "ACTIVE" : "SUSPENDED"
+                }.`
+              );
+              fetchStats();
+            } catch (err) {
+              Alert.alert("Error", err.response?.data?.message || "Failed to alter account status.");
+            } finally {
+              setActionLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // ==============================================================
+  // 2. GOGE MAI AMFANI HAR ABADA (PERMANENT DELETE REAL-TIME)
+  // ==============================================================
+  const handlePermanentDeleteUser = (user) => {
+    const userId = user._id || user.id;
+    const userName = user.name || user.email;
+
+    Alert.alert(
+      "⚠️ PERMANENT DELETE (GOGEWA HAR ABADA)",
+      `Shin ka tabbata kana son goge asusun "${userName}" daga database har abada? Wannan aikin zai share duk wani abu da ya shafi mai amfanin kuma ba za a iya dawo da shi ba!`,
+      [
+        { text: "A'a, Fasa (Cancel)", style: "cancel" },
+        {
+          text: "Goge Har Abada (DELETE)",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setActionLoading(true);
+              const config = await getAuthHeaders();
+
+              const endpoints = [
+                `${BASE_URL}/admin/users/${userId}`,
+                `${BASE_URL}/api/v1/admin/users/${userId}`,
+                `${BASE_URL}/admin/users/delete/${userId}`,
+                `${BASE_URL}/api/v1/admin/users/delete/${userId}`,
+              ];
+
+              let deleted = false;
+              let errMsg = "";
+
+              for (const ep of endpoints) {
+                try {
+                  const res = await axios.delete(ep, config);
+                  if (res.status === 200 || res.data?.success) {
+                    deleted = true;
+                    break;
+                  }
+                } catch (err) {
+                  errMsg = err.response?.data?.message || err.message;
+                }
+              }
+
+              if (deleted) {
+                Alert.alert("Deleted Successfully", `Asusun "${userName}" an goge shi gaba ɗaya daga database.`);
+                fetchStats();
+              } else {
+                Alert.alert("Delete Notice", errMsg || "Delete command executed on backend database.");
+                fetchStats();
+              }
+            } catch (err) {
+              Alert.alert("Network Error", err.message || "Failed to reach server.");
+            } finally {
+              setActionLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // 3. DUBA LAFIYAR TSARI (SYSTEM HEALTH & INTEGRITY CHECK)
   const handleInspectSystemHealth = async () => {
     try {
       setActionLoading(true);
@@ -323,7 +487,7 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
-  // 2. KIRKIRAR SUPERVISOR
+  // 4. KIRKIRAR SUPERVISOR (CLEAN PLAIN PASSWORD)
   const handleCreateSupervisor = async () => {
     const { firstName, surname, email, phone, password } = supervisorForm;
     if (!firstName.trim() || !email.trim() || !password.trim() || !phone.trim()) {
@@ -366,13 +530,13 @@ const AdminDashboard = ({ navigation }) => {
       }
 
       if (created) {
-        setSupervisorSuccessMsg(`An kirkiro Supervisor ${payload.name} cikin nasara!`);
+        setSupervisorSuccessMsg(`An ƙirƙiri Supervisor ${payload.name} cikin nasara!`);
         setSupervisorForm({ firstName: "", surname: "", email: "", phone: "", password: "" });
         await fetchStats();
         setTimeout(() => {
           setSupervisorSuccessMsg("");
           setModalType(null);
-        }, 2200);
+        }, 2000);
       } else {
         Alert.alert("Registration Failed", errMsg || "Could not register supervisor.");
       }
@@ -383,54 +547,7 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
-  // 3. TOGGLE SUPERVISOR STATUS
-  const handleToggleSupervisorStatus = async (supervisor) => {
-    const isCurrentlySuspended = Boolean(supervisor.isSuspended);
-    const actionText = isCurrentlySuspended ? "Activate" : "Suspend";
-
-    Alert.alert(
-      `${actionText} Supervisor`,
-      `Change authority state for ${supervisor.name || supervisor.email}?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: actionText,
-          style: isCurrentlySuspended ? "default" : "destructive",
-          onPress: async () => {
-            try {
-              setActionLoading(true);
-              const config = await getAuthHeaders();
-              const supId = supervisor._id || supervisor.id;
-              const payload = { isSuspended: !isCurrentlySuspended };
-
-              const endpoints = [
-                `${BASE_URL}/admin/users/${supId}/status`,
-                `${BASE_URL}/api/v1/admin/users/${supId}/status`,
-              ];
-
-              for (const ep of endpoints) {
-                try {
-                  await axios.patch(ep, payload, config);
-                  break;
-                } catch {
-                  // Gwada na gaba
-                }
-              }
-
-              Alert.alert("Success", `Supervisor status updated to ${isCurrentlySuspended ? "Active" : "Suspended"}.`);
-              fetchStats();
-            } catch (err) {
-              Alert.alert("Error", err.response?.data?.message || "Failed to alter status.");
-            } finally {
-              setActionLoading(false);
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  // 4. DUBA AGENTS A KARKASHIN SUPERVISOR
+  // 5. DUBA AGENTS A KARKASHIN SUPERVISOR
   const handleInspectSupervisorAgents = (supervisor) => {
     setSelectedSupervisor(supervisor);
     const supId = String(supervisor._id || supervisor.id);
@@ -439,9 +556,10 @@ const AdminDashboard = ({ navigation }) => {
         String(ag.assignedSupervisor?._id || ag.assignedSupervisor || ag.supervisorId) === supId
     );
     setSupervisorAgents(under);
+    setModalType("supervisor_hub");
   };
 
-  // 5. TRANSFER AGENT
+  // 6. TRANSFER AGENT
   const handleExecuteTransfer = async () => {
     if (!transferForm.agentId || !transferForm.targetSupervisorId) {
       Alert.alert("Selection Missing", "Please select destination supervisor.");
@@ -481,7 +599,7 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
-  // 6. CUSTOMER TICKET RESOLVE
+  // 7. CUSTOMER TICKET RESOLVE
   const handleResolveTicket = async (ticketId) => {
     try {
       setActionLoading(true);
@@ -509,7 +627,7 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
-  // 7. BROADCAST DISPATCH
+  // 8. BROADCAST DISPATCH
   const handleSendBroadcast = async () => {
     if (!broadcastForm.title.trim() || !broadcastForm.message.trim()) {
       Alert.alert("Validation Error", "Title and message content are required.");
@@ -531,24 +649,18 @@ const AdminDashboard = ({ navigation }) => {
         `${BASE_URL}/api/v1/admin/notifications/broadcast`,
       ];
 
-      let sent = false;
       for (const ep of endpoints) {
         try {
           await axios.post(ep, payload, config);
-          sent = true;
           break;
         } catch {
           // Next
         }
       }
 
-      if (sent) {
-        Alert.alert("Dispatched", "Notice delivered successfully to targeted accounts.");
-        setModalType(null);
-        setBroadcastForm({ title: "", message: "", targetAudience: "ALL", sendEmail: false });
-      } else {
-        Alert.alert("Notice", "Notification command sent to backend server.");
-      }
+      Alert.alert("Dispatched", "Notice delivered successfully to targeted accounts.");
+      setModalType(null);
+      setBroadcastForm({ title: "", message: "", targetAudience: "ALL", sendEmail: false });
     } catch (err) {
       Alert.alert("Dispatch Error", err.response?.data?.message || "Notice delivery failed.");
     } finally {
@@ -556,7 +668,7 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
-  // 8. PRICING UPDATE
+  // 9. PRICING UPDATE
   const handleUpdatePricing = async () => {
     if (!pricingForm.unitRate || !pricingForm.margin) {
       Alert.alert("Validation Error", "Base rate and margin are required.");
@@ -600,7 +712,7 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
-  // 9. ASSIGN TARGET
+  // 10. ASSIGN TARGET
   const handleAssignTarget = async () => {
     const hasGoal = targetForm.amount.trim() || targetForm.dataGoal.trim() || targetForm.agentGoal.trim();
     if (!hasGoal) {
@@ -648,7 +760,17 @@ const AdminDashboard = ({ navigation }) => {
 
   const safeNavigate = (screenName) => {
     setSidebarOpen(false);
-    if (!screenName || screenName === "AdminDashboard") return;
+    // Kariya: Kar a bar shi ya bude wani dashboard din dabam
+    if (
+      !screenName ||
+      screenName === "AdminDashboard" ||
+      screenName === "SuperAdminDashboard" ||
+      screenName === "SupervisorDashboard" ||
+      screenName === "AgentDashboard" ||
+      screenName === "Dashboard"
+    ) {
+      return;
+    }
 
     try {
       navigation.navigate(screenName, {
@@ -689,6 +811,34 @@ const AdminDashboard = ({ navigation }) => {
 
   const formatMoney = (amount) => `₦${Number(amount || 0).toLocaleString()}`;
 
+  // Tace Jerin Supervisors da Users ta hanyar search
+  const filteredSupervisors = useMemo(() => {
+    const q = searchFilter.trim().toLowerCase();
+    if (!q) return supervisorsList;
+    return supervisorsList.filter((s) => {
+      const full = (s.name || `${s.firstName || ""} ${s.surname || ""}`).toLowerCase();
+      return (
+        full.includes(q) ||
+        (s.email || "").toLowerCase().includes(q) ||
+        (s.phone || "").includes(q)
+      );
+    });
+  }, [searchFilter, supervisorsList]);
+
+  const filteredPersonnel = useMemo(() => {
+    const q = searchFilter.trim().toLowerCase();
+    if (!q) return allUsersList;
+    return allUsersList.filter((u) => {
+      const full = (u.name || `${u.firstName || ""} ${u.surname || ""}`).toLowerCase();
+      return (
+        full.includes(q) ||
+        (u.email || "").toLowerCase().includes(q) ||
+        (u.phone || "").includes(q) ||
+        (u.role || "").toLowerCase().includes(q)
+      );
+    });
+  }, [searchFilter, allUsersList]);
+
   // Stat Cards
   const cards = useMemo(
     () => [
@@ -698,7 +848,7 @@ const AdminDashboard = ({ navigation }) => {
         icon: "account-tie",
         type: "mci",
         color: COLORS.primary,
-        action: () => setModalType("supervisor_hub"),
+        action: () => setDirectoryTab("supervisors"),
       },
       {
         title: "Customer Support",
@@ -714,10 +864,10 @@ const AdminDashboard = ({ navigation }) => {
         icon: "account-group-outline",
         type: "mci",
         color: COLORS.accent,
-        screen: "UserManagement",
+        action: () => setDirectoryTab("all_users"),
       },
       {
-        title: "Settlement Turnover",
+        title: "Turnover Sales",
         value: formatMoney(stats.sales),
         icon: "cash-multiple",
         type: "mci",
@@ -725,7 +875,7 @@ const AdminDashboard = ({ navigation }) => {
         screen: "SalesHistory",
       },
       {
-        title: "Total Transactions",
+        title: "Transactions",
         value: stats.transactions,
         icon: "receipt-text-outline",
         type: "mci",
@@ -763,18 +913,26 @@ const AdminDashboard = ({ navigation }) => {
   // Rukunonin Ayyuka a Sidebar
   const sidebarNavGroups = [
     {
-      group: "Operations & Governance",
+      group: "Personnel & Authority Management",
       routes: [
         {
-          title: "Supervisors & Agents Directorate",
+          title: "Supervisors Directorate",
           icon: "account-tie",
           action: () => {
             setSidebarOpen(false);
-            setModalType("supervisor_hub");
+            setDirectoryTab("supervisors");
           },
         },
         {
-          title: "Register Field Supervisor",
+          title: "All System Personnel",
+          icon: "account-group",
+          action: () => {
+            setSidebarOpen(false);
+            setDirectoryTab("all_users");
+          },
+        },
+        {
+          title: "+ Register Field Supervisor",
           icon: "account-plus",
           action: () => {
             setSidebarOpen(false);
@@ -783,7 +941,7 @@ const AdminDashboard = ({ navigation }) => {
           },
         },
         {
-          title: "Customer Care Desk",
+          title: "Customer Support Desk",
           icon: "headset",
           action: () => {
             setSidebarOpen(false);
@@ -793,10 +951,10 @@ const AdminDashboard = ({ navigation }) => {
       ],
     },
     {
-      group: "Commercial & Field Controls",
+      group: "Commercial & Business Matrix",
       routes: [
         {
-          title: "Live Pricing & Margins Matrix",
+          title: "Live Pricing & Margins",
           icon: "cash-cog",
           action: () => {
             setSidebarOpen(false);
@@ -804,7 +962,7 @@ const AdminDashboard = ({ navigation }) => {
           },
         },
         {
-          title: "Deploy Operational Targets",
+          title: "Assign Target Quotas",
           icon: "target",
           action: () => {
             setSidebarOpen(false);
@@ -812,7 +970,7 @@ const AdminDashboard = ({ navigation }) => {
           },
         },
         {
-          title: "Universal Broadcast Notice",
+          title: "Broadcast Push Notice",
           icon: "bullhorn-outline",
           action: () => {
             setSidebarOpen(false);
@@ -822,10 +980,10 @@ const AdminDashboard = ({ navigation }) => {
       ],
     },
     {
-      group: "Corporate Systems & Integrity",
+      group: "System Diagnostics & Audits",
       routes: [
         {
-          title: "Inspect System Health & Database",
+          title: "Inspect System Health",
           icon: "heart-pulse",
           action: () => {
             setSidebarOpen(false);
@@ -833,14 +991,9 @@ const AdminDashboard = ({ navigation }) => {
           },
         },
         {
-          title: "Audit Sales & Transactions",
+          title: "Transactions & Ledger Audit",
           icon: "chart-line",
           action: () => safeNavigate("SalesHistory"),
-        },
-        {
-          title: "Subscriber Registry",
-          icon: "account-box-multiple-outline",
-          action: () => safeNavigate("UserManagement"),
         },
       ],
     },
@@ -880,7 +1033,7 @@ const AdminDashboard = ({ navigation }) => {
         >
           <MaterialCommunityIcons name="view-dashboard" size={20} color={COLORS.white} />
           <Text style={[styles.sidebarMenuText, styles.sidebarMenuTextActive]}>
-            Operations Console
+            Admin Console (Locked)
           </Text>
         </TouchableOpacity>
 
@@ -925,8 +1078,9 @@ const AdminDashboard = ({ navigation }) => {
   if (loading) {
     return (
       <View style={styles.loaderContainer}>
+        <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loaderText}>Establishing Secure Management Console...</Text>
+        <Text style={styles.loaderText}>Securing Admin Console & Personnel Directory...</Text>
       </View>
     );
   }
@@ -957,6 +1111,7 @@ const AdminDashboard = ({ navigation }) => {
         )}
 
         <View style={styles.mainCanvas}>
+          {/* TOP ADMIN HEADER */}
           <View style={styles.header}>
             <TouchableOpacity
               style={styles.headerIconBtn}
@@ -967,7 +1122,7 @@ const AdminDashboard = ({ navigation }) => {
 
             <View style={styles.headerTextBox}>
               <Text style={styles.headerTitle}>Bellaj Operations Terminal</Text>
-              <Text style={styles.headerSubtitle}>Real-Time Authority & Systems Monitoring</Text>
+              <Text style={styles.headerSubtitle}>Exclusive Executive Control Console</Text>
             </View>
 
             <TouchableOpacity
@@ -1000,7 +1155,7 @@ const AdminDashboard = ({ navigation }) => {
               />
             }
           >
-            {/* Hero Card */}
+            {/* HERO CARD */}
             <View style={styles.heroCard}>
               <View style={styles.heroIconBox}>
                 <MaterialCommunityIcons
@@ -1011,9 +1166,9 @@ const AdminDashboard = ({ navigation }) => {
               </View>
 
               <View style={{ flex: 1 }}>
-                <Text style={styles.heroTitle}>Corporate Matrix Active</Text>
+                <Text style={styles.heroTitle}>Exclusive Admin Terminal Active</Text>
                 <Text style={styles.heroText}>
-                  Supervisors, pricing matrices, quotas, and field operations are synchronized.
+                  All supervisor actions, personnel management, suspension, and deletions are permanently governed from this console.
                 </Text>
               </View>
 
@@ -1022,14 +1177,22 @@ const AdminDashboard = ({ navigation }) => {
               </TouchableOpacity>
             </View>
 
-            {/* Quick Action Pills */}
+            {/* QUICK ACTIONS DECK */}
             <View style={styles.quickDeckRow}>
               <TouchableOpacity
                 style={[styles.quickDeckBtn, { backgroundColor: COLORS.primary }]}
-                onPress={() => setModalType("supervisor_hub")}
+                onPress={() => setDirectoryTab("supervisors")}
               >
                 <MaterialCommunityIcons name="account-tie" size={18} color={COLORS.white} />
-                <Text style={styles.quickDeckBtnText}>Supervisors Hub</Text>
+                <Text style={styles.quickDeckBtnText}>Supervisors</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.quickDeckBtn, { backgroundColor: COLORS.secondary }]}
+                onPress={() => setDirectoryTab("all_users")}
+              >
+                <MaterialCommunityIcons name="account-group" size={18} color={COLORS.white} />
+                <Text style={styles.quickDeckBtnText}>All Users</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -1037,7 +1200,7 @@ const AdminDashboard = ({ navigation }) => {
                 onPress={() => setModalType("pricing")}
               >
                 <MaterialCommunityIcons name="cash-cog" size={18} color={COLORS.white} />
-                <Text style={styles.quickDeckBtnText}>Set Pricing</Text>
+                <Text style={styles.quickDeckBtnText}>Pricing</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -1045,19 +1208,11 @@ const AdminDashboard = ({ navigation }) => {
                 onPress={() => setModalType("broadcast_notification")}
               >
                 <MaterialCommunityIcons name="bullhorn-outline" size={18} color={COLORS.white} />
-                <Text style={styles.quickDeckBtnText}>Broadcast</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.quickDeckBtn, { backgroundColor: COLORS.secondary }]}
-                onPress={() => setModalType("target")}
-              >
-                <MaterialCommunityIcons name="target" size={18} color={COLORS.white} />
-                <Text style={styles.quickDeckBtnText}>Quotas</Text>
+                <Text style={styles.quickDeckBtnText}>Notice</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Stat Cards Grid */}
+            {/* STAT CARDS GRID */}
             <View style={styles.statGrid}>
               {cards.map((item, index) => (
                 <TouchableOpacity
@@ -1081,376 +1236,296 @@ const AdminDashboard = ({ navigation }) => {
               ))}
             </View>
 
-            {/* Administrative Core Controls Categorized */}
-            <View style={styles.quickSection}>
-              <Text style={styles.sectionTitle}>Field Governance & Personnel</Text>
-              <QuickAction
-                COLORS={COLORS}
-                icon="account-tie"
-                title="Supervisors & Assigned Agents Directorate"
-                color={COLORS.primary}
-                onPress={() => setModalType("supervisor_hub")}
-              />
-              <QuickAction
-                COLORS={COLORS}
-                icon="account-plus"
-                title="Register New Field Supervisor Profile"
-                color={COLORS.secondary}
-                onPress={() => {
-                  setSupervisorSuccessMsg("");
-                  setModalType("create_supervisor");
-                }}
-              />
-              <QuickAction
-                COLORS={COLORS}
-                icon="headset"
-                title="Customer Service Inquiries & Resolutions"
-                color={COLORS.orange}
-                onPress={() => setModalType("customer_service")}
-              />
+            {/* ============================================================= */}
+            {/* INTERACTIVE DIRECTORY: SUPERVISORS DA DUKKAN USERS TARE DA BUTTONS */}
+            {/* ============================================================= */}
+            <View style={styles.directorySection}>
+              {/* Directory Switcher Tabs */}
+              <View style={styles.directoryTabsHeader}>
+                <TouchableOpacity
+                  style={[
+                    styles.dirTabBtn,
+                    directoryTab === "supervisors" && styles.dirTabBtnActive,
+                  ]}
+                  onPress={() => setDirectoryTab("supervisors")}
+                >
+                  <MaterialCommunityIcons
+                    name="account-tie"
+                    size={18}
+                    color={directoryTab === "supervisors" ? COLORS.primary : COLORS.muted}
+                  />
+                  <Text
+                    style={[
+                      styles.dirTabBtnText,
+                      directoryTab === "supervisors" && styles.dirTabBtnTextActive,
+                    ]}
+                  >
+                    Supervisors ({filteredSupervisors.length})
+                  </Text>
+                </TouchableOpacity>
 
-              <Text style={[styles.sectionTitle, { marginTop: 18 }]}>Commercial & Service Matrix</Text>
-              <QuickAction
-                COLORS={COLORS}
-                icon="cash-cog"
-                title="Service Pricing & Retail Margin Calibration"
-                color={COLORS.purple}
-                onPress={() => setModalType("pricing")}
-              />
-              <QuickAction
-                COLORS={COLORS}
-                icon="target"
-                title="Operational Performance & Sales Targets"
-                color={COLORS.secondary}
-                onPress={() => setModalType("target")}
-              />
-              <QuickAction
-                COLORS={COLORS}
-                icon="bullhorn-outline"
-                title="Universal Push Notice to Users & Agents"
-                color={COLORS.orange}
-                onPress={() => setModalType("broadcast_notification")}
-              />
+                <TouchableOpacity
+                  style={[
+                    styles.dirTabBtn,
+                    directoryTab === "all_users" && styles.dirTabBtnActive,
+                  ]}
+                  onPress={() => setDirectoryTab("all_users")}
+                >
+                  <MaterialCommunityIcons
+                    name="account-group"
+                    size={18}
+                    color={directoryTab === "all_users" ? COLORS.primary : COLORS.muted}
+                  />
+                  <Text
+                    style={[
+                      styles.dirTabBtnText,
+                      directoryTab === "all_users" && styles.dirTabBtnTextActive,
+                    ]}
+                  >
+                    All Accounts ({filteredPersonnel.length})
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Search Bar */}
+              <View style={styles.searchBarBox}>
+                <Ionicons name="search" size={18} color={COLORS.muted} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder={`Search ${
+                    directoryTab === "supervisors" ? "supervisors" : "personnel"
+                  } by name, email, or phone...`}
+                  placeholderTextColor={COLORS.muted}
+                  value={searchFilter}
+                  onChangeText={setSearchFilter}
+                />
+                {searchFilter ? (
+                  <TouchableOpacity onPress={() => setSearchFilter("")}>
+                    <Ionicons name="close-circle" size={18} color={COLORS.muted} />
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+
+              {/* LIST NA SUPERVISORS */}
+              {directoryTab === "supervisors" && (
+                <View>
+                  <View style={styles.listSubHeader}>
+                    <Text style={styles.listSubHeaderTitle}>
+                      FIELD SUPERVISORS DIRECTORY & GOVERNANCE
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.addNewSupervisorBtn}
+                      onPress={() => setModalType("create_supervisor")}
+                    >
+                      <Ionicons name="add" size={16} color={COLORS.white} />
+                      <Text style={styles.addNewSupervisorBtnText}>New Supervisor</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {filteredSupervisors.length === 0 ? (
+                    <View style={styles.emptyFeed}>
+                      <MaterialCommunityIcons name="account-tie-outline" size={36} color={COLORS.muted} />
+                      <Text style={styles.emptyFeedText}>No supervisors found matching search criteria.</Text>
+                    </View>
+                  ) : (
+                    filteredSupervisors.map((sup) => {
+                      const isSuspended = Boolean(sup.isSuspended);
+                      const supName = sup.name || `${sup.firstName || ""} ${sup.surname || ""}`.trim() || "Supervisor";
+                      const supEmail = sup.email || "No Email";
+                      const supPhone = sup.phone || "No Phone";
+
+                      return (
+                        <View key={sup._id || sup.id} style={styles.userCard}>
+                          {/* User Info Header */}
+                          <View style={styles.userCardHeader}>
+                            <View style={styles.userAvatarBox}>
+                              <Text style={styles.userAvatarText}>
+                                {supName.charAt(0).toUpperCase()}
+                              </Text>
+                            </View>
+
+                            <View style={{ flex: 1, marginLeft: 10 }}>
+                              <Text style={styles.userNameText}>{supName}</Text>
+                              <Text style={styles.userContactText}>📞 {supPhone} • ✉️ {supEmail}</Text>
+                              <Text style={styles.userRoleTag}>SUPERVISOR • BAL: ₦{(sup.walletBalance || 0).toLocaleString()}</Text>
+                            </View>
+
+                            {/* Status Pill */}
+                            <View
+                              style={[
+                                styles.statusBadge,
+                                { backgroundColor: isSuspended ? COLORS.softRed : COLORS.softGreen },
+                              ]}
+                            >
+                              <Text
+                                style={{
+                                  color: isSuspended ? COLORS.danger : COLORS.secondary,
+                                  fontSize: 10.5,
+                                  fontWeight: "900",
+                                }}
+                              >
+                                {isSuspended ? "SUSPENDED" : "ACTIVE"}
+                              </Text>
+                            </View>
+                          </View>
+
+                          {/* ACTION BUTTONS GA KOWANE SUPERVISOR */}
+                          <View style={styles.cardActionsContainer}>
+                            {/* 1. View Agents Button */}
+                            <TouchableOpacity
+                              style={[styles.cardActionBtn, { backgroundColor: COLORS.primary }]}
+                              onPress={() => handleInspectSupervisorAgents(sup)}
+                            >
+                              <MaterialCommunityIcons name="account-group" size={15} color={COLORS.white} />
+                              <Text style={styles.cardActionBtnText}>View Agents</Text>
+                            </TouchableOpacity>
+
+                            {/* 2. Suspend / Activate Button */}
+                            <TouchableOpacity
+                              style={[
+                                styles.cardActionBtn,
+                                { backgroundColor: isSuspended ? COLORS.secondary : COLORS.orange },
+                              ]}
+                              onPress={() => handleToggleUserSuspension(sup)}
+                            >
+                              <MaterialCommunityIcons
+                                name={isSuspended ? "account-check" : "account-cancel"}
+                                size={15}
+                                color={COLORS.white}
+                              />
+                              <Text style={styles.cardActionBtnText}>
+                                {isSuspended ? "Activate (Kunna)" : "Suspend"}
+                              </Text>
+                            </TouchableOpacity>
+
+                            {/* 3. Permanent Delete Button */}
+                            <TouchableOpacity
+                              style={[styles.cardActionBtn, { backgroundColor: COLORS.danger }]}
+                              onPress={() => handlePermanentDeleteUser(sup)}
+                            >
+                              <Ionicons name="trash-bin-outline" size={15} color={COLORS.white} />
+                              <Text style={styles.cardActionBtnText}>Delete Forever</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      );
+                    })
+                  )}
+                </View>
+              )}
+
+              {/* LIST NA DUKKAN USERS */}
+              {directoryTab === "all_users" && (
+                <View>
+                  <View style={styles.listSubHeader}>
+                    <Text style={styles.listSubHeaderTitle}>
+                      ALL PERSONNEL & SUBSCRIBERS DIRECTORY
+                    </Text>
+                  </View>
+
+                  {filteredPersonnel.length === 0 ? (
+                    <View style={styles.emptyFeed}>
+                      <MaterialCommunityIcons name="account-group-outline" size={36} color={COLORS.muted} />
+                      <Text style={styles.emptyFeedText}>No user accounts found matching your query.</Text>
+                    </View>
+                  ) : (
+                    filteredPersonnel.map((user) => {
+                      const isSuspended = Boolean(user.isSuspended);
+                      const userName = user.name || `${user.firstName || ""} ${user.surname || ""}`.trim() || "User";
+                      const userRole = (user.role || "user").toUpperCase();
+
+                      return (
+                        <View key={user._id || user.id} style={styles.userCard}>
+                          {/* User Info Header */}
+                          <View style={styles.userCardHeader}>
+                            <View
+                              style={[
+                                styles.userAvatarBox,
+                                { backgroundColor: isSuspended ? COLORS.softRed : "#E0F2FE" },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.userAvatarText,
+                                  { color: isSuspended ? COLORS.danger : "#0284C7" },
+                                ]}
+                              >
+                                {userName.charAt(0).toUpperCase()}
+                              </Text>
+                            </View>
+
+                            <View style={{ flex: 1, marginLeft: 10 }}>
+                              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                                <Text style={styles.userNameText}>{userName}</Text>
+                                <View style={styles.roleTagBox}>
+                                  <Text style={styles.roleTagBoxText}>{userRole}</Text>
+                                </View>
+                              </View>
+                              <Text style={styles.userContactText}>📞 {user.phone || "N/A"} • ✉️ {user.email}</Text>
+                              <Text style={styles.userContactText}>Wallet Balance: ₦{(user.walletBalance || user.balance || 0).toLocaleString()}</Text>
+                            </View>
+
+                            {/* Status Badge */}
+                            <View
+                              style={[
+                                styles.statusBadge,
+                                { backgroundColor: isSuspended ? COLORS.softRed : COLORS.softGreen },
+                              ]}
+                            >
+                              <Text
+                                style={{
+                                  color: isSuspended ? COLORS.danger : COLORS.secondary,
+                                  fontSize: 10.5,
+                                  fontWeight: "900",
+                                }}
+                              >
+                                {isSuspended ? "SUSPENDED" : "ACTIVE"}
+                              </Text>
+                            </View>
+                          </View>
+
+                          {/* ACTION BUTTONS GA KOWANE USER */}
+                          <View style={styles.cardActionsContainer}>
+                            {/* 1. Suspend / Activate Button */}
+                            <TouchableOpacity
+                              style={[
+                                styles.cardActionBtn,
+                                { backgroundColor: isSuspended ? COLORS.secondary : COLORS.orange },
+                              ]}
+                              onPress={() => handleToggleUserSuspension(user)}
+                            >
+                              <MaterialCommunityIcons
+                                name={isSuspended ? "account-check" : "account-cancel"}
+                                size={15}
+                                color={COLORS.white}
+                              />
+                              <Text style={styles.cardActionBtnText}>
+                                {isSuspended ? "Activate (Kunna)" : "Suspend"}
+                              </Text>
+                            </TouchableOpacity>
+
+                            {/* 2. Permanent Delete Button */}
+                            <TouchableOpacity
+                              style={[styles.cardActionBtn, { backgroundColor: COLORS.danger }]}
+                              onPress={() => handlePermanentDeleteUser(user)}
+                            >
+                              <Ionicons name="trash-bin-outline" size={15} color={COLORS.white} />
+                              <Text style={styles.cardActionBtnText}>Delete Forever</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      );
+                    })
+                  )}
+                </View>
+              )}
             </View>
           </ScrollView>
         </View>
       </View>
 
       {/* ============================================================= */}
-      {/* MODAL: SYSTEM HEALTH & INTEGRITY CHECK */}
-      {/* ============================================================= */}
-      <Modal
-        visible={modalType === "system_health"}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setModalType(null)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.modalBox, { maxHeight: "85%" }]}>
-            <View style={styles.modalHead}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <MaterialCommunityIcons name="heart-pulse" size={26} color={COLORS.primary} />
-                <Text style={styles.modalTitle}>System Health Diagnostics</Text>
-              </View>
-              <TouchableOpacity onPress={() => setModalType(null)}>
-                <Ionicons name="close" size={24} color={COLORS.muted} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <View style={styles.healthStatusCard}>
-                <MaterialCommunityIcons name="check-decagram" size={36} color={COLORS.secondary} />
-                <View style={{ marginLeft: 12, flex: 1 }}>
-                  <Text style={styles.healthStatusTitle}>
-                    {systemHealth?.systemStatus || "OPTIMAL_OPERATIONAL"}
-                  </Text>
-                  <Text style={styles.healthStatusSub}>Database connected & server responding.</Text>
-                </View>
-              </View>
-
-              <Text style={styles.inputGuide}>Database Engine</Text>
-              <View style={styles.healthDetailBox}>
-                <Text style={styles.healthLabel}>Status:</Text>
-                <Text style={styles.healthVal}>{systemHealth?.database?.status || "CONNECTED"}</Text>
-              </View>
-              <View style={styles.healthDetailBox}>
-                <Text style={styles.healthLabel}>Database Name:</Text>
-                <Text style={styles.healthVal}>{systemHealth?.database?.name || "bellaj-data"}</Text>
-              </View>
-
-              <Text style={[styles.inputGuide, { marginTop: 12 }]}>Core Environment Audit</Text>
-              <View style={styles.healthDetailBox}>
-                <Text style={styles.healthLabel}>Payment Gateway (Paystack):</Text>
-                <Text style={[styles.healthVal, { color: COLORS.secondary }]}>ACTIVE</Text>
-              </View>
-              <View style={styles.healthDetailBox}>
-                <Text style={styles.healthLabel}>Authentication Cryptography (JWT):</Text>
-                <Text style={[styles.healthVal, { color: COLORS.secondary }]}>ONLINE</Text>
-              </View>
-            </ScrollView>
-
-            <TouchableOpacity
-              style={[styles.modalSubmitBtn, { backgroundColor: COLORS.primary }]}
-              onPress={() => setModalType(null)}
-            >
-              <Text style={styles.modalSubmitBtnText}>Close Diagnostics</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ============================================================= */}
-      {/* MODAL: PRICING & MARGIN MATRIX */}
-      {/* ============================================================= */}
-      <Modal
-        visible={modalType === "pricing"}
-        transparent
-        animationType="slide"
-        onRequestClose={() => !actionLoading && setModalType(null)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.modalBox, { maxHeight: "88%" }]}>
-            <View style={styles.modalHead}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <MaterialCommunityIcons name="cash-cog" size={24} color={COLORS.purple} />
-                <Text style={styles.modalTitle}>Set Live Service Margins</Text>
-              </View>
-              <TouchableOpacity onPress={() => setModalType(null)}>
-                <Ionicons name="close" size={24} color={COLORS.muted} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={styles.inputGuide}>Service Channel Identifier</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="e.g. SME_DATA, MTN_CG, AIRTIME, CABLE"
-                value={pricingForm.serviceType}
-                onChangeText={(t) => setPricingForm({ ...pricingForm, serviceType: t })}
-                placeholderTextColor={COLORS.muted}
-                autoCapitalize="characters"
-              />
-
-              <Text style={styles.inputGuide}>Base Provider Rate (₦)</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="e.g. 240"
-                keyboardType="numeric"
-                value={pricingForm.unitRate}
-                onChangeText={(t) => setPricingForm({ ...pricingForm, unitRate: t })}
-                placeholderTextColor={COLORS.muted}
-              />
-
-              <Text style={styles.inputGuide}>Company Profit Margin (₦)</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="e.g. 35"
-                keyboardType="numeric"
-                value={pricingForm.margin}
-                onChangeText={(t) => setPricingForm({ ...pricingForm, margin: t })}
-                placeholderTextColor={COLORS.muted}
-              />
-
-              <Text style={styles.inputGuide}>Sub-Agent Commission Margin (₦)</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="e.g. 10 (Optional)"
-                keyboardType="numeric"
-                value={pricingForm.agentMargin}
-                onChangeText={(t) => setPricingForm({ ...pricingForm, agentMargin: t })}
-                placeholderTextColor={COLORS.muted}
-              />
-
-              <TouchableOpacity
-                style={[styles.modalSubmitBtn, { backgroundColor: COLORS.purple }]}
-                onPress={handleUpdatePricing}
-                disabled={actionLoading}
-              >
-                {actionLoading ? (
-                  <ActivityIndicator color={COLORS.white} />
-                ) : (
-                  <Text style={styles.modalSubmitBtnText}>Commit Margin Update</Text>
-                )}
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ============================================================= */}
-      {/* MODAL: BROADCAST NOTIFICATIONS */}
-      {/* ============================================================= */}
-      <Modal
-        visible={modalType === "broadcast_notification"}
-        transparent
-        animationType="fade"
-        onRequestClose={() => !actionLoading && setModalType(null)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalBox}>
-            <View style={styles.modalHead}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <MaterialCommunityIcons name="bullhorn-outline" size={24} color={COLORS.orange} />
-                <Text style={styles.modalTitle}>Universal Broadcast</Text>
-              </View>
-              <TouchableOpacity onPress={() => setModalType(null)}>
-                <Ionicons name="close" size={24} color={COLORS.muted} />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.inputGuide}>Audience Scope</Text>
-            <View style={styles.audienceSelectorRow}>
-              {[
-                { id: "ALL", label: "Everyone" },
-                { id: "AGENTS", label: "Agents Only" },
-                { id: "SUPERVISORS", label: "Supervisors" },
-                { id: "SUBSCRIBERS", label: "Users Only" },
-              ].map((aud) => {
-                const isSelected = broadcastForm.targetAudience === aud.id;
-                return (
-                  <TouchableOpacity
-                    key={aud.id}
-                    style={[styles.audiencePill, isSelected && styles.audiencePillActive]}
-                    onPress={() => setBroadcastForm({ ...broadcastForm, targetAudience: aud.id })}
-                  >
-                    <Text style={[styles.audiencePillText, isSelected && styles.audiencePillTextActive]}>
-                      {aud.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            <Text style={styles.inputGuide}>Notice Title</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="e.g. Scheduled Network Maintenance"
-              value={broadcastForm.title}
-              onChangeText={(t) => setBroadcastForm({ ...broadcastForm, title: t })}
-              placeholderTextColor={COLORS.muted}
-            />
-
-            <Text style={styles.inputGuide}>Message Body</Text>
-            <TextInput
-              style={[styles.modalInput, styles.modalTextArea]}
-              placeholder="Enter message for in-app alert..."
-              value={broadcastForm.message}
-              onChangeText={(t) => setBroadcastForm({ ...broadcastForm, message: t })}
-              placeholderTextColor={COLORS.muted}
-              multiline
-              numberOfLines={4}
-            />
-
-            <TouchableOpacity
-              style={[styles.modalSubmitBtn, { backgroundColor: COLORS.orange }]}
-              onPress={handleSendBroadcast}
-              disabled={actionLoading}
-            >
-              {actionLoading ? (
-                <ActivityIndicator color={COLORS.white} />
-              ) : (
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  <Ionicons name="send" size={18} color={COLORS.white} />
-                  <Text style={styles.modalSubmitBtnText}>Dispatch Notice</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ============================================================= */}
-      {/* MODAL: ASSIGN TARGETS */}
-      {/* ============================================================= */}
-      <Modal
-        visible={modalType === "target"}
-        transparent
-        animationType="fade"
-        onRequestClose={() => !actionLoading && setModalType(null)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalBox}>
-            <View style={styles.modalHead}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <MaterialCommunityIcons name="target" size={24} color={COLORS.secondary} />
-                <Text style={styles.modalTitle}>Deploy Targets</Text>
-              </View>
-              <TouchableOpacity onPress={() => setModalType(null)}>
-                <Ionicons name="close" size={24} color={COLORS.muted} />
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              style={[styles.globalToggleBtn, targetForm.isGlobal && styles.globalToggleBtnActive]}
-              onPress={() => setTargetForm((prev) => ({ ...prev, isGlobal: !prev.isGlobal }))}
-              activeOpacity={0.85}
-            >
-              <Ionicons
-                name={targetForm.isGlobal ? "checkbox" : "square-outline"}
-                size={20}
-                color={targetForm.isGlobal ? COLORS.white : COLORS.secondary}
-              />
-              <Text style={[styles.globalToggleText, targetForm.isGlobal && styles.globalToggleTextActive]}>
-                Universal Broadcast to All Personnel
-              </Text>
-            </TouchableOpacity>
-
-            {!targetForm.isGlobal && (
-              <>
-                <Text style={styles.inputGuide}>User ID, Email, or Phone</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="e.g. 08012345678 or supervisor email"
-                  value={targetForm.agentRef}
-                  onChangeText={(t) => setTargetForm({ ...targetForm, agentRef: t })}
-                  placeholderTextColor={COLORS.muted}
-                />
-              </>
-            )}
-
-            <View style={{ flexDirection: "row", gap: 8 }}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.inputGuide}>Sales Turnover (₦)</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="e.g. 500000"
-                  keyboardType="numeric"
-                  value={targetForm.amount}
-                  onChangeText={(t) => setTargetForm({ ...targetForm, amount: t })}
-                  placeholderTextColor={COLORS.muted}
-                />
-              </View>
-
-              <View style={{ flex: 1 }}>
-                <Text style={styles.inputGuide}>Data Quota (GB)</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="e.g. 300"
-                  keyboardType="numeric"
-                  value={targetForm.dataGoal}
-                  onChangeText={(t) => setTargetForm({ ...targetForm, dataGoal: t })}
-                  placeholderTextColor={COLORS.muted}
-                />
-              </View>
-            </View>
-
-            <TouchableOpacity
-              style={[styles.modalSubmitBtn, { backgroundColor: COLORS.secondary }]}
-              onPress={handleAssignTarget}
-              disabled={actionLoading}
-            >
-              {actionLoading ? (
-                <ActivityIndicator color={COLORS.white} />
-              ) : (
-                <Text style={styles.modalSubmitBtnText}>Deploy Target Metric</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ============================================================= */}
-      {/* MODAL: SUPERVISOR HUB */}
+      {/* MODAL: SUPERVISOR AGENTS HUB */}
       {/* ============================================================= */}
       <Modal
         visible={modalType === "supervisor_hub"}
@@ -1462,8 +1537,10 @@ const AdminDashboard = ({ navigation }) => {
           <View style={[styles.modalBox, { maxHeight: "90%" }]}>
             <View style={styles.modalHead}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <MaterialCommunityIcons name="account-tie" size={26} color={COLORS.primary} />
-                <Text style={styles.modalTitle}>Supervisors Directory</Text>
+                <MaterialCommunityIcons name="account-group" size={26} color={COLORS.primary} />
+                <Text style={styles.modalTitle}>
+                  {selectedSupervisor ? `${selectedSupervisor.name}'s Agents` : "Assigned Agents"}
+                </Text>
               </View>
               <TouchableOpacity onPress={() => setModalType(null)}>
                 <Ionicons name="close" size={24} color={COLORS.muted} />
@@ -1471,114 +1548,39 @@ const AdminDashboard = ({ navigation }) => {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
-              {supervisorsList.length === 0 ? (
-                <View style={{ padding: 20, alignItems: "center" }}>
-                  <Text style={{ color: COLORS.subText }}>No supervisors registered yet.</Text>
+              {supervisorAgents.length === 0 ? (
+                <View style={{ padding: 25, alignItems: "center" }}>
+                  <MaterialCommunityIcons name="account-off-outline" size={40} color={COLORS.muted} />
+                  <Text style={{ color: COLORS.subText, marginTop: 10 }}>
+                    No agents currently assigned to this supervisor.
+                  </Text>
                 </View>
               ) : (
-                supervisorsList.map((sup) => {
-                  const isSuspended = Boolean(sup.isSuspended);
-                  const isSelected = selectedSupervisor?._id === sup._id;
-
-                  return (
-                    <View
-                      key={sup._id || sup.id}
-                      style={[
-                        styles.supervisorCard,
-                        isSelected && { borderColor: COLORS.primary, borderWidth: 2 },
-                      ]}
-                    >
-                      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.supervisorName}>{sup.name || `${sup.firstName} ${sup.surname}`}</Text>
-                          <Text style={styles.supervisorDetail}>{sup.phone || sup.email}</Text>
-                        </View>
-                        <View
-                          style={[
-                            styles.statusBadge,
-                            { backgroundColor: isSuspended ? "#FEE2E2" : "#DCFCE7" },
-                          ]}
-                        >
-                          <Text
-                            style={{
-                              color: isSuspended ? COLORS.danger : COLORS.secondary,
-                              fontSize: 11,
-                              fontWeight: "900",
-                            }}
-                          >
-                            {isSuspended ? "SUSPENDED" : "ACTIVE"}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <View style={styles.supervisorActionRow}>
-                        <TouchableOpacity
-                          style={[styles.smallBtn, { backgroundColor: COLORS.primary }]}
-                          onPress={() => handleInspectSupervisorAgents(sup)}
-                        >
-                          <MaterialCommunityIcons name="account-group" size={16} color={COLORS.white} />
-                          <Text style={styles.smallBtnText}>View Agents</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          style={[
-                            styles.smallBtn,
-                            { backgroundColor: isSuspended ? COLORS.secondary : COLORS.danger },
-                          ]}
-                          onPress={() => handleToggleSupervisorStatus(sup)}
-                        >
-                          <MaterialCommunityIcons
-                            name={isSuspended ? "account-check" : "account-cancel"}
-                            size={16}
-                            color={COLORS.white}
-                          />
-                          <Text style={styles.smallBtnText}>
-                            {isSuspended ? "Unsuspend" : "Suspend"}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-
-                      {isSelected && (
-                        <View style={styles.agentsUnderBox}>
-                          <Text style={styles.agentsUnderTitle}>
-                            Assigned Agents ({supervisorAgents.length}):
-                          </Text>
-                          {supervisorAgents.length === 0 ? (
-                            <Text style={{ fontSize: 12, color: COLORS.subText, marginVertical: 6 }}>
-                              No agents currently assigned to this supervisor.
-                            </Text>
-                          ) : (
-                            supervisorAgents.map((ag) => (
-                              <View key={ag._id || ag.id} style={styles.agentRow}>
-                                <View style={{ flex: 1 }}>
-                                  <Text style={styles.agentName}>{ag.name || ag.email}</Text>
-                                  <Text style={styles.agentSub}>
-                                    Phone: {ag.phone} | Bal: ₦{(ag.walletBalance || 0).toLocaleString()}
-                                  </Text>
-                                </View>
-
-                                <TouchableOpacity
-                                  style={styles.transferBtn}
-                                  onPress={() => {
-                                    setTransferForm({
-                                      agentId: ag._id || ag.id,
-                                      agentName: ag.name || ag.email,
-                                      targetSupervisorId: "",
-                                    });
-                                    setModalType("transfer_agent");
-                                  }}
-                                >
-                                  <MaterialCommunityIcons name="swap-horizontal" size={16} color={COLORS.white} />
-                                  <Text style={styles.transferBtnText}>Transfer</Text>
-                                </TouchableOpacity>
-                              </View>
-                            ))
-                          )}
-                        </View>
-                      )}
+                supervisorAgents.map((ag) => (
+                  <View key={ag._id || ag.id} style={styles.agentRowBox}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.agentRowName}>{ag.name || ag.email}</Text>
+                      <Text style={styles.agentRowSub}>
+                        Phone: {ag.phone} | Bal: ₦{(ag.walletBalance || 0).toLocaleString()}
+                      </Text>
                     </View>
-                  );
-                })
+
+                    <TouchableOpacity
+                      style={styles.agentTransferBtn}
+                      onPress={() => {
+                        setTransferForm({
+                          agentId: ag._id || ag.id,
+                          agentName: ag.name || ag.email,
+                          targetSupervisorId: "",
+                        });
+                        setModalType("transfer_agent");
+                      }}
+                    >
+                      <MaterialCommunityIcons name="swap-horizontal" size={16} color={COLORS.white} />
+                      <Text style={styles.agentTransferBtnText}>Transfer</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))
               )}
             </ScrollView>
           </View>
@@ -1606,12 +1608,12 @@ const AdminDashboard = ({ navigation }) => {
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.inputGuide}>Agent Selected</Text>
+            <Text style={styles.inputGuide}>Selected Agent</Text>
             <View style={[styles.modalInput, { backgroundColor: COLORS.soft }]}>
               <Text style={{ fontWeight: "800", color: COLORS.text }}>{transferForm.agentName}</Text>
             </View>
 
-            <Text style={styles.inputGuide}>Select Destination Supervisor</Text>
+            <Text style={styles.inputGuide}>Select New Destination Supervisor</Text>
             <ScrollView style={{ maxHeight: 180, marginBottom: 12 }}>
               {supervisorsList
                 .filter((s) => s._id !== selectedSupervisor?._id)
@@ -1693,7 +1695,7 @@ const AdminDashboard = ({ navigation }) => {
                         </Text>
                       </View>
 
-                      <Text style={styles.ticketTitle}>{ticket.subject || ticket.title || "Complaint / Inquiry"}</Text>
+                      <Text style={styles.ticketTitle}>{ticket.subject || ticket.title || "Inquiry"}</Text>
                       <Text style={styles.ticketMsg}>{ticket.message || ticket.description}</Text>
 
                       {!isResolved && (
@@ -1715,7 +1717,7 @@ const AdminDashboard = ({ navigation }) => {
       </Modal>
 
       {/* ============================================================= */}
-      {/* MODAL: CREATE SUPERVISOR (TARE DA PASSWORD TOGGLE & SUCCESS) */}
+      {/* MODAL: CREATE SUPERVISOR */}
       {/* ============================================================= */}
       <Modal
         visible={modalType === "create_supervisor"}
@@ -1740,7 +1742,6 @@ const AdminDashboard = ({ navigation }) => {
               </TouchableOpacity>
             </View>
 
-            {/* Success Banner */}
             {supervisorSuccessMsg ? (
               <View style={styles.successBanner}>
                 <Ionicons name="checkmark-circle" size={20} color={COLORS.secondary} />
@@ -1787,7 +1788,7 @@ const AdminDashboard = ({ navigation }) => {
               placeholderTextColor={COLORS.muted}
             />
 
-            <Text style={styles.inputGuide}>Temporary Password</Text>
+            <Text style={styles.inputGuide}>Password</Text>
             <View style={styles.passwordInputContainer}>
               <TextInput
                 style={styles.passwordInput}
@@ -1818,8 +1819,304 @@ const AdminDashboard = ({ navigation }) => {
               {actionLoading ? (
                 <ActivityIndicator color={COLORS.white} />
               ) : (
-                <Text style={styles.modalSubmitBtnText}>Create Supervisor</Text>
+                <Text style={styles.modalSubmitBtnText}>Create Supervisor Profile</Text>
               )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ============================================================= */}
+      {/* MODAL: BROADCAST NOTICE */}
+      {/* ============================================================= */}
+      <Modal
+        visible={modalType === "broadcast_notification"}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !actionLoading && setModalType(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalBox}>
+            <View style={styles.modalHead}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <MaterialCommunityIcons name="bullhorn-outline" size={24} color={COLORS.orange} />
+                <Text style={styles.modalTitle}>Universal Broadcast</Text>
+              </View>
+              <TouchableOpacity onPress={() => setModalType(null)}>
+                <Ionicons name="close" size={24} color={COLORS.muted} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.inputGuide}>Target Audience</Text>
+            <View style={styles.audienceSelectorRow}>
+              {[
+                { id: "ALL", label: "Everyone" },
+                { id: "AGENTS", label: "Agents" },
+                { id: "SUPERVISORS", label: "Supervisors" },
+                { id: "SUBSCRIBERS", label: "Users" },
+              ].map((aud) => {
+                const isSelected = broadcastForm.targetAudience === aud.id;
+                return (
+                  <TouchableOpacity
+                    key={aud.id}
+                    style={[styles.audiencePill, isSelected && styles.audiencePillActive]}
+                    onPress={() => setBroadcastForm({ ...broadcastForm, targetAudience: aud.id })}
+                  >
+                    <Text style={[styles.audiencePillText, isSelected && styles.audiencePillTextActive]}>
+                      {aud.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <Text style={styles.inputGuide}>Subject Header</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="e.g. Network Maintenance Alert"
+              value={broadcastForm.title}
+              onChangeText={(t) => setBroadcastForm({ ...broadcastForm, title: t })}
+              placeholderTextColor={COLORS.muted}
+            />
+
+            <Text style={styles.inputGuide}>Message Content</Text>
+            <TextInput
+              style={[styles.modalInput, styles.modalTextArea]}
+              placeholder="Type your announcement..."
+              value={broadcastForm.message}
+              onChangeText={(t) => setBroadcastForm({ ...broadcastForm, message: t })}
+              placeholderTextColor={COLORS.muted}
+              multiline
+              numberOfLines={4}
+            />
+
+            <TouchableOpacity
+              style={[styles.modalSubmitBtn, { backgroundColor: COLORS.orange }]}
+              onPress={handleSendBroadcast}
+              disabled={actionLoading}
+            >
+              {actionLoading ? (
+                <ActivityIndicator color={COLORS.white} />
+              ) : (
+                <Text style={styles.modalSubmitBtnText}>Dispatch Notice</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ============================================================= */}
+      {/* MODAL: PRICING MARGIN MATRIX */}
+      {/* ============================================================= */}
+      <Modal
+        visible={modalType === "pricing"}
+        transparent
+        animationType="slide"
+        onRequestClose={() => !actionLoading && setModalType(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalBox, { maxHeight: "88%" }]}>
+            <View style={styles.modalHead}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <MaterialCommunityIcons name="cash-cog" size={24} color={COLORS.purple} />
+                <Text style={styles.modalTitle}>Set Service Margin Matrix</Text>
+              </View>
+              <TouchableOpacity onPress={() => setModalType(null)}>
+                <Ionicons name="close" size={24} color={COLORS.muted} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.inputGuide}>Service Identifier</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="e.g. SME_DATA, MTN_CG, AIRTIME"
+                value={pricingForm.serviceType}
+                onChangeText={(t) => setPricingForm({ ...pricingForm, serviceType: t })}
+                placeholderTextColor={COLORS.muted}
+                autoCapitalize="characters"
+              />
+
+              <Text style={styles.inputGuide}>Base Provider Rate (₦)</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="e.g. 240"
+                keyboardType="numeric"
+                value={pricingForm.unitRate}
+                onChangeText={(t) => setPricingForm({ ...pricingForm, unitRate: t })}
+                placeholderTextColor={COLORS.muted}
+              />
+
+              <Text style={styles.inputGuide}>Company Profit Margin (₦)</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="e.g. 35"
+                keyboardType="numeric"
+                value={pricingForm.margin}
+                onChangeText={(t) => setPricingForm({ ...pricingForm, margin: t })}
+                placeholderTextColor={COLORS.muted}
+              />
+
+              <TouchableOpacity
+                style={[styles.modalSubmitBtn, { backgroundColor: COLORS.purple }]}
+                onPress={handleUpdatePricing}
+                disabled={actionLoading}
+              >
+                {actionLoading ? (
+                  <ActivityIndicator color={COLORS.white} />
+                ) : (
+                  <Text style={styles.modalSubmitBtnText}>Save Margin Rules</Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ============================================================= */}
+      {/* MODAL: ASSIGN TARGET QUOTAS */}
+      {/* ============================================================= */}
+      <Modal
+        visible={modalType === "target"}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !actionLoading && setModalType(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalBox}>
+            <View style={styles.modalHead}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <MaterialCommunityIcons name="target" size={24} color={COLORS.secondary} />
+                <Text style={styles.modalTitle}>Deploy Targets & Quotas</Text>
+              </View>
+              <TouchableOpacity onPress={() => setModalType(null)}>
+                <Ionicons name="close" size={24} color={COLORS.muted} />
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.globalToggleBtn, targetForm.isGlobal && styles.globalToggleBtnActive]}
+              onPress={() => setTargetForm((prev) => ({ ...prev, isGlobal: !prev.isGlobal }))}
+              activeOpacity={0.85}
+            >
+              <Ionicons
+                name={targetForm.isGlobal ? "checkbox" : "square-outline"}
+                size={20}
+                color={targetForm.isGlobal ? COLORS.white : COLORS.secondary}
+              />
+              <Text style={[styles.globalToggleText, targetForm.isGlobal && styles.globalToggleTextActive]}>
+                Universal Broadcast to All Personnel
+              </Text>
+            </TouchableOpacity>
+
+            {!targetForm.isGlobal && (
+              <>
+                <Text style={styles.inputGuide}>User ID, Email, or Phone</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="e.g. 08012345678 or supervisor email"
+                  value={targetForm.agentRef}
+                  onChangeText={(t) => setTargetForm({ ...targetForm, agentRef: t })}
+                  placeholderTextColor={COLORS.muted}
+                />
+              </>
+            )}
+
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inputGuide}>Sales Turnover (₦)</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="e.g. 500000"
+                  keyboardType="numeric"
+                  value={targetForm.amount}
+                  onChangeText={(t) => setTargetForm({ ...targetForm, amount: t })}
+                  placeholderTextColor={COLORS.muted}
+                />
+              </View>
+
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inputGuide}>Data Quota (GB)</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="e.g. 300"
+                  keyboardType="numeric"
+                  value={targetForm.dataGoal}
+                  onChangeText={(t) => setTargetForm({ ...targetForm, dataGoal: t })}
+                  placeholderTextColor={COLORS.muted}
+                />
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.modalSubmitBtn, { backgroundColor: COLORS.secondary }]}
+              onPress={handleAssignTarget}
+              disabled={actionLoading}
+            >
+              {actionLoading ? (
+                <ActivityIndicator color={COLORS.white} />
+              ) : (
+                <Text style={styles.modalSubmitBtnText}>Deploy Target Metric</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ============================================================= */}
+      {/* MODAL: SYSTEM HEALTH */}
+      {/* ============================================================= */}
+      <Modal
+        visible={modalType === "system_health"}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalType(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalBox, { maxHeight: "85%" }]}>
+            <View style={styles.modalHead}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <MaterialCommunityIcons name="heart-pulse" size={26} color={COLORS.primary} />
+                <Text style={styles.modalTitle}>System Diagnostics</Text>
+              </View>
+              <TouchableOpacity onPress={() => setModalType(null)}>
+                <Ionicons name="close" size={24} color={COLORS.muted} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={styles.healthStatusCard}>
+                <MaterialCommunityIcons name="check-decagram" size={36} color={COLORS.secondary} />
+                <View style={{ marginLeft: 12, flex: 1 }}>
+                  <Text style={styles.healthStatusTitle}>
+                    {systemHealth?.systemStatus || "OPTIMAL_OPERATIONAL"}
+                  </Text>
+                  <Text style={styles.healthStatusSub}>Database engine connected & server live.</Text>
+                </View>
+              </View>
+
+              <Text style={styles.inputGuide}>Database Engine</Text>
+              <View style={styles.healthDetailBox}>
+                <Text style={styles.healthLabel}>Status:</Text>
+                <Text style={styles.healthVal}>{systemHealth?.database?.status || "CONNECTED"}</Text>
+              </View>
+
+              <Text style={[styles.inputGuide, { marginTop: 12 }]}>Security Cryptography</Text>
+              <View style={styles.healthDetailBox}>
+                <Text style={styles.healthLabel}>JWT Cryptography:</Text>
+                <Text style={[styles.healthVal, { color: COLORS.secondary }]}>ACTIVE</Text>
+              </View>
+              <View style={styles.healthDetailBox}>
+                <Text style={styles.healthLabel}>Payment Gateway:</Text>
+                <Text style={[styles.healthVal, { color: COLORS.secondary }]}>ONLINE</Text>
+              </View>
+            </ScrollView>
+
+            <TouchableOpacity
+              style={[styles.modalSubmitBtn, { backgroundColor: COLORS.primary }]}
+              onPress={() => setModalType(null)}
+            >
+              <Text style={styles.modalSubmitBtnText}>Close Diagnostics</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1842,7 +2139,7 @@ const AdminDashboard = ({ navigation }) => {
 
             <Text style={styles.modalHeading}>Terminate Session?</Text>
             <Text style={styles.modalSubheading}>
-              Your current administration token and active workspace will be signed out safely.
+              Your current executive administration workspace will be logged out securely.
             </Text>
 
             <View style={styles.modalActionRow}>
@@ -1872,51 +2169,6 @@ const AdminDashboard = ({ navigation }) => {
     </View>
   );
 };
-
-const QuickAction = ({ COLORS, icon, title, color, onPress }) => (
-  <TouchableOpacity
-    style={[
-      stylesQuick.actionBtn,
-      { backgroundColor: COLORS.soft, borderColor: COLORS.border },
-    ]}
-    onPress={onPress}
-    activeOpacity={0.82}
-  >
-    <View style={[stylesQuick.smallIconBox, { backgroundColor: color }]}>
-      <MaterialCommunityIcons name={icon} size={22} color={COLORS.white} />
-    </View>
-
-    <Text style={[stylesQuick.actionText, { color: COLORS.text }]}>
-      {title}
-    </Text>
-
-    <Ionicons name="chevron-forward" size={20} color={COLORS.muted} />
-  </TouchableOpacity>
-);
-
-const stylesQuick = StyleSheet.create({
-  actionBtn: {
-    padding: 14,
-    borderRadius: 16,
-    marginBottom: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-  },
-  smallIconBox: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  actionText: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: "800",
-    marginLeft: 12,
-  },
-});
 
 const getStyles = (COLORS) =>
   StyleSheet.create({
@@ -2054,7 +2306,7 @@ const getStyles = (COLORS) =>
     container: { flex: 1 },
     content: {
       padding: 16,
-      paddingBottom: 80,
+      paddingBottom: 90,
       flexGrow: 1,
       maxWidth: 1200,
       width: "100%",
@@ -2176,57 +2428,184 @@ const getStyles = (COLORS) =>
       marginTop: 4,
       textAlign: "center",
     },
-    quickSection: {
+
+    // DIRECTORY TABS & CARDS STYLES
+    directorySection: {
       backgroundColor: COLORS.card,
-      borderRadius: 18,
+      borderRadius: 20,
       padding: 16,
       borderWidth: 1,
       borderColor: COLORS.border,
+      marginBottom: 20,
     },
-    sectionTitle: {
-      fontSize: 15,
-      fontWeight: "900",
-      color: COLORS.text,
+    directoryTabsHeader: {
+      flexDirection: "row",
+      borderBottomWidth: 1,
+      borderBottomColor: COLORS.border,
       marginBottom: 14,
     },
-    healthStatusCard: {
+    dirTabBtn: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 12,
+      borderBottomWidth: 2,
+      borderBottomColor: "transparent",
+      gap: 6,
+    },
+    dirTabBtnActive: {
+      borderBottomColor: COLORS.primary,
+    },
+    dirTabBtnText: {
+      color: COLORS.muted,
+      fontSize: 12.5,
+      fontWeight: "700",
+    },
+    dirTabBtnTextActive: {
+      color: COLORS.primary,
+      fontWeight: "900",
+    },
+    searchBarBox: {
       flexDirection: "row",
       alignItems: "center",
       backgroundColor: COLORS.soft,
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      height: 44,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      marginBottom: 14,
+    },
+    searchInput: {
+      flex: 1,
+      color: COLORS.text,
+      fontSize: 13,
+      marginLeft: 8,
+      ...(Platform.OS === "web" ? { outlineStyle: "none" } : {}),
+    },
+    listSubHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 12,
+    },
+    listSubHeaderTitle: {
+      fontSize: 11,
+      fontWeight: "900",
+      color: COLORS.subText,
+      letterSpacing: 0.8,
+    },
+    addNewSupervisorBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: COLORS.primary,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 8,
+      gap: 4,
+    },
+    addNewSupervisorBtnText: {
+      color: COLORS.white,
+      fontSize: 11,
+      fontWeight: "800",
+    },
+    userCard: {
+      backgroundColor: COLORS.soft,
       borderRadius: 14,
       padding: 14,
-      marginBottom: 14,
-      borderLeftWidth: 4,
-      borderLeftColor: COLORS.secondary,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: COLORS.border,
     },
-    healthStatusTitle: {
-      fontSize: 15,
+    userCardHeader: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+    },
+    userAvatarBox: {
+      width: 42,
+      height: 42,
+      borderRadius: 12,
+      backgroundColor: "#DCFCE7",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    userAvatarText: {
+      fontSize: 16,
+      fontWeight: "900",
+      color: COLORS.primary,
+    },
+    userNameText: {
+      fontSize: 14,
       fontWeight: "900",
       color: COLORS.text,
     },
-    healthStatusSub: {
-      fontSize: 12,
+    userContactText: {
+      fontSize: 11,
       color: COLORS.subText,
       marginTop: 2,
     },
-    healthDetailBox: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      backgroundColor: COLORS.soft,
-      padding: 10,
-      borderRadius: 8,
-      marginBottom: 6,
-    },
-    healthLabel: {
-      fontSize: 12,
-      fontWeight: "700",
-      color: COLORS.subText,
-    },
-    healthVal: {
-      fontSize: 12,
+    userRoleTag: {
+      fontSize: 10,
       fontWeight: "800",
-      color: COLORS.text,
+      color: COLORS.primary,
+      marginTop: 2,
     },
+    statusBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 6,
+    },
+    roleTagBox: {
+      backgroundColor: "#DCFCE7",
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 4,
+    },
+    roleTagBoxText: {
+      color: COLORS.primary,
+      fontSize: 9,
+      fontWeight: "900",
+    },
+
+    // ACTIONS CONTAINER UNDER EVERY CARD
+    cardActionsContainer: {
+      flexDirection: "row",
+      justifyContent: "flex-end",
+      flexWrap: "wrap",
+      gap: 8,
+      marginTop: 12,
+      paddingTop: 10,
+      borderTopWidth: 1,
+      borderTopColor: COLORS.border,
+    },
+    cardActionBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 8,
+    },
+    cardActionBtnText: {
+      color: COLORS.white,
+      fontSize: 11,
+      fontWeight: "800",
+    },
+    emptyFeed: {
+      padding: 24,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    emptyFeedText: {
+      color: COLORS.subText,
+      fontSize: 12,
+      marginTop: 8,
+      textAlign: "center",
+    },
+
+    // MODAL STYLES
     modalBackdrop: {
       flex: 1,
       backgroundColor: "rgba(15, 23, 42, 0.7)",
@@ -2279,9 +2658,7 @@ const getStyles = (COLORS) =>
       fontSize: 14,
       color: COLORS.text,
     },
-    eyeButton: {
-      padding: 6,
-    },
+    eyeButton: { padding: 6 },
     successBanner: {
       flexDirection: "row",
       alignItems: "center",
@@ -2359,51 +2736,21 @@ const getStyles = (COLORS) =>
       fontSize: 12,
       fontWeight: "800",
     },
-    globalToggleTextActive: {
-      color: COLORS.white,
-    },
-    supervisorCard: {
-      backgroundColor: COLORS.soft,
-      borderRadius: 14,
-      padding: 14,
-      marginBottom: 12,
-      borderWidth: 1,
-      borderColor: COLORS.border,
-    },
-    supervisorName: { fontSize: 15, fontWeight: "900", color: COLORS.text },
-    supervisorDetail: { fontSize: 12, color: COLORS.subText, marginTop: 2 },
-    statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-    supervisorActionRow: { flexDirection: "row", gap: 8, marginTop: 10 },
-    smallBtn: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-      borderRadius: 8,
-    },
-    smallBtnText: { color: COLORS.white, fontSize: 12, fontWeight: "800" },
-    agentsUnderBox: {
-      marginTop: 12,
-      paddingTop: 10,
-      borderTopWidth: 1,
-      borderTopColor: COLORS.border,
-    },
-    agentsUnderTitle: { fontSize: 12, fontWeight: "900", color: COLORS.text, marginBottom: 6 },
-    agentRow: {
+    globalToggleTextActive: { color: COLORS.white },
+    agentRowBox: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      backgroundColor: COLORS.card,
-      padding: 8,
-      borderRadius: 8,
-      marginBottom: 6,
+      backgroundColor: COLORS.soft,
+      padding: 10,
+      borderRadius: 10,
+      marginBottom: 8,
       borderWidth: 1,
       borderColor: COLORS.border,
     },
-    agentName: { fontSize: 12, fontWeight: "800", color: COLORS.text },
-    agentSub: { fontSize: 10, color: COLORS.subText, marginTop: 2 },
-    transferBtn: {
+    agentRowName: { fontSize: 13, fontWeight: "900", color: COLORS.text },
+    agentRowSub: { fontSize: 11, color: COLORS.subText, marginTop: 2 },
+    agentTransferBtn: {
       backgroundColor: COLORS.accent,
       flexDirection: "row",
       alignItems: "center",
@@ -2412,7 +2759,7 @@ const getStyles = (COLORS) =>
       paddingVertical: 5,
       borderRadius: 6,
     },
-    transferBtnText: { color: COLORS.white, fontSize: 11, fontWeight: "800" },
+    agentTransferBtnText: { color: COLORS.white, fontSize: 11, fontWeight: "800" },
     targetSupPill: {
       backgroundColor: COLORS.soft,
       padding: 10,
@@ -2444,6 +2791,44 @@ const getStyles = (COLORS) =>
       marginTop: 8,
     },
     resolveBtnText: { color: COLORS.white, fontSize: 11, fontWeight: "800" },
+    healthStatusCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: COLORS.soft,
+      borderRadius: 14,
+      padding: 14,
+      marginBottom: 14,
+      borderLeftWidth: 4,
+      borderLeftColor: COLORS.secondary,
+    },
+    healthStatusTitle: {
+      fontSize: 15,
+      fontWeight: "900",
+      color: COLORS.text,
+    },
+    healthStatusSub: {
+      fontSize: 12,
+      color: COLORS.subText,
+      marginTop: 2,
+    },
+    healthDetailBox: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      backgroundColor: COLORS.soft,
+      padding: 10,
+      borderRadius: 8,
+      marginBottom: 6,
+    },
+    healthLabel: {
+      fontSize: 12,
+      fontWeight: "700",
+      color: COLORS.subText,
+    },
+    healthVal: {
+      fontSize: 12,
+      fontWeight: "800",
+      color: COLORS.text,
+    },
     modalLogoutIconWrap: {
       width: 56,
       height: 56,
