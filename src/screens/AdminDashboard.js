@@ -89,7 +89,7 @@ const AdminDashboard = ({ navigation }) => {
   const [actionLoading, setActionLoading] = useState(false);
   const [logoutProcessing, setLogoutProcessing] = useState(false);
 
-  // In-App Action Target (Don Suspend ko Delete ba tare da Alert matsala ba)
+  // Action Confirmation State
   const [targetActionUser, setTargetActionUser] = useState(null);
   const [actionDialogType, setActionDialogType] = useState(null); // 'confirm_suspend' | 'confirm_delete'
 
@@ -106,7 +106,7 @@ const AdminDashboard = ({ navigation }) => {
     supervisorsCount: 0,
   });
 
-  // State na Data List
+  // Data State
   const [supervisorsList, setSupervisorsList] = useState([]);
   const [allUsersList, setAllUsersList] = useState([]);
   const [selectedSupervisor, setSelectedSupervisor] = useState(null);
@@ -225,7 +225,7 @@ const AdminDashboard = ({ navigation }) => {
         const res = await axios.get(url, config);
         if (res?.data) return res.data;
       } catch {
-        // Next
+        // Continue
       }
     }
     return null;
@@ -337,9 +337,6 @@ const AdminDashboard = ({ navigation }) => {
     fetchStats();
   };
 
-  // ==============================================================
-  // AYYUKAN SUSPEND DA DELETE TARE DA DIALOG NA HIKIMA (100% RELIABLE)
-  // ==============================================================
   const triggerSuspendPrompt = (user) => {
     setTargetActionUser(user);
     setActionDialogType("confirm_suspend");
@@ -369,7 +366,7 @@ const AdminDashboard = ({ navigation }) => {
           });
           if (res?.status === 200 || res?.data?.success) break;
         } catch {
-          // Gwada na gaba
+          // Next
         }
       }
 
@@ -377,8 +374,8 @@ const AdminDashboard = ({ navigation }) => {
       setTargetActionUser(null);
       fetchStats();
       Alert.alert(
-        "Status Changed",
-        `Asusun ${targetActionUser.name || targetActionUser.email} an mayar da shi ${
+        "Status Updated",
+        `Account status for ${targetActionUser.name || targetActionUser.email} has been updated to ${
           isCurrentlySuspended ? "ACTIVE" : "SUSPENDED"
         }.`
       );
@@ -414,14 +411,14 @@ const AdminDashboard = ({ navigation }) => {
           const res = await axios.delete(ep, config);
           if (res?.status === 200 || res?.data?.success) break;
         } catch {
-          // Gwada na gaba
+          // Next
         }
       }
 
       setActionDialogType(null);
       setTargetActionUser(null);
       fetchStats();
-      Alert.alert("Permanently Deleted", `An goge asusun "${userName}" gaba ɗaya daga database.`);
+      Alert.alert("Permanently Deleted", `Account "${userName}" has been permanently removed from the database.`);
     } catch (err) {
       Alert.alert("Delete Error", err.response?.data?.message || err.message);
     } finally {
@@ -429,7 +426,6 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
-  // 3. DUBA LAFIYAR TSARI
   const handleInspectSystemHealth = async () => {
     try {
       setActionLoading(true);
@@ -444,7 +440,7 @@ const AdminDashboard = ({ navigation }) => {
         setSystemHealth(res);
         setModalType("system_health");
       } else {
-        Alert.alert("System Operational", "All server clusters & database engines are connected 100%.");
+        Alert.alert("System Operational", "All server clusters and database engines are responding normally.");
       }
     } catch {
       Alert.alert("Notice", "System diagnostic completed successfully.");
@@ -453,7 +449,6 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
-  // 4. KIRKIRAR SUPERVISOR
   const handleCreateSupervisor = async () => {
     const { firstName, surname, email, phone, password } = supervisorForm;
     if (!firstName.trim() || !email.trim() || !password.trim() || !phone.trim()) {
@@ -502,7 +497,6 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
-  // 5. INSPECT AGENTS
   const handleInspectSupervisorAgents = (supervisor) => {
     setSelectedSupervisor(supervisor);
     const supId = String(supervisor._id || supervisor.id);
@@ -514,7 +508,6 @@ const AdminDashboard = ({ navigation }) => {
     setModalType("supervisor_hub");
   };
 
-  // 6. TRANSFER AGENT
   const handleExecuteTransfer = async () => {
     if (!transferForm.agentId || !transferForm.targetSupervisorId) {
       Alert.alert("Selection Missing", "Please select destination supervisor.");
@@ -544,7 +537,6 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
-  // 7. RESOLVE TICKET
   const handleResolveTicket = async (ticketId) => {
     try {
       setActionLoading(true);
@@ -559,10 +551,9 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
-  // 8. SEND BROADCAST
   const handleSendBroadcast = async () => {
     if (!broadcastForm.title.trim() || !broadcastForm.message.trim()) {
-      Alert.alert("Validation Error", "Title and content required.");
+      Alert.alert("Validation Error", "Title and content are required.");
       return;
     }
 
@@ -586,7 +577,6 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
-  // 9. UPDATE PRICING
   const handleUpdatePricing = async () => {
     if (!pricingForm.unitRate || !pricingForm.margin) {
       Alert.alert("Validation Error", "Rate and margin are required.");
@@ -614,7 +604,6 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
-  // 10. ASSIGN TARGET
   const handleAssignTarget = async () => {
     try {
       setActionLoading(true);
@@ -680,7 +669,6 @@ const AdminDashboard = ({ navigation }) => {
 
   const formatMoney = (amount) => `₦${Number(amount || 0).toLocaleString()}`;
 
-  // Filter Lists
   const filteredSupervisors = useMemo(() => {
     const q = searchFilter.trim().toLowerCase();
     if (!q) return supervisorsList;
@@ -1085,9 +1073,7 @@ const AdminDashboard = ({ navigation }) => {
               ))}
             </View>
 
-            {/* ============================================================= */}
             {/* DIRECTORY SECTION WITH INLINE FUNCTIONAL BUTTONS */}
-            {/* ============================================================= */}
             <View style={styles.directorySection}>
               {/* Directory Switcher Tabs */}
               <View style={styles.directoryTabsHeader}>
@@ -1358,9 +1344,7 @@ const AdminDashboard = ({ navigation }) => {
         </View>
       </View>
 
-      {/* ============================================================= */}
-      {/* DIRECT IN-APP CONFIRMATION DIALOG (100% RELIABLE NA GOGEWA DA DAKATARWA) */}
-      {/* ============================================================= */}
+      {/* DIRECT IN-APP CONFIRMATION DIALOG */}
       <Modal
         visible={Boolean(actionDialogType)}
         transparent
@@ -1392,8 +1376,8 @@ const AdminDashboard = ({ navigation }) => {
 
             <Text style={styles.modalSubheading}>
               {actionDialogType === "confirm_delete"
-                ? `Shin ka tabbata kana son goge asusun "${targetActionUser?.name || targetActionUser?.email}" har abada daga database? Wannan aikin ba za a iya dawo da shi ba!`
-                : `Kana son sauya matsayin asusun "${targetActionUser?.name || targetActionUser?.email}" zuwa ${
+                ? `Are you sure you want to permanently delete "${targetActionUser?.name || targetActionUser?.email}" from the database? This action cannot be undone!`
+                : `Are you sure you want to update the status of "${targetActionUser?.name || targetActionUser?.email}" to ${
                     targetActionUser?.isSuspended ? "ACTIVE" : "SUSPENDED"
                   }?`}
             </Text>
@@ -1404,7 +1388,7 @@ const AdminDashboard = ({ navigation }) => {
                 disabled={actionLoading}
                 onPress={() => setActionDialogType(null)}
               >
-                <Text style={styles.modalCancelText}>Fasa (Cancel)</Text>
+                <Text style={styles.modalCancelText}>Cancel</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -1431,10 +1415,10 @@ const AdminDashboard = ({ navigation }) => {
                 ) : (
                   <Text style={styles.modalConfirmText}>
                     {actionDialogType === "confirm_delete"
-                      ? "Goge Har Abada"
+                      ? "Delete Forever"
                       : targetActionUser?.isSuspended
-                      ? "Kunna Yanzu"
-                      : "Dakatar (Suspend)"}
+                      ? "Activate Now"
+                      : "Suspend Account"}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -1443,9 +1427,7 @@ const AdminDashboard = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* ============================================================= */}
       {/* MODAL: SUPERVISOR AGENTS HUB */}
-      {/* ============================================================= */}
       <Modal
         visible={modalType === "supervisor_hub"}
         transparent
@@ -1506,9 +1488,7 @@ const AdminDashboard = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* ============================================================= */}
       {/* MODAL: TRANSFER AGENT */}
-      {/* ============================================================= */}
       <Modal
         visible={modalType === "transfer_agent"}
         transparent
@@ -1575,9 +1555,7 @@ const AdminDashboard = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* ============================================================= */}
       {/* MODAL: CUSTOMER SERVICE CONSOLE */}
-      {/* ============================================================= */}
       <Modal
         visible={modalType === "customer_service"}
         transparent
@@ -1635,9 +1613,7 @@ const AdminDashboard = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* ============================================================= */}
       {/* MODAL: CREATE SUPERVISOR */}
-      {/* ============================================================= */}
       <Modal
         visible={modalType === "create_supervisor"}
         transparent
@@ -1745,9 +1721,7 @@ const AdminDashboard = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* ============================================================= */}
       {/* MODAL: BROADCAST NOTICE */}
-      {/* ============================================================= */}
       <Modal
         visible={modalType === "broadcast_notification"}
         transparent
@@ -1824,9 +1798,7 @@ const AdminDashboard = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* ============================================================= */}
       {/* MODAL: PRICING MARGIN MATRIX */}
-      {/* ============================================================= */}
       <Modal
         visible={modalType === "pricing"}
         transparent
@@ -1892,9 +1864,7 @@ const AdminDashboard = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* ============================================================= */}
       {/* MODAL: ASSIGN TARGET QUOTAS */}
-      {/* ============================================================= */}
       <Modal
         visible={modalType === "target"}
         transparent
@@ -1982,9 +1952,7 @@ const AdminDashboard = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* ============================================================= */}
       {/* MODAL: SYSTEM HEALTH */}
-      {/* ============================================================= */}
       <Modal
         visible={modalType === "system_health"}
         transparent
@@ -2041,9 +2009,7 @@ const AdminDashboard = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* ============================================================= */}
       {/* MODAL: CONFIRM LOGOUT */}
-      {/* ============================================================= */}
       <Modal
         visible={modalType === "confirm_logout"}
         transparent
@@ -2348,7 +2314,6 @@ const getStyles = (COLORS) =>
       textAlign: "center",
     },
 
-    // DIRECTORY TABS & CARDS STYLES
     directorySection: {
       backgroundColor: COLORS.card,
       borderRadius: 20,
@@ -2488,7 +2453,6 @@ const getStyles = (COLORS) =>
       fontWeight: "900",
     },
 
-    // ACTIONS CONTAINER UNDER EVERY CARD
     cardActionsContainer: {
       flexDirection: "row",
       justifyContent: "flex-end",
@@ -2524,7 +2488,6 @@ const getStyles = (COLORS) =>
       textAlign: "center",
     },
 
-    // MODAL STYLES
     modalBackdrop: {
       flex: 1,
       backgroundColor: "rgba(15, 23, 42, 0.7)",
@@ -2752,6 +2715,7 @@ const getStyles = (COLORS) =>
       width: 56,
       height: 56,
       borderRadius: 28,
+      backgroundColor: "#FEE2E2",
       alignItems: "center",
       justifyContent: "center",
       marginBottom: 14,
@@ -2792,6 +2756,7 @@ const getStyles = (COLORS) =>
     },
     modalConfirmBtn: {
       flex: 1,
+      backgroundColor: COLORS.primary,
       borderRadius: 12,
       paddingVertical: 12,
       alignItems: "center",
