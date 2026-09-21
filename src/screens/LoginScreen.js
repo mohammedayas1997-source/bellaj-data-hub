@@ -195,40 +195,19 @@ const LoginScreen = ({ navigation }) => {
     }
   };
 
-  const checkLoginStatus = async () => {
+ const checkLoginStatus = async () => {
     try {
       const token =
         (await AsyncStorage.getItem("userToken")) ||
         (await AsyncStorage.getItem("token"));
-      const storedUserData = await AsyncStorage.getItem("userData");
       const storedRole = await AsyncStorage.getItem("userRole");
 
+      // Idan babu token, kada ya yi komai, ya tsaya a kan LoginScreen
       if (!token) return;
 
-      let userObj = {};
-      if (storedUserData) {
-        try {
-          userObj = JSON.parse(storedUserData);
-        } catch {}
-      }
-
-      // Duba ko ya saita PIN
-      const isPinReady = await verifyPinStatus(userObj, token);
-      if (!isPinReady) {
-        routeToSetupPin();
-        return;
-      }
-
+      // Idan akwai token kuma an riga an yi login a baya:
       if (storedRole) {
         redirectUser(storedRole);
-        return;
-      }
-
-      if (userObj) {
-        const resolvedRole = detectRole(userObj);
-        if (resolvedRole) {
-          redirectUser(resolvedRole);
-        }
       }
     } catch (e) {
       console.log("Startup auth check error:", e.message);
