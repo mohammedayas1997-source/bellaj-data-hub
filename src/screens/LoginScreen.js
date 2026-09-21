@@ -37,6 +37,18 @@ const COLORS = {
   danger: "#DC2626",
 };
 
+// Safe image resolution fallback to prevent blank bundle crashes
+let appLogoSource = null;
+try {
+  appLogoSource = require("../../assets/Logo.png");
+} catch {
+  try {
+    appLogoSource = require("../assets/Logo.png");
+  } catch {
+    appLogoSource = null;
+  }
+}
+
 const LoginScreen = ({ navigation }) => {
   const { width } = useWindowDimensions();
   const isWeb = width >= 768;
@@ -46,7 +58,6 @@ const LoginScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isBiometricSupported, setIsBiometricSupported] = useState(false);
-  const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
@@ -78,65 +89,31 @@ const LoginScreen = ({ navigation }) => {
   const getUserPayload = (data) =>
     data?.user || data?.data?.user || data?.data || {};
 
-  // Check if user requires PIN setup (Only Customers and Agents)
+  // Check if role requires transaction PIN setup (Customers and Agents only)
   const isPinRequiredRole = (role) => {
     const cleanRole = String(role || "user").trim().toLowerCase();
     return cleanRole === "user" || cleanRole === "customer" || cleanRole === "agent";
   };
 
-  // Check whether transaction PIN is already configured
-  const verifyPinStatus = async (userPayload, token) => {
-    try {
-      // 1. Direct validation from user profile response
-      const hasLocalPinFlag =
-        userPayload?.isPinSet === true ||
-        userPayload?.hasPin === true ||
-        userPayload?.has_transaction_pin === true ||
-        userPayload?.pin_set === true ||
-        (userPayload?.pin && String(userPayload.pin).trim() !== "0000" && String(userPayload.pin).trim() !== "");
+  // Inspect user object for transaction PIN status
+  const checkHasPin = (userObj) => {
+    if (!userObj) return false;
 
-      if (hasLocalPinFlag) {
-        return true;
-      }
-
-      // 2. Local device storage check
-      const localCachedPin = await AsyncStorage.getItem("transactionPin");
-      if (localCachedPin && localCachedPin.trim().length === 4 && localCachedPin !== "0000") {
-        return true;
-      }
-
-      // 3. Fallback query to server pin-status endpoints
-      if (token) {
-        const pinEndpoints = [
-          `${BASE_URL}/user/pin-status`,
-          `${BASE_URL}/api/v1/user/pin-status`,
-          `${BASE_URL}/users/pin-status`,
-        ];
-
-        for (const url of pinEndpoints) {
-          try {
-            const res = await axios.get(url, {
-              headers: { Authorization: `Bearer ${token}` },
-              timeout: 10000,
-            });
-            const status =
-              res.data?.hasPin ||
-              res.data?.has_transaction_pin ||
-              res.data?.pin_set ||
-              res.data?.isPinSet ||
-              res.data?.data?.hasPin;
-
-            if (status !== undefined) {
-              return Boolean(status);
-            }
-          } catch {}
-        }
-      }
-
-      return false;
-    } catch {
-      return false;
+    const rawPin = String(userObj.pin || "").trim();
+    if (rawPin && rawPin !== "0000" && rawPin.length === 4) {
+      return true;
     }
+
+    if (
+      userObj.isPinSet === true ||
+      userObj.hasPin === true ||
+      userObj.has_transaction_pin === true ||
+      userObj.pin_set === true
+    ) {
+      return true;
+    }
+
+    return false;
   };
 
   const redirectUser = (role) => {
@@ -163,9 +140,7 @@ const LoginScreen = ({ navigation }) => {
         })
       );
       return;
-    } catch {
-      // Fallback 1
-    }
+    } catch {}
 
     try {
       navigation.dispatch(
@@ -180,9 +155,7 @@ const LoginScreen = ({ navigation }) => {
         })
       );
       return;
-    } catch {
-      // Fallback 2
-    }
+    } catch {}
 
     navigation.navigate("Main", { screen: targetScreen });
   };
@@ -200,6 +173,7 @@ const LoginScreen = ({ navigation }) => {
     }
   };
 
+  // Safe startup session check: Never blocks with PIN checks on launch
   const checkLoginStatus = async () => {
     try {
       const token =
@@ -219,15 +193,7 @@ const LoginScreen = ({ navigation }) => {
 
       const activeRole = storedRole || detectRole(userObj) || "user";
 
-      // Enforce PIN setup solely for Customers and Agents
-      if (isPinRequiredRole(activeRole)) {
-        const isPinReady = await verifyPinStatus(userObj, token);
-        if (!isPinReady) {
-          routeToSetupPin();
-          return;
-        }
-      }
-
+      // If active session exists, redirect straight to user's dashboard
       redirectUser(activeRole);
     } catch (e) {
       console.log("Startup auth check error:", e.message);
@@ -241,14 +207,6 @@ const LoginScreen = ({ navigation }) => {
 
       if (hasHardware && isEnrolled) {
         setIsBiometricSupported(true);
-
-        const isEnabled = await AsyncStorage.getItem("useBiometricLogin");
-        const storedToken = await AsyncStorage.getItem("userToken");
-
-        if (isEnabled === "true" && storedToken) {
-          setIsBiometricEnabled(true);
-          handleBiometricLogin();
-        }
       }
     } catch (e) {
       console.log("Biometric setup error:", e.message);
@@ -348,15 +306,18 @@ const LoginScreen = ({ navigation }) => {
         await AsyncStorage.setItem("adminToken", token);
       }
 
-      // Enforce PIN setup exclusively for Customers and Agents
+      // Check PIN setup strictly for Customer and Agent roles
       if (isPinRequiredRole(verifiedRole)) {
-        const isPinConfigured = await verifyPinStatus(finalUserData, token);
-        if (!isPinConfigured) {
+        const hasPinAlready = checkHasPin(finalUserData);
+        const cachedPin = await AsyncStorage.getItem("transactionPin");
+
+        if (!hasPinAlready && (!cachedPin || cachedPin === "0000")) {
           routeToSetupPin();
           return;
         }
       }
 
+      // If biometrics supported, offer prompt if not enabled yet
       if (isBiometricSupported) {
         const biometricSetting = await AsyncStorage.getItem("useBiometricLogin");
         if (biometricSetting !== "true") {
@@ -438,10 +399,12 @@ const LoginScreen = ({ navigation }) => {
 
       const activeRole = storedRole || detectRole(userObj) || "user";
 
-      // Verify PIN exclusively for Customers and Agents
+      // Verify PIN strictly for Customer and Agent roles
       if (isPinRequiredRole(activeRole)) {
-        const isPinConfigured = await verifyPinStatus(userObj, token);
-        if (!isPinConfigured) {
+        const hasPinAlready = checkHasPin(userObj);
+        const cachedPin = await AsyncStorage.getItem("transactionPin");
+
+        if (!hasPinAlready && (!cachedPin || cachedPin === "0000")) {
           routeToSetupPin();
           return;
         }
@@ -485,11 +448,15 @@ const LoginScreen = ({ navigation }) => {
           <View style={[styles.card, isWeb && styles.webCard]}>
             <View style={styles.headerSection}>
               <View style={styles.logoCircle}>
-                <Image
-                  source={require("../assets/Logo.png")}
-                  style={styles.logoImg}
-                  resizeMode="contain"
-                />
+                {appLogoSource ? (
+                  <Image
+                    source={appLogoSource}
+                    style={styles.logoImg}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <Ionicons name="shield-checkmark" size={54} color={COLORS.primary} />
+                )}
               </View>
 
               <Text style={styles.appName}>Bellaj Data Hub</Text>
@@ -657,8 +624,16 @@ const LoginScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: COLORS.light },
-  keyboardView: { flex: 1, backgroundColor: COLORS.light },
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLORS.light,
+    ...(Platform.OS === "web" ? { minHeight: "100vh", height: "100%" } : {}),
+  },
+  keyboardView: {
+    flex: 1,
+    backgroundColor: COLORS.light,
+    ...(Platform.OS === "web" ? { minHeight: "100vh", height: "100%" } : {}),
+  },
   scrollView: { flex: 1, backgroundColor: COLORS.light },
   scrollContent: {
     flexGrow: 1,
