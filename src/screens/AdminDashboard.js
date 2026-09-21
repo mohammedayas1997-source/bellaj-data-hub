@@ -136,7 +136,7 @@ const AdminDashboard = ({ navigation }) => {
   const [activeUserTab, setActiveUserTab] = useState("customers");
   const [searchFilter, setSearchFilter] = useState("");
 
-  // MODALS STATE: ALL OPERATIONS
+  // MODALS STATE
   const [modalType, setModalType] = useState(null); 
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -147,7 +147,7 @@ const AdminDashboard = ({ navigation }) => {
   // SUPERVISOR TEAM INSPECTION MODAL
   const [selectedSupervisorTeam, setSelectedSupervisorTeam] = useState(null);
 
-  // FINANCIALS & STATS
+  // FINANCIALS, LIVE METRICS & STATS
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalAgents: 0,
@@ -156,6 +156,9 @@ const AdminDashboard = ({ navigation }) => {
     totalOutflow: 0,
     totalRefunds: 0,
     activeOrders: 0,
+    totalDataSoldGB: 0,
+    totalAirtimeSold: 0,
+    totalServiceRequests: 0,
   });
 
   const [allUsersList, setAllUsersList] = useState([]);
@@ -165,7 +168,6 @@ const AdminDashboard = ({ navigation }) => {
   // ==========================================
   // FORM STATES
   // ==========================================
-  // 1. Service Pricing Form
   const [servicePricingForm, setServicePricingForm] = useState({
     service: "NIMC_SLIP_VERIFICATION",
     serviceName: "NIMC Slip Verification",
@@ -174,7 +176,6 @@ const AdminDashboard = ({ navigation }) => {
     agentPrice: "180",
   });
 
-  // 2. Direct Refund Form
   const [refundForm, setRefundForm] = useState({
     userId: "",
     userIdentifier: "",
@@ -182,7 +183,6 @@ const AdminDashboard = ({ navigation }) => {
     reason: "Transaction Reversal",
   });
 
-  // 3. Create User Form
   const [userForm, setUserForm] = useState({
     fullName: "",
     email: "",
@@ -197,7 +197,6 @@ const AdminDashboard = ({ navigation }) => {
   const [showStatePicker, setShowStatePicker] = useState(false);
   const [showLgaPicker, setShowLgaPicker] = useState(false);
 
-  // 4. Tariff Form
   const [tariffForm, setTariffForm] = useState({
     network: "MTN",
     planType: "DC",
@@ -208,7 +207,6 @@ const AdminDashboard = ({ navigation }) => {
     agentPrice: "210",
   });
 
-  // 5. Operational Target Form
   const [targetForm, setTargetForm] = useState({
     targetUserId: "ALL",
     salesGoal: "500000",
@@ -218,7 +216,6 @@ const AdminDashboard = ({ navigation }) => {
     isGlobal: true,
   });
 
-  // 6. Broadcast Notification Form
   const [broadcastForm, setBroadcastForm] = useState({
     title: "",
     message: "",
@@ -226,7 +223,6 @@ const AdminDashboard = ({ navigation }) => {
     sendEmail: true,
   });
 
-  // Sidebar Animation Handler
   const toggleSidebar = (open) => {
     if (open) {
       setSidebarOpen(true);
@@ -244,7 +240,6 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
-  // Hardware Back Handler
   useEffect(() => {
     const onBackPress = () => {
       if (sidebarOpen) {
@@ -282,18 +277,20 @@ const AdminDashboard = ({ navigation }) => {
     };
   };
 
-  // FETCH LIVE DATA
+  // FETCH LIVE DATA WITH DATA GB, AIRTIME & SERVICE REQUEST METRICS
   const fetchDashboardData = useCallback(async () => {
     try {
       setLoading(true);
       const config = await getAuthHeaders();
 
-      const [usersRes, supsRes, agentsRes, statsRes, txRes] = await Promise.allSettled([
+      const [usersRes, supsRes, agentsRes, statsRes, txRes, nimcRes, bvnRes] = await Promise.allSettled([
         axios.get(`${BASE_URL}/admin/users`, config).catch(() => ({ data: {} })),
         axios.get(`${BASE_URL}/admin/supervisors`, config).catch(() => ({ data: {} })),
         axios.get(`${BASE_URL}/admin/agents`, config).catch(() => ({ data: {} })),
         axios.get(`${BASE_URL}/admin/dashboard-stats`, config).catch(() => ({ data: {} })),
         axios.get(`${BASE_URL}/admin/transactions`, config).catch(() => ({ data: {} })),
+        axios.get(`${BASE_URL}/admin/nimc-requests`, config).catch(() => ({ data: {} })),
+        axios.get(`${BASE_URL}/admin/bvn-requests`, config).catch(() => ({ data: {} })),
       ]);
 
       const rawUsers = usersRes.value?.data?.users || usersRes.value?.data?.data || [];
@@ -301,6 +298,8 @@ const AdminDashboard = ({ navigation }) => {
       const rawAgents = agentsRes.value?.data?.agents || agentsRes.value?.data?.data || [];
       const txData = txRes.value?.data?.transactions || txRes.value?.data?.data || [];
       const dashStats = statsRes.value?.data || {};
+      const nimcData = nimcRes.value?.data?.requests || nimcRes.value?.data?.data || [];
+      const bvnData = bvnRes.value?.data?.requests || bvnRes.value?.data?.data || [];
 
       const customers = rawUsers.filter((u) => (u.role || "").toLowerCase() === "user" || (u.role || "").toLowerCase() === "customer");
       const agents = rawAgents.length > 0 ? rawAgents : rawUsers.filter((u) => (u.role || "").toLowerCase() === "agent");
@@ -313,16 +312,46 @@ const AdminDashboard = ({ navigation }) => {
       let inflow = 0;
       let outflow = 0;
       let refunds = 0;
+      let calculatedDataGB = 0;
+      let calculatedAirtimeAmount = 0;
+      let serviceRequestsCount = (nimcData.length || 0) + (bvnData.length || 0);
 
       txData.forEach((tx) => {
         const amt = Number(tx.amount || 0);
-        const t = String(tx.type || tx.category || "").toLowerCase();
+        const t = String(tx.type || tx.category || tx.service || "").toLowerCase();
+        const desc = String(tx.description || tx.narration || tx.planName || "").toLowerCase();
+
         if (t.includes("fund") || t.includes("deposit") || t.includes("credit")) {
           inflow += amt;
         } else if (t.includes("refund")) {
           refunds += amt;
         } else {
           outflow += amt;
+        }
+
+        // Calculate Data GB
+        if (t.includes("data") || desc.includes("gb") || desc.includes("mb")) {
+          const matchGB = desc.match(/(\d+(\.\d+)?)\s*gb/i);
+          const matchMB = desc.match(/(\d+(\.\d+)?)\s*mb/i);
+          if (matchGB) {
+            calculatedDataGB += parseFloat(matchGB[1]);
+          } else if (matchMB) {
+            calculatedDataGB += parseFloat(matchMB[1]) / 1024;
+          } else if (tx.volume) {
+            calculatedDataGB += parseFloat(tx.volume) || 1;
+          } else {
+            calculatedDataGB += 1;
+          }
+        }
+
+        // Calculate Airtime Sales
+        if (t.includes("airtime") || desc.includes("airtime") || desc.includes("vtu")) {
+          calculatedAirtimeAmount += amt;
+        }
+
+        // Count Utility / Identity Services
+        if (t.includes("nimc") || t.includes("bvn") || t.includes("cable") || t.includes("electricity")) {
+          serviceRequestsCount += 1;
         }
       });
 
@@ -338,6 +367,9 @@ const AdminDashboard = ({ navigation }) => {
         totalOutflow: outflow,
         totalRefunds: refunds,
         activeOrders: txData.length,
+        totalDataSoldGB: parseFloat(calculatedDataGB.toFixed(2)),
+        totalAirtimeSold: calculatedAirtimeAmount,
+        totalServiceRequests: serviceRequestsCount,
       });
     } catch (err) {
       console.log("Error loading dashboard data:", err);
@@ -356,7 +388,6 @@ const AdminDashboard = ({ navigation }) => {
     fetchDashboardData();
   };
 
-  // 1. SERVICE PRICING
   const handleSaveServicePricing = async () => {
     if (!servicePricingForm.baseRate || !servicePricingForm.retailPrice) {
       Alert.alert("Error", "Please fill in base cost and customer price.");
@@ -390,7 +421,6 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
-  // 2. DIRECT REFUND
   const handleExecuteRefund = async () => {
     if (!refundForm.userIdentifier.trim() || !refundForm.amount.trim()) {
       Alert.alert("Validation Error", "User Email/Phone and Refund Amount are required.");
@@ -422,7 +452,6 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
-  // 3. CREATE USER
   const handleCreateUser = async () => {
     const { fullName, email, phone, password, role, state, lga, address } = userForm;
     if (!fullName.trim() || !email.trim() || !phone.trim() || !password.trim()) {
@@ -462,7 +491,6 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
-  // 4. PUBLISH TARIFF[cite: 1]
   const handlePublishTariff = async () => {
     if (!tariffForm.planId.trim() || !tariffForm.customerPrice.trim()) {
       Alert.alert("Validation Error", "Gateway Plan ID and Customer Price are required.");
@@ -492,7 +520,6 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
-  // 5. ASSIGN TARGET
   const handleDeployTarget = async () => {
     try {
       setActionLoading(true);
@@ -524,7 +551,6 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
-  // 6. BROADCAST NOTIFICATION
   const handleDispatchBroadcast = async () => {
     if (!broadcastForm.title.trim() || !broadcastForm.message.trim()) {
       Alert.alert("Validation Error", "Title and announcement content are required.");
@@ -557,7 +583,6 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
-  // SUSPEND / ACTIVATE & DELETE
   const executeSuspension = async () => {
     if (!targetActionUser) return;
     const userId = targetActionUser._id || targetActionUser.id;
@@ -694,7 +719,34 @@ const AdminDashboard = ({ navigation }) => {
           </View>
         </View>
 
-        {/* QUICK CONTROL BUTTONS - YANZU TARE DA CUSTOMER SUPPORT ICON NA SUPPORTDASHBOARD */}
+        {/* LIVE DISPATCH METRICS: DATA GB, AIRTIME AMOUNT & REQUESTS */}
+        <View style={styles.liveMetricsContainer}>
+          <View style={styles.liveMetricCard}>
+            <View style={[styles.liveMetricIconBox, { backgroundColor: "#DBEAFE" }]}>
+              <Ionicons name="wifi" size={18} color="#2563EB" />
+            </View>
+            <Text style={styles.liveMetricNumber}>{stats.totalDataSoldGB.toLocaleString()} GB</Text>
+            <Text style={styles.liveMetricLabel}>Data Delivered</Text>
+          </View>
+
+          <View style={styles.liveMetricCard}>
+            <View style={[styles.liveMetricIconBox, { backgroundColor: "#DCFCE7" }]}>
+              <Ionicons name="call" size={18} color="#16A34A" />
+            </View>
+            <Text style={styles.liveMetricNumber}>₦{stats.totalAirtimeSold.toLocaleString()}</Text>
+            <Text style={styles.liveMetricLabel}>Airtime Topups</Text>
+          </View>
+
+          <View style={styles.liveMetricCard}>
+            <View style={[styles.liveMetricIconBox, { backgroundColor: "#F3E8FF" }]}>
+              <Ionicons name="layers" size={18} color="#9333EA" />
+            </View>
+            <Text style={styles.liveMetricNumber}>{stats.totalServiceRequests.toLocaleString()}</Text>
+            <Text style={styles.liveMetricLabel}>VAS / Requests</Text>
+          </View>
+        </View>
+
+        {/* QUICK CONTROL BUTTONS - INCLUDING DEDICATED SUPPORT DESK ICON */}
         <View style={styles.quickDeckRow}>
           <TouchableOpacity style={[styles.quickDeckBtn, { backgroundColor: COLORS.teal }]} onPress={() => safeNavigate("SupportDashboard")}>
             <Ionicons name="headset" size={15} color={COLORS.white} />
@@ -885,7 +937,7 @@ const AdminDashboard = ({ navigation }) => {
         </View>
       </ScrollView>
 
-      {/* SIDEBAR DRAWER - TARE DA CUSTOMER SUPPORT CONSOLE LINK */}
+      {/* SIDEBAR DRAWER */}
       {sidebarOpen && (
         <TouchableOpacity
           style={styles.sidebarBackdrop}
@@ -1767,7 +1819,7 @@ const getStyles = (COLORS) =>
       borderColor: COLORS.sidebarBorder,
       borderLeftWidth: 5,
       borderLeftColor: COLORS.secondary,
-      marginBottom: 14,
+      marginBottom: 12,
     },
     financialHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
     financialBadge: { color: "#86EFAC", fontSize: 10, fontWeight: "900", letterSpacing: 0.8 },
@@ -1788,6 +1840,44 @@ const getStyles = (COLORS) =>
     finMetricBox: { flex: 1 },
     finMetricLabel: { color: COLORS.muted, fontSize: 10, fontWeight: "800", textTransform: "uppercase" },
     finMetricVal: { fontSize: 16, fontWeight: "900", marginTop: 3 },
+
+    // LIVE OPERATIONAL METRICS (DATA GB, AIRTIME, REQUESTS)
+    liveMetricsContainer: {
+      flexDirection: "row",
+      gap: 8,
+      marginBottom: 14,
+    },
+    liveMetricCard: {
+      flex: 1,
+      backgroundColor: COLORS.card,
+      borderRadius: 14,
+      paddingVertical: 12,
+      paddingHorizontal: 8,
+      alignItems: "center",
+      borderWidth: 1,
+      borderColor: COLORS.border,
+    },
+    liveMetricIconBox: {
+      width: 34,
+      height: 34,
+      borderRadius: 10,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 6,
+    },
+    liveMetricNumber: {
+      fontSize: 13,
+      fontWeight: "900",
+      color: COLORS.text,
+      textAlign: "center",
+    },
+    liveMetricLabel: {
+      fontSize: 10,
+      fontWeight: "700",
+      color: COLORS.muted,
+      marginTop: 2,
+      textAlign: "center",
+    },
 
     quickDeckRow: { flexDirection: "row", gap: 6, marginBottom: 14 },
     quickDeckBtn: {
