@@ -37,6 +37,18 @@ const COLORS = {
   danger: "#DC2626",
 };
 
+// Safe image resolution to avoid bundling crash
+let appLogoSource = null;
+try {
+  appLogoSource = require("../../assets/Logo.png");
+} catch {
+  try {
+    appLogoSource = require("../assets/Logo.png");
+  } catch {
+    appLogoSource = null;
+  }
+}
+
 const LoginScreen = ({ navigation }) => {
   const { width } = useWindowDimensions();
   const isWeb = width >= 768;
@@ -46,7 +58,6 @@ const LoginScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isBiometricSupported, setIsBiometricSupported] = useState(false);
-  const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
@@ -78,59 +89,35 @@ const LoginScreen = ({ navigation }) => {
   const getUserPayload = (data) =>
     data?.user || data?.data?.user || data?.data || {};
 
-  // Duba ko mai amfani ya riga ya saita Transaction PIN
-  const verifyPinStatus = async (userPayload, token) => {
-    try {
-      // 1. Duba kai tsaye daga bayanan da login endpoint ya dawo da su
-      const hasLocalPinFlag =
-        userPayload?.isPinSet === true ||
-        userPayload?.hasPin === true ||
-        userPayload?.has_transaction_pin === true ||
-        userPayload?.pin_set === true ||
-        (userPayload?.pin && String(userPayload.pin).trim() !== "0000" && String(userPayload.pin).trim() !== "");
+  // Restrict PIN check exclusively to Customer and Agent roles
+  const isPinRequiredRole = (role) => {
+    const cleanRole = String(role || "user").trim().toLowerCase();
+    return cleanRole === "user" || cleanRole === "customer" || cleanRole === "agent";
+  };
 
-      if (hasLocalPinFlag) {
-        return true;
-      }
-
-      // 2. Duba ko an taba adana PIN din a wayar
-      const localCachedPin = await AsyncStorage.getItem("transactionPin");
-      if (localCachedPin && localCachedPin.trim().length === 4 && localCachedPin !== "0000") {
-        return true;
-      }
-
-      // 3. Tambayi server kai tsaye ta hanyar pin-status endpoints
-      if (token) {
-        const pinEndpoints = [
-          `${BASE_URL}/user/pin-status`,
-          `${BASE_URL}/api/v1/user/pin-status`,
-          `${BASE_URL}/users/pin-status`,
-        ];
-
-        for (const url of pinEndpoints) {
-          try {
-            const res = await axios.get(url, {
-              headers: { Authorization: `Bearer ${token}` },
-              timeout: 10000,
-            });
-            const status =
-              res.data?.hasPin ||
-              res.data?.has_transaction_pin ||
-              res.data?.pin_set ||
-              res.data?.isPinSet ||
-              res.data?.data?.hasPin;
-
-            if (status !== undefined) {
-              return Boolean(status);
-            }
-          } catch {}
-        }
-      }
-
-      return false;
-    } catch {
-      return false;
+  // Synchronous, crash-free check for transaction PIN
+  const hasPinConfigured = (userObj, localPin) => {
+    if (localPin && String(localPin).trim().length === 4 && String(localPin).trim() !== "0000") {
+      return true;
     }
+
+    if (!userObj) return false;
+
+    const rawPin = String(userObj.pin || "").trim();
+    if (rawPin && rawPin !== "0000" && rawPin.length === 4) {
+      return true;
+    }
+
+    if (
+      userObj.isPinSet === true ||
+      userObj.hasPin === true ||
+      userObj.has_transaction_pin === true ||
+      userObj.pin_set === true
+    ) {
+      return true;
+    }
+
+    return false;
   };
 
   const redirectUser = (role) => {
@@ -157,9 +144,7 @@ const LoginScreen = ({ navigation }) => {
         })
       );
       return;
-    } catch {
-      // Fallback 1
-    }
+    } catch {}
 
     try {
       navigation.dispatch(
@@ -174,14 +159,11 @@ const LoginScreen = ({ navigation }) => {
         })
       );
       return;
-    } catch {
-      // Fallback 2
-    }
+    } catch {}
 
     navigation.navigate("Main", { screen: targetScreen });
   };
 
-  // Hanyar da ke tura sabon mai amfani zuwa shafin saita PIN
   const routeToSetupPin = () => {
     try {
       navigation.dispatch(
@@ -191,10 +173,15 @@ const LoginScreen = ({ navigation }) => {
         })
       );
     } catch {
-      navigation.navigate("SetupPin", { isFirstTime: true });
+      try {
+        navigation.navigate("SetupPin", { isFirstTime: true });
+      } catch {
+        navigation.navigate("UpdatePin");
+      }
     }
   };
 
+  // Fast, non-blocking check on initial app startup
   const checkLoginStatus = async () => {
     try {
       const token =
@@ -212,24 +199,8 @@ const LoginScreen = ({ navigation }) => {
         } catch {}
       }
 
-      // Duba ko ya saita PIN
-      const isPinReady = await verifyPinStatus(userObj, token);
-      if (!isPinReady) {
-        routeToSetupPin();
-        return;
-      }
-
-      if (storedRole) {
-        redirectUser(storedRole);
-        return;
-      }
-
-      if (userObj) {
-        const resolvedRole = detectRole(userObj);
-        if (resolvedRole) {
-          redirectUser(resolvedRole);
-        }
-      }
+      const activeRole = storedRole || detectRole(userObj) || "user";
+      redirectUser(activeRole);
     } catch (e) {
       console.log("Startup auth check error:", e.message);
     }
@@ -242,14 +213,6 @@ const LoginScreen = ({ navigation }) => {
 
       if (hasHardware && isEnrolled) {
         setIsBiometricSupported(true);
-
-        const isEnabled = await AsyncStorage.getItem("useBiometricLogin");
-        const storedToken = await AsyncStorage.getItem("userToken");
-
-        if (isEnabled === "true" && storedToken) {
-          setIsBiometricEnabled(true);
-          handleBiometricLogin();
-        }
       }
     } catch (e) {
       console.log("Biometric setup error:", e.message);
@@ -349,15 +312,18 @@ const LoginScreen = ({ navigation }) => {
         await AsyncStorage.setItem("adminToken", token);
       }
 
-      // DUBA KO MAI AMFANI YA SAKAR DA TRANSACTION PIN KAFIN WUCEWA
-      const isPinConfigured = await verifyPinStatus(finalUserData, token);
+      // Check transaction PIN ONLY for Customers and Agents after successful login
+      if (isPinRequiredRole(verifiedRole)) {
+        const localPin = await AsyncStorage.getItem("transactionPin");
+        const pinIsSet = hasPinConfigured(finalUserData, localPin);
 
-      if (!isPinConfigured) {
-        // Idan sabon mai amfani ne ko bai taba saita PIN ba, a kulle shi ya saita PIN da farko
-        routeToSetupPin();
-        return;
+        if (!pinIsSet) {
+          routeToSetupPin();
+          return;
+        }
       }
 
+      // Biometrics enrollment check
       if (isBiometricSupported) {
         const biometricSetting = await AsyncStorage.getItem("useBiometricLogin");
         if (biometricSetting !== "true") {
@@ -437,21 +403,19 @@ const LoginScreen = ({ navigation }) => {
         } catch {}
       }
 
-      // Duba ko an saita PIN a biometric login ma
-      const isPinConfigured = await verifyPinStatus(userObj, token);
-      if (!isPinConfigured) {
-        routeToSetupPin();
-        return;
+      const activeRole = storedRole || detectRole(userObj) || "user";
+
+      // Verify PIN strictly for Customer and Agent roles
+      if (isPinRequiredRole(activeRole)) {
+        const localPin = await AsyncStorage.getItem("transactionPin");
+        const pinIsSet = hasPinConfigured(userObj, localPin);
+        if (!pinIsSet) {
+          routeToSetupPin();
+          return;
+        }
       }
 
-      if (storedRole) {
-        redirectUser(storedRole);
-        return;
-      }
-
-      if (storedUserData) {
-        redirectUser(detectRole(userObj));
-      }
+      redirectUser(activeRole);
     } catch (err) {
       setErrorMessage(err.message || "Biometric login failed. Please use your password.");
     }
@@ -489,11 +453,15 @@ const LoginScreen = ({ navigation }) => {
           <View style={[styles.card, isWeb && styles.webCard]}>
             <View style={styles.headerSection}>
               <View style={styles.logoCircle}>
-                <Image
-                  source={require("../assets/Logo.png")}
-                  style={styles.logoImg}
-                  resizeMode="contain"
-                />
+                {appLogoSource ? (
+                  <Image
+                    source={appLogoSource}
+                    style={styles.logoImg}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <Ionicons name="shield-checkmark" size={50} color={COLORS.primary} />
+                )}
               </View>
 
               <Text style={styles.appName}>Bellaj Data Hub</Text>
@@ -661,8 +629,16 @@ const LoginScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: COLORS.light },
-  keyboardView: { flex: 1, backgroundColor: COLORS.light },
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLORS.light,
+    ...(Platform.OS === "web" ? { minHeight: "100vh", height: "100%" } : {}),
+  },
+  keyboardView: {
+    flex: 1,
+    backgroundColor: COLORS.light,
+    ...(Platform.OS === "web" ? { minHeight: "100vh", height: "100%" } : {}),
+  },
   scrollView: { flex: 1, backgroundColor: COLORS.light },
   scrollContent: {
     flexGrow: 1,
