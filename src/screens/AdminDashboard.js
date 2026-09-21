@@ -23,7 +23,7 @@ import { Ionicons, MaterialCommunityIcons, Feather, FontAwesome5 } from "@expo/v
 import BASE_URL from "../config/api";
 import { ThemeContext } from "../context/ThemeContext";
 
-// JIHOHIN NAJERIYA 36 DA LGAs
+// NIGERIA 36 STATES AND LGAS
 const NIGERIA_STATES_AND_LGAS = {
   Abia: ["Aba North", "Aba South", "Arochukwu", "Bende", "Ikwuano", "Isiala Ngwa North", "Isiala Ngwa South", "Isuikwuato", "Obi Ngwa", "Ohafia", "Osisioma", "Ugwunagbo", "Ukwa East", "Ukwa West", "Umuahia North", "Umuahia South", "Umu Nneochi"],
   Adamawa: ["Demsa", "Fufure", "Ganye", "Gayuk", "Gombi", "Grie", "Hong", "Jada", "Lamurde", "Madagali", "Maiha", "Mayo Belwa", "Michika", "Mubi North", "Mubi South", "Numan", "Shelleng", "Song", "Toungo", "Yola North", "Yola South"],
@@ -114,10 +114,11 @@ const DARK = {
 
 const AdminDashboard = ({ navigation }) => {
   const { width } = useWindowDimensions();
-  const { isDarkMode } = useContext(ThemeContext || { isDarkMode: false });
+  const themeContext = useContext(ThemeContext);
+  const isDarkMode = themeContext?.isDarkMode || false;
 
   const COLORS = isDarkMode ? DARK : LIGHT;
-  const styles = getStyles(COLORS);
+  const styles = useMemo(() => getStyles(COLORS), [COLORS]);
   const isWeb = width >= 992;
 
   const [loading, setLoading] = useState(true);
@@ -129,11 +130,11 @@ const AdminDashboard = ({ navigation }) => {
   const sidebarAnim = useRef(new Animated.Value(-sidebarWidth)).current;
 
   // USER DIRECTORY TABS (CUSTOMERS, AGENTS, SUPERVISORS)
-  const [activeUserTab, setActiveUserTab] = useState("customers"); // 'customers' | 'agents' | 'supervisors'
+  const [activeUserTab, setActiveUserTab] = useState("customers");
   const [searchFilter, setSearchFilter] = useState("");
 
   // MODALS STATE
-  const [modalType, setModalType] = useState(null); // 'create_user' | 'publish_tariff' | 'set_service_price' | 'refund_money' | 'confirm_logout'
+  const [modalType, setModalType] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
 
   // QUICK DIALOG (SUSPEND / DELETE)
@@ -148,9 +149,9 @@ const AdminDashboard = ({ navigation }) => {
     totalUsers: 0,
     totalAgents: 0,
     totalSupervisors: 0,
-    totalInflow: 0, // Kudin Shiga
-    totalOutflow: 0, // Kudin Fita
-    totalRefunds: 0, // Kudin da aka yi Refund
+    totalInflow: 0,
+    totalOutflow: 0,
+    totalRefunds: 0,
     activeOrders: 0,
   });
 
@@ -158,10 +159,7 @@ const AdminDashboard = ({ navigation }) => {
   const [allAgentsList, setAllAgentsList] = useState([]);
   const [supervisorsList, setSupervisorsList] = useState([]);
 
-  // ==========================================
-  // FORM STATES
-  // ==========================================
-  // 1. Service Pricing Form (NIMC, BVN, Slips, Cables)
+  // 1. Service Pricing Form
   const [servicePricingForm, setServicePricingForm] = useState({
     service: "NIMC_SLIP_VERIFICATION",
     serviceName: "NIMC Slip Verification",
@@ -178,13 +176,13 @@ const AdminDashboard = ({ navigation }) => {
     reason: "Transaction Reversal",
   });
 
-  // 3. Create User Form (Complete with 36 States & LGAs)
+  // 3. Create User Form
   const [userForm, setUserForm] = useState({
     fullName: "",
     email: "",
     phone: "",
     password: "",
-    role: "customer", // customer, agent, supervisor, support, staff
+    role: "customer",
     state: "Gombe",
     lga: "Gombe",
     address: "",
@@ -193,7 +191,7 @@ const AdminDashboard = ({ navigation }) => {
   const [showStatePicker, setShowStatePicker] = useState(false);
   const [showLgaPicker, setShowLgaPicker] = useState(false);
 
-  // 4. Tariff Form (Matching Picture Presets)[cite: 1]
+  // 4. Tariff Form
   const [tariffForm, setTariffForm] = useState({
     network: "MTN",
     planType: "DC",
@@ -222,7 +220,7 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
-  // Navigation Lock
+  // Hardware Back Handler
   useEffect(() => {
     const onBackPress = () => {
       if (sidebarOpen) {
@@ -260,9 +258,7 @@ const AdminDashboard = ({ navigation }) => {
     };
   };
 
-  // ==========================================
-  // FETCH LIVE DATA & FINANCIALS
-  // ==========================================
+  // FETCH LIVE DATA
   const fetchDashboardData = useCallback(async () => {
     try {
       setLoading(true);
@@ -282,7 +278,6 @@ const AdminDashboard = ({ navigation }) => {
       const txData = txRes.value?.data?.transactions || txRes.value?.data?.data || [];
       const dashStats = statsRes.value?.data || {};
 
-      // Raba Masu Amfani: Customers, Agents, Supervisors
       const customers = rawUsers.filter((u) => (u.role || "").toLowerCase() === "user" || (u.role || "").toLowerCase() === "customer");
       const agents = rawAgents.length > 0 ? rawAgents : rawUsers.filter((u) => (u.role || "").toLowerCase() === "agent");
       const supervisors = rawSups.length > 0 ? rawSups : rawUsers.filter((u) => (u.role || "").toLowerCase() === "supervisor");
@@ -291,7 +286,6 @@ const AdminDashboard = ({ navigation }) => {
       setAllAgentsList(agents);
       setSupervisorsList(supervisors);
 
-      // Lissafin Kudin Shiga da Fita daga Transactions
       let inflow = 0;
       let outflow = 0;
       let refunds = 0;
@@ -338,9 +332,6 @@ const AdminDashboard = ({ navigation }) => {
     fetchDashboardData();
   };
 
-  // ==========================================
-  // ACTION: SET SERVICE PRICING (NIMC, BVN, CABLE, SLIPS)
-  // ==========================================
   const handleSaveServicePricing = async () => {
     if (!servicePricingForm.baseRate || !servicePricingForm.retailPrice) {
       Alert.alert("Error", "Please fill in base cost and customer price.");
@@ -374,9 +365,6 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
-  // ==========================================
-  // ACTION: EXECUTE DIRECT REFUND
-  // ==========================================
   const handleExecuteRefund = async () => {
     if (!refundForm.userIdentifier.trim() || !refundForm.amount.trim()) {
       Alert.alert("Validation Error", "User Email/Phone and Refund Amount are required.");
@@ -408,9 +396,6 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
-  // ==========================================
-  // ACTION: CREATE USER / SUPERVISOR / AGENT
-  // ==========================================
   const handleCreateUser = async () => {
     const { fullName, email, phone, password, role, state, lga, address } = userForm;
     if (!fullName.trim() || !email.trim() || !phone.trim() || !password.trim()) {
@@ -450,9 +435,6 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
-  // ==========================================
-  // ACTION: PUBLISH DATA TARIFF
-  // ==========================================
   const handlePublishTariff = async () => {
     if (!tariffForm.planId.trim() || !tariffForm.customerPrice.trim()) {
       Alert.alert("Validation Error", "Gateway Plan ID and Customer Price are required.");
@@ -482,9 +464,6 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
-  // ==========================================
-  // SUSPEND / ACTIVATE & DELETE CONTROLLERS
-  // ==========================================
   const executeSuspension = async () => {
     if (!targetActionUser) return;
     const userId = targetActionUser._id || targetActionUser.id;
@@ -526,7 +505,6 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
-  // Safe Navigation
   const safeNavigate = (screenName) => {
     toggleSidebar(false);
     if (!screenName || screenName === "AdminDashboard") return;
@@ -537,7 +515,6 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
-  // Filter Users List
   const displayedUsersList = useMemo(() => {
     let source = [];
     if (activeUserTab === "customers") source = allUsersList;
@@ -592,7 +569,7 @@ const AdminDashboard = ({ navigation }) => {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
       >
-        {/* FINANCIAL SUMMARY: INFLOW, OUTFLOW & REFUNDS */}
+        {/* FINANCIAL SUMMARY */}
         <View style={styles.financialCard}>
           <View style={styles.financialHeaderRow}>
             <View>
@@ -618,7 +595,7 @@ const AdminDashboard = ({ navigation }) => {
             </View>
             <View style={styles.finMetricBox}>
               <Text style={styles.finMetricLabel}>Total Refunded</Text>
-              <Text style={[styles.finMetricVal, { color: COLORS.warning }]}>₦{stats.totalRefunds.toLocaleString()}</Text>
+              <Text style={[styles.finMetricVal, { color: COLORS.orange }]}>₦{stats.totalRefunds.toLocaleString()}</Text>
             </View>
           </View>
         </View>
@@ -641,7 +618,7 @@ const AdminDashboard = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* THREE DISTINCT USER CATEGORY BUTTONS (CUSTOMERS, AGENTS, SUPERVISORS) */}
+        {/* THREE CATEGORY PILLS */}
         <View style={styles.categoryPillsWrapper}>
           <TouchableOpacity
             style={[styles.categoryBtnPill, activeUserTab === "customers" && styles.categoryBtnPillActive]}
@@ -725,7 +702,6 @@ const AdminDashboard = ({ navigation }) => {
                     </View>
                   </View>
 
-                  {/* DETAILS NA AIKIN DA YAKE YI, KUDINSA, DA ABINDA YA SAYAR */}
                   <View style={styles.userAuditBox}>
                     {activeUserTab === "supervisors" ? (
                       <>
@@ -760,7 +736,6 @@ const AdminDashboard = ({ navigation }) => {
                     )}
                   </View>
 
-                  {/* ACTION BUTTONS (INSPECTION, SUSPEND, DELETE) */}
                   <View style={styles.cardActionsContainer}>
                     {activeUserTab === "supervisors" && (
                       <TouchableOpacity
@@ -806,9 +781,7 @@ const AdminDashboard = ({ navigation }) => {
         </View>
       </ScrollView>
 
-      {/* ============================================================= */}
-      {/* SIDEBAR DRAWER (ANIMATED, FUNCTIONAL & BRANDED) */}
-      {/* ============================================================= */}
+      {/* SIDEBAR DRAWER */}
       {sidebarOpen && (
         <TouchableOpacity
           style={styles.sidebarBackdrop}
@@ -924,9 +897,7 @@ const AdminDashboard = ({ navigation }) => {
         </TouchableOpacity>
       )}
 
-      {/* ============================================================= */}
-      {/* MODAL 1: SET SERVICE PRICING (NIMC, BVN, CABLE TV, SLIPS) */}
-      {/* ============================================================= */}
+      {/* MODAL 1: SERVICE PRICING */}
       <Modal visible={modalType === "set_service_price"} transparent animationType="slide" onRequestClose={() => setModalType(null)}>
         <View style={styles.modalBackdrop}>
           <View style={[styles.modalBox, { maxHeight: "90%" }]}>
@@ -997,9 +968,7 @@ const AdminDashboard = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* ============================================================= */}
-      {/* MODAL 2: DIRECT WALLET REFUND */}
-      {/* ============================================================= */}
+      {/* MODAL 2: DIRECT REFUND */}
       <Modal visible={modalType === "refund_money"} transparent animationType="fade" onRequestClose={() => setModalType(null)}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalBox}>
@@ -1048,9 +1017,7 @@ const AdminDashboard = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* ============================================================= */}
-      {/* MODAL 3: CREATE USER / SUPERVISOR FORM (36 STATES & LGAS) */}
-      {/* ============================================================= */}
+      {/* MODAL 3: CREATE USER */}
       <Modal visible={modalType === "create_user"} transparent animationType="slide" onRequestClose={() => setModalType(null)}>
         <View style={styles.modalBackdrop}>
           <View style={[styles.modalBox, { maxHeight: "92%" }]}>
@@ -1200,9 +1167,7 @@ const AdminDashboard = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* ============================================================= */}
-      {/* MODAL 4: PUBLISH DATA TARIFF (MATCHING PICTURE PRESETS) */}
-      {/* ============================================================= */}
+      {/* MODAL 4: PUBLISH TARIFF */}
       <Modal visible={modalType === "publish_tariff"} transparent animationType="slide" onRequestClose={() => setModalType(null)}>
         <View style={styles.modalBackdrop}>
           <View style={[styles.modalBox, { maxHeight: "94%" }]}>
@@ -1349,9 +1314,7 @@ const AdminDashboard = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* ============================================================= */}
       {/* MODAL 5: INSPECT SUPERVISOR OUTLETS */}
-      {/* ============================================================= */}
       <Modal visible={Boolean(selectedSupervisorTeam)} transparent animationType="slide" onRequestClose={() => setSelectedSupervisorTeam(null)}>
         <View style={styles.modalBackdrop}>
           <View style={[styles.modalBox, { maxHeight: "88%" }]}>
@@ -1441,430 +1404,437 @@ const AdminDashboard = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#f8fafc" },
-  header: {
-    backgroundColor: "#0B5E3C",
-    paddingTop: Platform.OS === "android" ? 44 : 22,
-    paddingBottom: 16,
-    paddingHorizontal: 16,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  headerIconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: "rgba(255,255,255,0.18)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 10,
-  },
-  headerTextBox: { flex: 1 },
-  headerTitle: { color: "#ffffff", fontSize: 17, fontWeight: "900" },
-  headerSubtitle: { color: "#DCFCE7", marginTop: 2, fontSize: 11, fontWeight: "600" },
-  logoutBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: "#DC2626",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  container: { flex: 1 },
-  content: { padding: 16, paddingBottom: 90 },
-  loaderContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-  loaderText: { color: "#0B5E3C", fontWeight: "800", marginTop: 14 },
+// ==========================================
+// STYLES BUILDER (SOLVES GETSTYLES IS NOT DEFINED CRASH)
+// ==========================================
+const getStyles = (COLORS) =>
+  StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: COLORS.light,
+      ...(Platform.OS === "web" ? { minHeight: "100vh", height: "100%" } : {}),
+    },
+    header: {
+      backgroundColor: COLORS.primary,
+      paddingTop: Platform.OS === "android" ? 44 : 22,
+      paddingBottom: 16,
+      paddingHorizontal: 16,
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    headerIconBtn: {
+      width: 38,
+      height: 38,
+      borderRadius: 12,
+      backgroundColor: "rgba(255,255,255,0.18)",
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: 10,
+    },
+    headerTextBox: { flex: 1 },
+    headerTitle: { color: COLORS.white, fontSize: 17, fontWeight: "900" },
+    headerSubtitle: { color: "#DCFCE7", marginTop: 2, fontSize: 11, fontWeight: "600" },
+    logoutBtn: {
+      width: 38,
+      height: 38,
+      borderRadius: 12,
+      backgroundColor: COLORS.danger,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    container: { flex: 1 },
+    content: { padding: 16, paddingBottom: 90 },
+    loaderContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      backgroundColor: COLORS.light,
+    },
+    loaderText: { color: COLORS.primary, fontWeight: "800", marginTop: 14 },
 
-  // FINANCIAL CARD
-  financialCard: {
-    backgroundColor: "#052215",
-    borderRadius: 18,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#0A3D27",
-    borderLeftWidth: 5,
-    borderLeftColor: "#22C55E",
-    marginBottom: 14,
-  },
-  financialHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  financialBadge: { color: "#86EFAC", fontSize: 10, fontWeight: "900", letterSpacing: 0.8 },
-  financialTotalInflow: { color: "#ffffff", fontSize: 26, fontWeight: "900", marginVertical: 2 },
-  financialSubText: { color: "#94A3B8", fontSize: 11, fontWeight: "600" },
-  refundMoneyTopBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#DC2626",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    gap: 4,
-  },
-  refundMoneyTopBtnText: { color: "#ffffff", fontSize: 11, fontWeight: "900" },
-  financialDivider: { height: 1, backgroundColor: "#0A3D27", marginVertical: 12 },
-  financialMetricsGrid: { flexDirection: "row", justifyContent: "space-between" },
-  finMetricBox: { flex: 1 },
-  finMetricLabel: { color: "#94A3B8", fontSize: 10, fontWeight: "800", textTransform: "uppercase" },
-  finMetricVal: { fontSize: 16, fontWeight: "900", marginTop: 3 },
+    financialCard: {
+      backgroundColor: COLORS.sidebarBg,
+      borderRadius: 18,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: COLORS.sidebarBorder,
+      borderLeftWidth: 5,
+      borderLeftColor: COLORS.secondary,
+      marginBottom: 14,
+    },
+    financialHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+    financialBadge: { color: "#86EFAC", fontSize: 10, fontWeight: "900", letterSpacing: 0.8 },
+    financialTotalInflow: { color: COLORS.white, fontSize: 26, fontWeight: "900", marginVertical: 2 },
+    financialSubText: { color: COLORS.muted, fontSize: 11, fontWeight: "600" },
+    refundMoneyTopBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: COLORS.danger,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 10,
+      gap: 4,
+    },
+    refundMoneyTopBtnText: { color: COLORS.white, fontSize: 11, fontWeight: "900" },
+    financialDivider: { height: 1, backgroundColor: COLORS.sidebarBorder, marginVertical: 12 },
+    financialMetricsGrid: { flexDirection: "row", justifyContent: "space-between" },
+    finMetricBox: { flex: 1 },
+    finMetricLabel: { color: COLORS.muted, fontSize: 10, fontWeight: "800", textTransform: "uppercase" },
+    finMetricVal: { fontSize: 16, fontWeight: "900", marginTop: 3 },
 
-  quickDeckRow: { flexDirection: "row", gap: 8, marginBottom: 14 },
-  quickDeckBtn: {
-    flex: 1,
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-  },
-  quickDeckBtnText: { color: "#ffffff", fontWeight: "900", fontSize: 11 },
+    quickDeckRow: { flexDirection: "row", gap: 8, marginBottom: 14 },
+    quickDeckBtn: {
+      flex: 1,
+      borderRadius: 12,
+      paddingVertical: 12,
+      paddingHorizontal: 8,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+    },
+    quickDeckBtnText: { color: COLORS.white, fontWeight: "900", fontSize: 11 },
 
-  // CATEGORY PILLS
-  categoryPillsWrapper: { flexDirection: "row", gap: 8, marginBottom: 12 },
-  categoryBtnPill: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#ffffff",
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    gap: 6,
-  },
-  categoryBtnPillActive: { backgroundColor: "#0B5E3C", borderColor: "#0B5E3C" },
-  categoryBtnPillText: { fontSize: 11, fontWeight: "800", color: "#64748B" },
-  categoryBtnPillTextActive: { color: "#ffffff" },
+    categoryPillsWrapper: { flexDirection: "row", gap: 8, marginBottom: 12 },
+    categoryBtnPill: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: COLORS.card,
+      paddingVertical: 12,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      gap: 6,
+    },
+    categoryBtnPillActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+    categoryBtnPillText: { fontSize: 11, fontWeight: "800", color: COLORS.muted },
+    categoryBtnPillTextActive: { color: COLORS.white },
 
-  searchBarBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 44,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    marginBottom: 14,
-  },
-  searchInput: { flex: 1, color: "#0F172A", fontSize: 13, marginLeft: 8 },
+    searchBarBox: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: COLORS.card,
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      height: 44,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      marginBottom: 14,
+    },
+    searchInput: { flex: 1, color: COLORS.text, fontSize: 13, marginLeft: 8 },
 
-  directorySection: {
-    backgroundColor: "#ffffff",
-    borderRadius: 18,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
-  userCard: {
-    backgroundColor: "#F8FAFC",
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
-  userCardHeader: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
-  userAvatarBox: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: "#DCFCE7",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  userAvatarText: { fontSize: 16, fontWeight: "900", color: "#0B5E3C" },
-  userNameText: { fontSize: 14, fontWeight: "900", color: "#0F172A" },
-  userContactText: { fontSize: 11, color: "#64748B", marginTop: 2 },
-  statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+    directorySection: {
+      backgroundColor: COLORS.card,
+      borderRadius: 18,
+      padding: 14,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+    },
+    userCard: {
+      backgroundColor: COLORS.soft,
+      borderRadius: 14,
+      padding: 14,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+    },
+    userCardHeader: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
+    userAvatarBox: {
+      width: 42,
+      height: 42,
+      borderRadius: 12,
+      backgroundColor: COLORS.softGreen,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    userAvatarText: { fontSize: 16, fontWeight: "900", color: COLORS.primary },
+    userNameText: { fontSize: 14, fontWeight: "900", color: COLORS.text },
+    userContactText: { fontSize: 11, color: COLORS.muted, marginTop: 2 },
+    statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
 
-  userAuditBox: {
-    backgroundColor: "#ffffff",
-    borderRadius: 10,
-    padding: 10,
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
-  auditRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 },
-  auditLabel: { fontSize: 11, color: "#64748B", fontWeight: "700" },
-  auditValue: { fontSize: 11.5, fontWeight: "900", color: "#0F172A" },
+    userAuditBox: {
+      backgroundColor: COLORS.card,
+      borderRadius: 10,
+      padding: 10,
+      marginTop: 10,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+    },
+    auditRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 },
+    auditLabel: { fontSize: 11, color: COLORS.muted, fontWeight: "700" },
+    auditValue: { fontSize: 11.5, fontWeight: "900", color: COLORS.text },
 
-  cardActionsContainer: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: 8,
-    marginTop: 10,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: "#E2E8F0",
-  },
-  cardActionBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  cardActionBtnText: { color: "#ffffff", fontSize: 11, fontWeight: "800" },
-  emptyFeed: { padding: 24, alignItems: "center", justifyContent: "center" },
-  emptyFeedText: { color: "#64748B", fontSize: 12, marginTop: 8, textAlign: "center" },
+    cardActionsContainer: {
+      flexDirection: "row",
+      justifyContent: "flex-end",
+      gap: 8,
+      marginTop: 10,
+      paddingTop: 8,
+      borderTopWidth: 1,
+      borderTopColor: COLORS.border,
+    },
+    cardActionBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 8,
+    },
+    cardActionBtnText: { color: COLORS.white, fontSize: 11, fontWeight: "800" },
+    emptyFeed: { padding: 24, alignItems: "center", justifyContent: "center" },
+    emptyFeedText: { color: COLORS.muted, fontSize: 12, marginTop: 8, textAlign: "center" },
 
-  // SIDEBAR STYLES
-  sidebarBackdrop: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "rgba(15, 23, 42, 0.7)",
-    zIndex: 999,
-  },
-  sidebarContainer: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    backgroundColor: "#052215",
-    paddingTop: Platform.OS === "android" ? 44 : 26,
-    borderRightWidth: 1,
-    borderRightColor: "#0A3D27",
-  },
-  sidebarHeader: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#0A3D27",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  sidebarBrandRow: { flexDirection: "row", alignItems: "center", flex: 1 },
-  sidebarBadgeBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: "#16A34A",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  sidebarBrandTitle: { color: "#ffffff", fontSize: 15, fontWeight: "900" },
-  sidebarBrandTag: { color: "#86EFAC", fontSize: 10, fontWeight: "600", marginTop: 2 },
-  sidebarCloseBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.12)",
-  },
-  sidebarScroll: { flex: 1, paddingHorizontal: 12, paddingTop: 12 },
-  sidebarSectionTitle: {
-    color: "#64748B",
-    fontSize: 9.5,
-    fontWeight: "900",
-    letterSpacing: 1,
-    marginBottom: 6,
-    marginTop: 12,
-    textTransform: "uppercase",
-    paddingHorizontal: 6,
-  },
-  sidebarMenuItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-    marginBottom: 4,
-  },
-  sidebarMenuText: { color: "#CBD5E1", fontSize: 12.5, fontWeight: "700", marginLeft: 10 },
-  sidebarFooter: {
-    padding: 14,
-    borderTopWidth: 1,
-    borderTopColor: "#0A3D27",
-    backgroundColor: "rgba(0,0,0,0.2)",
-  },
-  sidebarLogoutBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
-    borderRadius: 10,
-    backgroundColor: "rgba(220, 38, 38, 0.16)",
-  },
-  sidebarLogoutText: { color: "#FCA5A5", fontSize: 12, fontWeight: "800", marginLeft: 8 },
+    sidebarBackdrop: {
+      position: "absolute",
+      top: 0,
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: "rgba(15, 23, 42, 0.7)",
+      zIndex: 999,
+    },
+    sidebarContainer: {
+      position: "absolute",
+      top: 0,
+      bottom: 0,
+      backgroundColor: COLORS.sidebarBg,
+      paddingTop: Platform.OS === "android" ? 44 : 26,
+      borderRightWidth: 1,
+      borderRightColor: COLORS.sidebarBorder,
+    },
+    sidebarHeader: {
+      paddingHorizontal: 16,
+      paddingBottom: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: COLORS.sidebarBorder,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    sidebarBrandRow: { flexDirection: "row", alignItems: "center", flex: 1 },
+    sidebarBadgeBox: {
+      width: 38,
+      height: 38,
+      borderRadius: 10,
+      backgroundColor: COLORS.secondary,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    sidebarBrandTitle: { color: COLORS.white, fontSize: 15, fontWeight: "900" },
+    sidebarBrandTag: { color: "#86EFAC", fontSize: 10, fontWeight: "600", marginTop: 2 },
+    sidebarCloseBtn: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: "rgba(255,255,255,0.12)",
+    },
+    sidebarScroll: { flex: 1, paddingHorizontal: 12, paddingTop: 12 },
+    sidebarSectionTitle: {
+      color: COLORS.muted,
+      fontSize: 9.5,
+      fontWeight: "900",
+      letterSpacing: 1,
+      marginBottom: 6,
+      marginTop: 12,
+      textTransform: "uppercase",
+      paddingHorizontal: 6,
+    },
+    sidebarMenuItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: 10,
+      paddingHorizontal: 10,
+      borderRadius: 10,
+      marginBottom: 4,
+    },
+    sidebarMenuText: { color: "#CBD5E1", fontSize: 12.5, fontWeight: "700", marginLeft: 10 },
+    sidebarFooter: {
+      padding: 14,
+      borderTopWidth: 1,
+      borderTopColor: COLORS.sidebarBorder,
+      backgroundColor: "rgba(0,0,0,0.2)",
+    },
+    sidebarLogoutBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 12,
+      borderRadius: 10,
+      backgroundColor: "rgba(220, 38, 38, 0.16)",
+    },
+    sidebarLogoutText: { color: "#FCA5A5", fontSize: 12, fontWeight: "800", marginLeft: 8 },
 
-  // MODAL STYLES
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(15, 23, 42, 0.7)",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 16,
-  },
-  modalBox: {
-    width: "100%",
-    maxWidth: 520,
-    backgroundColor: "#ffffff",
-    borderRadius: 20,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
-  modalHead: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 14,
-  },
-  modalTitle: { color: "#0F172A", fontSize: 16, fontWeight: "900" },
-  modalSubtitle: { color: "#0B5E3C", fontSize: 11, fontWeight: "600", marginTop: 2 },
-  inputGuide: { color: "#64748B", fontSize: 11, fontWeight: "700", marginBottom: 4, marginTop: 8 },
-  modalInput: {
-    backgroundColor: "#F8FAFC",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 13.5,
-    color: "#0F172A",
-    marginBottom: 6,
-  },
-  passwordInputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F8FAFC",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: 10,
-    marginBottom: 6,
-    paddingRight: 10,
-  },
-  passwordInput: { flex: 1, paddingHorizontal: 12, paddingVertical: 10, fontSize: 13.5, color: "#0F172A" },
-  roleSelectionRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 8 },
-  rolePill: {
-    backgroundColor: "#F8FAFC",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  rolePillActive: { backgroundColor: "#0B5E3C", borderColor: "#0B5E3C" },
-  rolePillText: { fontSize: 11, fontWeight: "700", color: "#64748B" },
-  rolePillTextActive: { color: "#ffffff" },
-  modalSelectBtn: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "#F8FAFC",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    marginBottom: 6,
-  },
-  pickerDropdown: {
-    backgroundColor: "#F8FAFC",
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    marginBottom: 8,
-  },
-  pickerItem: { padding: 10, borderBottomWidth: 1, borderBottomColor: "#E2E8F0" },
-  modalSubmitBtn: {
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 14,
-    marginBottom: 10,
-  },
-  modalSubmitBtnText: { color: "#ffffff", fontWeight: "900", fontSize: 13.5 },
+    modalBackdrop: {
+      flex: 1,
+      backgroundColor: "rgba(15, 23, 42, 0.7)",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 16,
+    },
+    modalBox: {
+      width: "100%",
+      maxWidth: 520,
+      backgroundColor: COLORS.card,
+      borderRadius: 20,
+      padding: 20,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+    },
+    modalHead: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 14,
+    },
+    modalTitle: { color: COLORS.text, fontSize: 16, fontWeight: "900" },
+    modalSubtitle: { color: COLORS.primary, fontSize: 11, fontWeight: "600", marginTop: 2 },
+    inputGuide: { color: COLORS.muted, fontSize: 11, fontWeight: "700", marginBottom: 4, marginTop: 8 },
+    modalInput: {
+      backgroundColor: COLORS.soft,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontSize: 13.5,
+      color: COLORS.text,
+      marginBottom: 6,
+    },
+    passwordInputContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: COLORS.soft,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      borderRadius: 10,
+      marginBottom: 6,
+      paddingRight: 10,
+    },
+    passwordInput: { flex: 1, paddingHorizontal: 12, paddingVertical: 10, fontSize: 13.5, color: COLORS.text },
+    roleSelectionRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 8 },
+    rolePill: {
+      backgroundColor: COLORS.soft,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      borderRadius: 8,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+    },
+    rolePillActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+    rolePillText: { fontSize: 11, fontWeight: "700", color: COLORS.muted },
+    rolePillTextActive: { color: COLORS.white },
+    modalSelectBtn: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      backgroundColor: COLORS.soft,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+      marginBottom: 6,
+    },
+    pickerDropdown: {
+      backgroundColor: COLORS.soft,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      marginBottom: 8,
+    },
+    pickerItem: { padding: 10, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+    modalSubmitBtn: {
+      borderRadius: 12,
+      paddingVertical: 14,
+      alignItems: "center",
+      justifyContent: "center",
+      marginTop: 14,
+      marginBottom: 10,
+    },
+    modalSubmitBtnText: { color: COLORS.white, fontWeight: "900", fontSize: 13.5 },
 
-  // SERVICE PRICING PILLS
-  serviceSelectorRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 10 },
-  servicePill: {
-    backgroundColor: "#F8FAFC",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  servicePillActive: { backgroundColor: "#EA580C", borderColor: "#EA580C" },
-  servicePillText: { fontSize: 11, fontWeight: "800", color: "#64748B" },
-  servicePillTextActive: { color: "#ffffff" },
+    serviceSelectorRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 10 },
+    servicePill: {
+      backgroundColor: COLORS.soft,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      borderRadius: 8,
+      paddingHorizontal: 10,
+      paddingVertical: 7,
+    },
+    servicePillActive: { backgroundColor: COLORS.orange, borderColor: COLORS.orange },
+    servicePillText: { fontSize: 11, fontWeight: "800", color: COLORS.muted },
+    servicePillTextActive: { color: COLORS.white },
 
-  // TARIFF PRESET STYLES
-  selectorPillsRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 8 },
-  telecomPill: {
-    backgroundColor: "#F8FAFC",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
-  telecomPillActive: { backgroundColor: "#0284C7", borderColor: "#0284C7" },
-  telecomPillText: { fontSize: 12, fontWeight: "800", color: "#64748B" },
-  telecomPillTextActive: { color: "#ffffff" },
-  presetContainer: {
-    backgroundColor: "#F0FDF4",
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: "#BBF7D0",
-    marginVertical: 10,
-  },
-  presetContainerTitle: { fontSize: 11, fontWeight: "900", color: "#15803D" },
-  presetGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  presetButton: {
-    backgroundColor: "#DCFCE7",
-    borderWidth: 1,
-    borderColor: "#86EFAC",
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  presetButtonText: { fontSize: 10.5, fontWeight: "800", color: "#166534" },
-  smallPill: {
-    backgroundColor: "#F8FAFC",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  smallPillActive: { backgroundColor: "#0284C7", borderColor: "#0284C7" },
-  smallPillText: { fontSize: 11, fontWeight: "800", color: "#64748B" },
-  smallPillTextActive: { color: "#ffffff" },
+    selectorPillsRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 8 },
+    telecomPill: {
+      backgroundColor: COLORS.soft,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+    },
+    telecomPillActive: { backgroundColor: "#0284C7", borderColor: "#0284C7" },
+    telecomPillText: { fontSize: 12, fontWeight: "800", color: COLORS.muted },
+    telecomPillTextActive: { color: COLORS.white },
+    presetContainer: {
+      backgroundColor: "#F0FDF4",
+      borderRadius: 12,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: "#BBF7D0",
+      marginVertical: 10,
+    },
+    presetContainerTitle: { fontSize: 11, fontWeight: "900", color: "#15803D" },
+    presetGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+    presetButton: {
+      backgroundColor: "#DCFCE7",
+      borderWidth: 1,
+      borderColor: "#86EFAC",
+      borderRadius: 8,
+      paddingHorizontal: 8,
+      paddingVertical: 6,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+    },
+    presetButtonText: { fontSize: 10.5, fontWeight: "800", color: "#166534" },
+    smallPill: {
+      backgroundColor: COLORS.soft,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      borderRadius: 8,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+    },
+    smallPillActive: { backgroundColor: "#0284C7", borderColor: "#0284C7" },
+    smallPillText: { fontSize: 11, fontWeight: "800", color: COLORS.muted },
+    smallPillTextActive: { color: COLORS.white },
 
-  agentMiniCard: {
-    backgroundColor: "#F8FAFC",
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
-  agentMiniName: { fontSize: 13, fontWeight: "800", color: "#0F172A" },
-  agentMiniSub: { fontSize: 11, color: "#64748B", marginTop: 2 },
+    agentMiniCard: {
+      backgroundColor: COLORS.soft,
+      borderRadius: 10,
+      padding: 10,
+      marginBottom: 8,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+    },
+    agentMiniName: { fontSize: 13, fontWeight: "800", color: COLORS.text },
+    agentMiniSub: { fontSize: 11, color: COLORS.muted, marginTop: 2 },
 
-  modalHeading: { fontSize: 17, fontWeight: "900", color: "#0F172A", marginTop: 10 },
-  modalSubheading: { fontSize: 12.5, color: "#64748B", textAlign: "center", marginVertical: 12 },
-  modalActionRow: { flexDirection: "row", width: "100%", gap: 10 },
-  modalCancelBtn: { flex: 1, backgroundColor: "#F8FAFC", paddingVertical: 12, alignItems: "center", borderRadius: 10 },
-  modalCancelText: { fontWeight: "800", color: "#0F172A" },
-  modalConfirmBtn: { flex: 1, paddingVertical: 12, alignItems: "center", borderRadius: 10 },
-  modalConfirmText: { color: "#ffffff", fontWeight: "900" },
-});
+    modalHeading: { fontSize: 17, fontWeight: "900", color: COLORS.text, marginTop: 10 },
+    modalSubheading: { fontSize: 12.5, color: COLORS.muted, textAlign: "center", marginVertical: 12 },
+    modalActionRow: { flexDirection: "row", width: "100%", gap: 10 },
+    modalCancelBtn: { flex: 1, backgroundColor: COLORS.soft, paddingVertical: 12, alignItems: "center", borderRadius: 10 },
+    modalCancelText: { fontWeight: "800", color: COLORS.text },
+    modalConfirmBtn: { flex: 1, paddingVertical: 12, alignItems: "center", borderRadius: 10 },
+    modalConfirmText: { color: COLORS.white, fontWeight: "900" },
+  });
 
 export default AdminDashboard;
