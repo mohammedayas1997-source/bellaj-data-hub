@@ -46,22 +46,12 @@ const LoginScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isBiometricSupported, setIsBiometricSupported] = useState(false);
+  const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    // Prevent blank screen by mounting UI cleanly first
-    const init = async () => {
-      try {
-        await checkLoginStatus();
-        await setupBiometrics();
-      } catch (err) {
-        console.log("Initialization error:", err.message);
-      } finally {
-        setIsReady(true);
-      }
-    };
-    init();
+    checkLoginStatus();
+    setupBiometrics();
   }, []);
 
   const normalizeEmail = (value) => String(value || "").trim().toLowerCase();
@@ -88,29 +78,59 @@ const LoginScreen = ({ navigation }) => {
   const getUserPayload = (data) =>
     data?.user || data?.data?.user || data?.data || {};
 
-  const isPinRequiredRole = (role) => {
-    const cleanRole = String(role || "user").trim().toLowerCase();
-    return cleanRole === "user" || cleanRole === "customer" || cleanRole === "agent";
-  };
+  // Duba ko mai amfani ya riga ya saita Transaction PIN
+  const verifyPinStatus = async (userPayload, token) => {
+    try {
+      // 1. Duba kai tsaye daga bayanan da login endpoint ya dawo da su
+      const hasLocalPinFlag =
+        userPayload?.isPinSet === true ||
+        userPayload?.hasPin === true ||
+        userPayload?.has_transaction_pin === true ||
+        userPayload?.pin_set === true ||
+        (userPayload?.pin && String(userPayload.pin).trim() !== "0000" && String(userPayload.pin).trim() !== "");
 
-  const checkHasPin = (userObj) => {
-    if (!userObj) return false;
+      if (hasLocalPinFlag) {
+        return true;
+      }
 
-    const rawPin = String(userObj.pin || "").trim();
-    if (rawPin && rawPin !== "0000" && rawPin.length === 4) {
-      return true;
+      // 2. Duba ko an taba adana PIN din a wayar
+      const localCachedPin = await AsyncStorage.getItem("transactionPin");
+      if (localCachedPin && localCachedPin.trim().length === 4 && localCachedPin !== "0000") {
+        return true;
+      }
+
+      // 3. Tambayi server kai tsaye ta hanyar pin-status endpoints
+      if (token) {
+        const pinEndpoints = [
+          `${BASE_URL}/user/pin-status`,
+          `${BASE_URL}/api/v1/user/pin-status`,
+          `${BASE_URL}/users/pin-status`,
+        ];
+
+        for (const url of pinEndpoints) {
+          try {
+            const res = await axios.get(url, {
+              headers: { Authorization: `Bearer ${token}` },
+              timeout: 10000,
+            });
+            const status =
+              res.data?.hasPin ||
+              res.data?.has_transaction_pin ||
+              res.data?.pin_set ||
+              res.data?.isPinSet ||
+              res.data?.data?.hasPin;
+
+            if (status !== undefined) {
+              return Boolean(status);
+            }
+          } catch {}
+        }
+      }
+
+      return false;
+    } catch {
+      return false;
     }
-
-    if (
-      userObj.isPinSet === true ||
-      userObj.hasPin === true ||
-      userObj.has_transaction_pin === true ||
-      userObj.pin_set === true
-    ) {
-      return true;
-    }
-
-    return false;
   };
 
   const redirectUser = (role) => {
@@ -136,15 +156,32 @@ const LoginScreen = ({ navigation }) => {
           routes: [{ name: targetScreen }],
         })
       );
+      return;
     } catch {
-      try {
-        navigation.navigate(targetScreen);
-      } catch (e) {
-        console.log("Navigation dispatch failed:", e.message);
-      }
+      // Fallback 1
     }
+
+    try {
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [
+            {
+              name: "Main",
+              params: { screen: targetScreen },
+            },
+          ],
+        })
+      );
+      return;
+    } catch {
+      // Fallback 2
+    }
+
+    navigation.navigate("Main", { screen: targetScreen });
   };
 
+  // Hanyar da ke tura sabon mai amfani zuwa shafin saita PIN
   const routeToSetupPin = () => {
     try {
       navigation.dispatch(
@@ -175,10 +212,26 @@ const LoginScreen = ({ navigation }) => {
         } catch {}
       }
 
-      const activeRole = storedRole || detectRole(userObj) || "user";
-      redirectUser(activeRole);
+      // Duba ko ya saita PIN
+      const isPinReady = await verifyPinStatus(userObj, token);
+      if (!isPinReady) {
+        routeToSetupPin();
+        return;
+      }
+
+      if (storedRole) {
+        redirectUser(storedRole);
+        return;
+      }
+
+      if (userObj) {
+        const resolvedRole = detectRole(userObj);
+        if (resolvedRole) {
+          redirectUser(resolvedRole);
+        }
+      }
     } catch (e) {
-      console.log("Startup auth check warning:", e.message);
+      console.log("Startup auth check error:", e.message);
     }
   };
 
@@ -189,9 +242,17 @@ const LoginScreen = ({ navigation }) => {
 
       if (hasHardware && isEnrolled) {
         setIsBiometricSupported(true);
+
+        const isEnabled = await AsyncStorage.getItem("useBiometricLogin");
+        const storedToken = await AsyncStorage.getItem("userToken");
+
+        if (isEnabled === "true" && storedToken) {
+          setIsBiometricEnabled(true);
+          handleBiometricLogin();
+        }
       }
     } catch (e) {
-      console.log("Biometric setup warning:", e.message);
+      console.log("Biometric setup error:", e.message);
     }
   };
 
@@ -224,9 +285,9 @@ const LoginScreen = ({ navigation }) => {
           const res = await axios.post(
             url,
             { email: cleanEmail, password: String(password).trim() },
-            {
+            { 
               headers: { "Content-Type": "application/json" },
-              timeout: 15000,
+              timeout: 15000 
             }
           );
           if (res?.data?.token || res?.data?.success) {
@@ -288,15 +349,13 @@ const LoginScreen = ({ navigation }) => {
         await AsyncStorage.setItem("adminToken", token);
       }
 
-      // Enforce PIN setup ONLY for Customers and Agents
-      if (isPinRequiredRole(verifiedRole)) {
-        const hasPinAlready = checkHasPin(finalUserData);
-        const cachedPin = await AsyncStorage.getItem("transactionPin");
+      // DUBA KO MAI AMFANI YA SAKAR DA TRANSACTION PIN KAFIN WUCEWA
+      const isPinConfigured = await verifyPinStatus(finalUserData, token);
 
-        if (!hasPinAlready && (!cachedPin || cachedPin === "0000")) {
-          routeToSetupPin();
-          return;
-        }
+      if (!isPinConfigured) {
+        // Idan sabon mai amfani ne ko bai taba saita PIN ba, a kulle shi ya saita PIN da farko
+        routeToSetupPin();
+        return;
       }
 
       if (isBiometricSupported) {
@@ -326,7 +385,7 @@ const LoginScreen = ({ navigation }) => {
 
       redirectUser(verifiedRole);
     } catch (error) {
-      console.error("Login error:", error);
+      console.error("Login process error:", error);
       const status = error?.response?.status;
       const serverMessage =
         error?.response?.data?.message || error?.response?.data?.error;
@@ -378,31 +437,39 @@ const LoginScreen = ({ navigation }) => {
         } catch {}
       }
 
-      const activeRole = storedRole || detectRole(userObj) || "user";
-
-      if (isPinRequiredRole(activeRole)) {
-        const hasPinAlready = checkHasPin(userObj);
-        const cachedPin = await AsyncStorage.getItem("transactionPin");
-
-        if (!hasPinAlready && (!cachedPin || cachedPin === "0000")) {
-          routeToSetupPin();
-          return;
-        }
+      // Duba ko an saita PIN a biometric login ma
+      const isPinConfigured = await verifyPinStatus(userObj, token);
+      if (!isPinConfigured) {
+        routeToSetupPin();
+        return;
       }
 
-      redirectUser(activeRole);
+      if (storedRole) {
+        redirectUser(storedRole);
+        return;
+      }
+
+      if (storedUserData) {
+        redirectUser(detectRole(userObj));
+      }
     } catch (err) {
       setErrorMessage(err.message || "Biometric login failed. Please use your password.");
     }
   };
 
-  if (!isReady) {
-    return (
-      <View style={styles.centerLoader}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-      </View>
+  const openWhatsApp = () => {
+    Linking.openURL(
+      "https://wa.me/2349075207281?text=Hello%20Bellaj%20Data%20Hub%20Support"
     );
-  }
+  };
+
+  const openEmail = () => {
+    Linking.openURL("mailto:support@bellajdatahub.online");
+  };
+
+  const makeCall = () => {
+    Linking.openURL("tel:+2349075207281");
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -422,7 +489,11 @@ const LoginScreen = ({ navigation }) => {
           <View style={[styles.card, isWeb && styles.webCard]}>
             <View style={styles.headerSection}>
               <View style={styles.logoCircle}>
-                <Ionicons name="shield-checkmark" size={48} color={COLORS.primary} />
+                <Image
+                  source={require("../assets/Logo.png")}
+                  style={styles.logoImg}
+                  resizeMode="contain"
+                />
               </View>
 
               <Text style={styles.appName}>Bellaj Data Hub</Text>
@@ -497,7 +568,7 @@ const LoginScreen = ({ navigation }) => {
                 >
                   <MaterialCommunityIcons
                     name="fingerprint"
-                    size={28}
+                    size={32}
                     color={COLORS.primary}
                   />
                   <Text style={styles.biometricText}>Touch ID</Text>
@@ -518,7 +589,7 @@ const LoginScreen = ({ navigation }) => {
               style={[styles.loginBtn, loading && styles.loginBtnDisabled]}
               onPress={handleLogin}
               disabled={loading}
-              activeOpacity={0.88}
+              activeOpacity={0.9}
             >
               {loading ? (
                 <ActivityIndicator color={COLORS.white} />
@@ -526,6 +597,26 @@ const LoginScreen = ({ navigation }) => {
                 <Text style={styles.loginBtnText}>Login to Dashboard</Text>
               )}
             </TouchableOpacity>
+
+            <View style={styles.footerLinks}>
+              <TouchableOpacity onPress={() => navigation.navigate("About")}>
+                <Text style={styles.linkText}>About Us</Text>
+              </TouchableOpacity>
+
+              <View style={styles.divider} />
+
+              <TouchableOpacity
+                onPress={() => navigation.navigate("PrivacyPolicy")}
+              >
+                <Text style={styles.linkText}>Privacy Policy</Text>
+              </TouchableOpacity>
+
+              <View style={styles.divider} />
+
+              <TouchableOpacity onPress={() => navigation.navigate("Terms")}>
+                <Text style={styles.linkText}>Terms</Text>
+              </TouchableOpacity>
+            </View>
 
             <View style={styles.signupContainer}>
               <Text style={styles.noAccountText}>Don't have an account? </Text>
@@ -536,28 +627,30 @@ const LoginScreen = ({ navigation }) => {
 
             <View style={styles.contactContainer}>
               <Text style={styles.contactTitle}>QUICK SUPPORT</Text>
+
               <View style={styles.iconRow}>
                 <TouchableOpacity
                   style={styles.contactIconCircle}
-                  onPress={() => Linking.openURL("https://wa.me/2349075207281?text=Hello%20Bellaj%20Support")}
+                  onPress={openWhatsApp}
                 >
-                  <FontAwesome name="whatsapp" size={22} color="#25D366" />
+                  <FontAwesome name="whatsapp" size={24} color="#25D366" />
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.contactIconCircle, { marginHorizontal: 16 }]}
-                  onPress={() => Linking.openURL("tel:+2349075207281")}
+                  style={[styles.contactIconCircle, { marginHorizontal: 20 }]}
+                  onPress={makeCall}
                 >
-                  <Ionicons name="call" size={22} color={COLORS.secondary} />
+                  <Ionicons name="call" size={24} color={COLORS.secondary} />
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={styles.contactIconCircle}
-                  onPress={() => Linking.openURL("mailto:support@bellajdatahub.online")}
+                  onPress={openEmail}
                 >
-                  <Ionicons name="mail" size={22} color={COLORS.primary} />
+                  <Ionicons name="mail" size={24} color={COLORS.primary} />
                 </TouchableOpacity>
               </View>
+
               <Text style={styles.phoneNumber}>+234 9075207281</Text>
             </View>
           </View>
@@ -568,122 +661,110 @@ const LoginScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: COLORS.light,
-  },
-  centerLoader: {
-    flex: 1,
-    backgroundColor: COLORS.light,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  keyboardView: {
-    flex: 1,
-    backgroundColor: COLORS.light,
-  },
-  scrollView: {
-    flex: 1,
-    backgroundColor: COLORS.light,
-  },
+  safeArea: { flex: 1, backgroundColor: COLORS.light },
+  keyboardView: { flex: 1, backgroundColor: COLORS.light },
+  scrollView: { flex: 1, backgroundColor: COLORS.light },
   scrollContent: {
     flexGrow: 1,
     width: "100%",
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === "android" ? 30 : 16,
-    paddingBottom: 60,
+    paddingTop: Platform.OS === "android" ? 35 : 20,
+    paddingBottom: 80,
     backgroundColor: COLORS.light,
   },
   webScrollContent: {
     alignItems: "center",
     paddingTop: 35,
-    paddingBottom: 70,
+    paddingBottom: 90,
   },
   card: {
     width: "100%",
-    maxWidth: 480,
+    maxWidth: 520,
     alignSelf: "center",
     backgroundColor: COLORS.white,
-    borderRadius: 20,
+    borderRadius: 22,
     paddingHorizontal: 20,
     paddingVertical: 24,
+    marginBottom: 30,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   webCard: {
-    padding: 28,
+    padding: 30,
+    elevation: 8,
     shadowColor: COLORS.dark,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
   },
   headerSection: {
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 24,
   },
   logoCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: COLORS.light,
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: COLORS.white,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
+  logoImg: { width: 72, height: 72 },
   appName: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: "900",
     color: COLORS.primary,
     textAlign: "center",
   },
   tagline: {
-    fontSize: 13,
+    fontSize: 14,
     color: COLORS.secondary,
-    marginTop: 4,
+    marginTop: 6,
     textAlign: "center",
     fontWeight: "600",
   },
   label: {
     color: "#475569",
-    fontSize: 13,
-    marginBottom: 6,
+    fontSize: 14,
+    marginBottom: 8,
     fontWeight: "700",
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#F8FAFC",
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    marginBottom: 16,
+    borderRadius: 13,
+    paddingHorizontal: 15,
+    marginBottom: 18,
     borderWidth: 1,
     borderColor: COLORS.border,
-    minHeight: 50,
+    minHeight: 52,
   },
   inputIcon: { marginRight: 10 },
   input: {
     flex: 1,
-    minHeight: 50,
+    minHeight: 52,
     color: COLORS.dark,
-    fontSize: 15,
+    fontSize: 16,
+    ...(Platform.OS === "web" ? { outlineStyle: "none" } : {}),
   },
   errorBanner: {
     flexDirection: "row",
     backgroundColor: "#FEF2F2",
     borderColor: "#FECACA",
     borderWidth: 1,
-    padding: 10,
-    borderRadius: 10,
-    marginBottom: 14,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 18,
     alignItems: "center",
     gap: 8,
   },
   errorBannerText: {
     color: "#991B1B",
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "600",
     flex: 1,
   },
@@ -691,7 +772,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 18,
+    marginBottom: 22,
   },
   biometricBtn: {
     flexDirection: "row",
@@ -712,53 +793,74 @@ const styles = StyleSheet.create({
   forgotBtn: { alignSelf: "center" },
   forgotText: {
     color: COLORS.primary,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "700",
   },
   loginBtn: {
     backgroundColor: COLORS.primary,
-    minHeight: 52,
-    borderRadius: 12,
+    minHeight: 56,
+    borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
   },
   loginBtnDisabled: { opacity: 0.7 },
   loginBtnText: {
     color: COLORS.white,
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "900",
+  },
+  footerLinks: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 22,
+    width: "100%",
+    flexWrap: "wrap",
+  },
+  linkText: {
+    color: COLORS.muted,
+    fontSize: 12,
+    fontWeight: "700",
+    textDecorationLine: "underline",
+    paddingHorizontal: 4,
+  },
+  divider: {
+    width: 1,
+    height: 14,
+    backgroundColor: "#CBD5E1",
+    marginHorizontal: 8,
   },
   signupContainer: {
     flexDirection: "row",
     justifyContent: "center",
-    marginTop: 18,
+    marginTop: 22,
     flexWrap: "wrap",
   },
-  noAccountText: { color: COLORS.muted, fontSize: 13.5 },
+  noAccountText: { color: COLORS.muted, fontSize: 14 },
   signupText: {
     color: COLORS.secondary,
-    fontSize: 13.5,
+    fontSize: 14,
     fontWeight: "900",
   },
   contactContainer: {
-    marginTop: 22,
+    marginTop: 28,
     alignItems: "center",
     borderTopWidth: 1,
     borderTopColor: "#F1F5F9",
-    paddingTop: 14,
+    paddingTop: 18,
   },
   contactTitle: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "800",
     color: "#94A3B8",
-    marginBottom: 12,
+    marginBottom: 15,
     letterSpacing: 1,
   },
   iconRow: { flexDirection: "row", alignItems: "center" },
   contactIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 45,
+    height: 45,
+    borderRadius: 22.5,
     backgroundColor: "#F8FAFC",
     justifyContent: "center",
     alignItems: "center",
@@ -766,9 +868,9 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
   phoneNumber: {
-    marginTop: 12,
-    fontSize: 14,
-    fontWeight: "800",
+    marginTop: 15,
+    fontSize: 16,
+    fontWeight: "900",
     color: COLORS.secondary,
     textAlign: "center",
   },
