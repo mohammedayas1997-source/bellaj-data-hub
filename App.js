@@ -103,11 +103,9 @@ function AppContent() {
         <Stack.Screen name="Onboarding" component={OnboardingScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
 
-        <Stack.Screen 
-          name="SetupPin" 
-          component={SetupPinScreen} 
-          options={{ headerShown: false, gestureEnabled: false }} 
-        />
+        <Stack.Screen name="SetupPin" component={SetupPinScreen} />
+        <Stack.Screen name="SetupPinScreen" component={SetupPinScreen} />
+        <Stack.Screen name="SetupPinSuccess" component={SuccessScreen} />
         <Stack.Screen name="Signup" component={SignupScreen} options={{ headerShown: false }} />
         <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
         <Stack.Screen name="Success" component={SuccessScreen} />

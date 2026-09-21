@@ -102,7 +102,7 @@ const LoginScreen = ({ navigation }) => {
       );
       return;
     } catch {
-      // Fallback below
+      // Fallback 1
     }
 
     try {
@@ -119,7 +119,7 @@ const LoginScreen = ({ navigation }) => {
       );
       return;
     } catch {
-      // Fallback below
+      // Fallback 2
     }
 
     navigation.navigate("Main", { screen: targetScreen });
@@ -127,25 +127,15 @@ const LoginScreen = ({ navigation }) => {
 
   const checkLoginStatus = async () => {
     try {
-      const token =
-        (await AsyncStorage.getItem("userToken")) ||
-        (await AsyncStorage.getItem("token"));
-      const storedUserData = await AsyncStorage.getItem("userData");
+      const token = await AsyncStorage.getItem("userToken");
       const storedRole = await AsyncStorage.getItem("userRole");
 
+      // Idan babu token, ya tsaya a kan LoginScreen lafiya lau
       if (!token) return;
 
+      // Idan akwai tsohon login, ya tura shi zuwa dashboard dinsa
       if (storedRole) {
         redirectUser(storedRole);
-        return;
-      }
-
-      if (storedUserData) {
-        const user = JSON.parse(storedUserData);
-        const resolvedRole = detectRole(user);
-        if (resolvedRole) {
-          redirectUser(resolvedRole);
-        }
       }
     } catch (e) {
       console.log("Startup auth check error:", e.message);
@@ -165,7 +155,6 @@ const LoginScreen = ({ navigation }) => {
 
         if (isEnabled === "true" && storedToken) {
           setIsBiometricEnabled(true);
-          // Fara tantancewa kai tsaye idan an riga an kunna
           handleBiometricLogin();
         }
       }
@@ -186,10 +175,12 @@ const LoginScreen = ({ navigation }) => {
     setLoading(true);
 
     try {
-      // Tabbatar an fara gwada ingantattun hanyoyin auth na backend
+      // Haɗa hanyoyin gama-gari da kuma na musamman na supervisor
       const endpoints = [
         `${BASE_URL}/api/v1/auth/login`,
+        `${BASE_URL}/api/v1/auth/supervisor-login`,
         `${BASE_URL}/auth/login`,
+        `${BASE_URL}/auth/supervisor-login`,
         `${BASE_URL}/api/v1/users/login`,
         `${BASE_URL}/users/login`,
       ];
@@ -201,7 +192,7 @@ const LoginScreen = ({ navigation }) => {
         try {
           const res = await axios.post(
             url,
-            { email: cleanEmail, password },
+            { email: cleanEmail, password: String(password).trim() },
             { 
               headers: { "Content-Type": "application/json" },
               timeout: 15000 
@@ -213,10 +204,11 @@ const LoginScreen = ({ navigation }) => {
           }
         } catch (err) {
           lastErr = err;
-          // Idan kuskuren 401 ne (Wrong Password/Email), tsaya nan take kada ka sake bata lokaci a wasu hanyoyin
-          if (err?.response?.status === 401 || err?.response?.status === 400 || err?.response?.status === 403) {
+          // Idan account an dakatar da shi (403 Forbidden), tsayar da bincike
+          if (err?.response?.status === 403) {
             throw err;
           }
+          // Idan kuskuren 401 ne, kar ka jefa kuskure nan take, bari ya gwada supervisor-login
         }
       }
 
@@ -237,7 +229,7 @@ const LoginScreen = ({ navigation }) => {
       }
 
       if (!token) {
-        setErrorMessage("Authentication token missing from server.");
+        setErrorMessage("Authentication token missing from server response.");
         return;
       }
 
@@ -262,6 +254,11 @@ const LoginScreen = ({ navigation }) => {
       await AsyncStorage.setItem("token", token);
       await AsyncStorage.setItem("userData", JSON.stringify(finalUserData));
       await AsyncStorage.setItem("userRole", verifiedRole);
+
+      // Saita token na musamman idan admin ko supervisor ne
+      if (verifiedRole === "admin" || verifiedRole === "superadmin") {
+        await AsyncStorage.setItem("adminToken", token);
+      }
 
       if (isBiometricSupported) {
         const biometricSetting = await AsyncStorage.getItem("useBiometricLogin");
@@ -290,7 +287,7 @@ const LoginScreen = ({ navigation }) => {
 
       redirectUser(verifiedRole);
     } catch (error) {
-      console.error("Login process caught error:", error);
+      console.error("Login process error:", error);
       const status = error?.response?.status;
       const serverMessage =
         error?.response?.data?.message || error?.response?.data?.error;
@@ -298,9 +295,9 @@ const LoginScreen = ({ navigation }) => {
       if (status === 401) {
         setErrorMessage(serverMessage || "Invalid email address or password.");
       } else if (status === 403) {
-        setErrorMessage(serverMessage || "Account access restricted. Contact support.");
+        setErrorMessage(serverMessage || "Your account has been suspended. Please contact administrator.");
       } else if (status === 404) {
-        setErrorMessage("Authentication endpoint not found on server (404).");
+        setErrorMessage("Login service unavailable. Verify server endpoints.");
       } else {
         setErrorMessage(
           serverMessage || error.message || "Login failed. Please verify credentials."
