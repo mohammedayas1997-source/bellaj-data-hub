@@ -102,7 +102,7 @@ const LoginScreen = ({ navigation }) => {
       );
       return;
     } catch {
-      // Fallback 1
+      // Fallback below
     }
 
     try {
@@ -119,7 +119,7 @@ const LoginScreen = ({ navigation }) => {
       );
       return;
     } catch {
-      // Fallback 2
+      // Fallback below
     }
 
     navigation.navigate("Main", { screen: targetScreen });
@@ -165,6 +165,7 @@ const LoginScreen = ({ navigation }) => {
 
         if (isEnabled === "true" && storedToken) {
           setIsBiometricEnabled(true);
+          // Fara tantancewa kai tsaye idan an riga an kunna
           handleBiometricLogin();
         }
       }
@@ -185,12 +186,10 @@ const LoginScreen = ({ navigation }) => {
     setLoading(true);
 
     try {
-      // Haɗa hanyoyin gama-gari da kuma na musamman na supervisor
+      // Tabbatar an fara gwada ingantattun hanyoyin auth na backend
       const endpoints = [
         `${BASE_URL}/api/v1/auth/login`,
-        `${BASE_URL}/api/v1/auth/supervisor-login`,
         `${BASE_URL}/auth/login`,
-        `${BASE_URL}/auth/supervisor-login`,
         `${BASE_URL}/api/v1/users/login`,
         `${BASE_URL}/users/login`,
       ];
@@ -202,7 +201,7 @@ const LoginScreen = ({ navigation }) => {
         try {
           const res = await axios.post(
             url,
-            { email: cleanEmail, password: String(password).trim() },
+            { email: cleanEmail, password },
             { 
               headers: { "Content-Type": "application/json" },
               timeout: 15000 
@@ -214,11 +213,10 @@ const LoginScreen = ({ navigation }) => {
           }
         } catch (err) {
           lastErr = err;
-          // Idan account an dakatar da shi (403 Forbidden), tsayar da bincike
-          if (err?.response?.status === 403) {
+          // Idan kuskuren 401 ne (Wrong Password/Email), tsaya nan take kada ka sake bata lokaci a wasu hanyoyin
+          if (err?.response?.status === 401 || err?.response?.status === 400 || err?.response?.status === 403) {
             throw err;
           }
-          // Idan kuskuren 401 ne, kar ka jefa kuskure nan take, bari ya gwada supervisor-login
         }
       }
 
@@ -239,7 +237,7 @@ const LoginScreen = ({ navigation }) => {
       }
 
       if (!token) {
-        setErrorMessage("Authentication token missing from server response.");
+        setErrorMessage("Authentication token missing from server.");
         return;
       }
 
@@ -264,11 +262,6 @@ const LoginScreen = ({ navigation }) => {
       await AsyncStorage.setItem("token", token);
       await AsyncStorage.setItem("userData", JSON.stringify(finalUserData));
       await AsyncStorage.setItem("userRole", verifiedRole);
-
-      // Saita token na musamman idan admin ko supervisor ne
-      if (verifiedRole === "admin" || verifiedRole === "superadmin") {
-        await AsyncStorage.setItem("adminToken", token);
-      }
 
       if (isBiometricSupported) {
         const biometricSetting = await AsyncStorage.getItem("useBiometricLogin");
@@ -297,7 +290,7 @@ const LoginScreen = ({ navigation }) => {
 
       redirectUser(verifiedRole);
     } catch (error) {
-      console.error("Login process error:", error);
+      console.error("Login process caught error:", error);
       const status = error?.response?.status;
       const serverMessage =
         error?.response?.data?.message || error?.response?.data?.error;
@@ -305,9 +298,9 @@ const LoginScreen = ({ navigation }) => {
       if (status === 401) {
         setErrorMessage(serverMessage || "Invalid email address or password.");
       } else if (status === 403) {
-        setErrorMessage(serverMessage || "Your account has been suspended. Please contact administrator.");
+        setErrorMessage(serverMessage || "Account access restricted. Contact support.");
       } else if (status === 404) {
-        setErrorMessage("Login service unavailable. Verify server endpoints.");
+        setErrorMessage("Authentication endpoint not found on server (404).");
       } else {
         setErrorMessage(
           serverMessage || error.message || "Login failed. Please verify credentials."
