@@ -81,6 +81,7 @@ const LIGHT = {
   accent: "#2563EB",
   purple: "#7C3AED",
   orange: "#EA580C",
+  teal: "#0D9488",
   sidebarBg: "#052215",
   sidebarBorder: "#0A3D27",
   sidebarActive: "rgba(22, 163, 74, 0.25)",
@@ -105,6 +106,7 @@ const DARK = {
   accent: "#38BDF8",
   purple: "#A855F7",
   orange: "#F97316",
+  teal: "#2DD4BF",
   sidebarBg: "#020d08",
   sidebarBorder: "#082417",
   sidebarActive: "rgba(34, 197, 94, 0.25)",
@@ -134,10 +136,8 @@ const AdminDashboard = ({ navigation }) => {
   const [activeUserTab, setActiveUserTab] = useState("customers");
   const [searchFilter, setSearchFilter] = useState("");
 
-  // MODALS STATE: ALL PREVIOUS OPERATIONS RESTORED
+  // MODALS STATE: ALL OPERATIONS
   const [modalType, setModalType] = useState(null); 
-  // 'create_user' | 'publish_tariff' | 'set_service_price' | 'refund_money' | 'assign_target' | 'broadcast_notification' | 'confirm_logout'
-
   const [actionLoading, setActionLoading] = useState(false);
 
   // QUICK DIALOG (SUSPEND / DELETE)
@@ -163,7 +163,7 @@ const AdminDashboard = ({ navigation }) => {
   const [supervisorsList, setSupervisorsList] = useState([]);
 
   // ==========================================
-  // FORM STATES (ALL WORKFLOWS RESTORED)
+  // FORM STATES
   // ==========================================
   // 1. Service Pricing Form
   const [servicePricingForm, setServicePricingForm] = useState({
@@ -208,7 +208,7 @@ const AdminDashboard = ({ navigation }) => {
     agentPrice: "210",
   });
 
-  // 5. Operational Target Form (Restored)
+  // 5. Operational Target Form
   const [targetForm, setTargetForm] = useState({
     targetUserId: "ALL",
     salesGoal: "500000",
@@ -218,11 +218,11 @@ const AdminDashboard = ({ navigation }) => {
     isGlobal: true,
   });
 
-  // 6. Broadcast Notification Form (Restored)
+  // 6. Broadcast Notification Form
   const [broadcastForm, setBroadcastForm] = useState({
     title: "",
     message: "",
-    targetAudience: "ALL", // 'ALL' | 'AGENTS' | 'SUPERVISORS' | 'USERS'
+    targetAudience: "ALL",
     sendEmail: true,
   });
 
@@ -492,7 +492,7 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
-  // 5. ASSIGN TARGET (RESTORED WORKFLOW)
+  // 5. ASSIGN TARGET
   const handleDeployTarget = async () => {
     try {
       setActionLoading(true);
@@ -524,7 +524,7 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
-  // 6. BROADCAST NOTIFICATION (RESTORED WORKFLOW)
+  // 6. BROADCAST NOTIFICATION
   const handleDispatchBroadcast = async () => {
     if (!broadcastForm.title.trim() || !broadcastForm.message.trim()) {
       Alert.alert("Validation Error", "Title and announcement content are required.");
@@ -694,25 +694,30 @@ const AdminDashboard = ({ navigation }) => {
           </View>
         </View>
 
-        {/* QUICK CONTROL BUTTONS - INCLUDES TARGETS AND BROADCAST */}
+        {/* QUICK CONTROL BUTTONS - YANZU TARE DA CUSTOMER SUPPORT ICON NA SUPPORTDASHBOARD */}
         <View style={styles.quickDeckRow}>
+          <TouchableOpacity style={[styles.quickDeckBtn, { backgroundColor: COLORS.teal }]} onPress={() => safeNavigate("SupportDashboard")}>
+            <Ionicons name="headset" size={15} color={COLORS.white} />
+            <Text style={styles.quickDeckBtnText}>Support</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={[styles.quickDeckBtn, { backgroundColor: COLORS.purple }]} onPress={() => setModalType("publish_tariff")}>
-            <Ionicons name="cloud-upload" size={16} color={COLORS.white} />
-            <Text style={styles.quickDeckBtnText}>Tariff Plan</Text>
+            <Ionicons name="cloud-upload" size={15} color={COLORS.white} />
+            <Text style={styles.quickDeckBtnText}>Tariff</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={[styles.quickDeckBtn, { backgroundColor: COLORS.accent }]} onPress={() => setModalType("assign_target")}>
-            <Ionicons name="trophy" size={16} color={COLORS.white} />
-            <Text style={styles.quickDeckBtnText}>Assign Quota</Text>
+            <Ionicons name="trophy" size={15} color={COLORS.white} />
+            <Text style={styles.quickDeckBtnText}>Target</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={[styles.quickDeckBtn, { backgroundColor: COLORS.orange }]} onPress={() => setModalType("broadcast_notification")}>
-            <Ionicons name="megaphone" size={16} color={COLORS.white} />
-            <Text style={styles.quickDeckBtnText}>Broadcast</Text>
+            <Ionicons name="megaphone" size={15} color={COLORS.white} />
+            <Text style={styles.quickDeckBtnText}>Notice</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={[styles.quickDeckBtn, { backgroundColor: COLORS.primary }]} onPress={() => setModalType("create_user")}>
-            <Ionicons name="person-add" size={16} color={COLORS.white} />
+            <Ionicons name="person-add" size={15} color={COLORS.white} />
             <Text style={styles.quickDeckBtnText}>+ User</Text>
           </TouchableOpacity>
         </View>
@@ -880,7 +885,7 @@ const AdminDashboard = ({ navigation }) => {
         </View>
       </ScrollView>
 
-      {/* SIDEBAR DRAWER - RESTORED WITH ALL CONTROLS */}
+      {/* SIDEBAR DRAWER - TARE DA CUSTOMER SUPPORT CONSOLE LINK */}
       {sidebarOpen && (
         <TouchableOpacity
           style={styles.sidebarBackdrop}
@@ -907,6 +912,16 @@ const AdminDashboard = ({ navigation }) => {
             </View>
 
             <ScrollView style={styles.sidebarScroll} showsVerticalScrollIndicator={false}>
+              <Text style={styles.sidebarSectionTitle}>Customer Care & Tickets</Text>
+
+              <TouchableOpacity
+                style={styles.sidebarMenuItem}
+                onPress={() => safeNavigate("SupportDashboard")}
+              >
+                <Ionicons name="headset-outline" size={18} color="#2DD4BF" />
+                <Text style={[styles.sidebarMenuText, { color: "#2DD4BF" }]}>Support Desk Terminal</Text>
+              </TouchableOpacity>
+
               <Text style={styles.sidebarSectionTitle}>Personnel Directorate</Text>
 
               <TouchableOpacity
@@ -1437,7 +1452,7 @@ const AdminDashboard = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* MODAL 5: ASSIGN TARGET (RESTORED TO DASHBOARD) */}
+      {/* MODAL 5: ASSIGN TARGET */}
       <Modal visible={modalType === "assign_target"} transparent animationType="slide" onRequestClose={() => setModalType(null)}>
         <View style={styles.modalBackdrop}>
           <View style={[styles.modalBox, { maxHeight: "90%" }]}>
@@ -1529,7 +1544,7 @@ const AdminDashboard = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* MODAL 6: BROADCAST NOTIFICATION (RESTORED TO DASHBOARD) */}
+      {/* MODAL 6: BROADCAST NOTIFICATION */}
       <Modal visible={modalType === "broadcast_notification"} transparent animationType="slide" onRequestClose={() => setModalType(null)}>
         <View style={styles.modalBackdrop}>
           <View style={[styles.modalBox, { maxHeight: "90%" }]}>
@@ -1697,7 +1712,7 @@ const AdminDashboard = ({ navigation }) => {
 };
 
 // ==========================================
-// STYLES BUILDER (INCLUDES ALL WORKFLOW STYLES)
+// STYLES BUILDER
 // ==========================================
 const getStyles = (COLORS) =>
   StyleSheet.create({
@@ -1779,13 +1794,13 @@ const getStyles = (COLORS) =>
       flex: 1,
       borderRadius: 12,
       paddingVertical: 12,
-      paddingHorizontal: 6,
+      paddingHorizontal: 4,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
       gap: 4,
     },
-    quickDeckBtnText: { color: COLORS.white, fontWeight: "900", fontSize: 10.5 },
+    quickDeckBtnText: { color: COLORS.white, fontWeight: "900", fontSize: 10 },
 
     categoryPillsWrapper: { flexDirection: "row", gap: 8, marginBottom: 12 },
     categoryBtnPill: {
