@@ -78,10 +78,16 @@ const LoginScreen = ({ navigation }) => {
   const getUserPayload = (data) =>
     data?.user || data?.data?.user || data?.data || {};
 
-  // Duba ko mai amfani ya riga ya saita Transaction PIN
+  // Check if user requires PIN setup (Only Customers and Agents)
+  const isPinRequiredRole = (role) => {
+    const cleanRole = String(role || "user").trim().toLowerCase();
+    return cleanRole === "user" || cleanRole === "customer" || cleanRole === "agent";
+  };
+
+  // Check whether transaction PIN is already configured
   const verifyPinStatus = async (userPayload, token) => {
     try {
-      // 1. Duba kai tsaye daga bayanan da login endpoint ya dawo da su
+      // 1. Direct validation from user profile response
       const hasLocalPinFlag =
         userPayload?.isPinSet === true ||
         userPayload?.hasPin === true ||
@@ -93,13 +99,13 @@ const LoginScreen = ({ navigation }) => {
         return true;
       }
 
-      // 2. Duba ko an taba adana PIN din a wayar
+      // 2. Local device storage check
       const localCachedPin = await AsyncStorage.getItem("transactionPin");
       if (localCachedPin && localCachedPin.trim().length === 4 && localCachedPin !== "0000") {
         return true;
       }
 
-      // 3. Tambayi server kai tsaye ta hanyar pin-status endpoints
+      // 3. Fallback query to server pin-status endpoints
       if (token) {
         const pinEndpoints = [
           `${BASE_URL}/user/pin-status`,
@@ -181,7 +187,6 @@ const LoginScreen = ({ navigation }) => {
     navigation.navigate("Main", { screen: targetScreen });
   };
 
-  // Hanyar da ke tura sabon mai amfani zuwa shafin saita PIN
   const routeToSetupPin = () => {
     try {
       navigation.dispatch(
@@ -212,24 +217,18 @@ const LoginScreen = ({ navigation }) => {
         } catch {}
       }
 
-      // Duba ko ya saita PIN
-      const isPinReady = await verifyPinStatus(userObj, token);
-      if (!isPinReady) {
-        routeToSetupPin();
-        return;
-      }
+      const activeRole = storedRole || detectRole(userObj) || "user";
 
-      if (storedRole) {
-        redirectUser(storedRole);
-        return;
-      }
-
-      if (userObj) {
-        const resolvedRole = detectRole(userObj);
-        if (resolvedRole) {
-          redirectUser(resolvedRole);
+      // Enforce PIN setup solely for Customers and Agents
+      if (isPinRequiredRole(activeRole)) {
+        const isPinReady = await verifyPinStatus(userObj, token);
+        if (!isPinReady) {
+          routeToSetupPin();
+          return;
         }
       }
+
+      redirectUser(activeRole);
     } catch (e) {
       console.log("Startup auth check error:", e.message);
     }
@@ -349,13 +348,13 @@ const LoginScreen = ({ navigation }) => {
         await AsyncStorage.setItem("adminToken", token);
       }
 
-      // DUBA KO MAI AMFANI YA SAKAR DA TRANSACTION PIN KAFIN WUCEWA
-      const isPinConfigured = await verifyPinStatus(finalUserData, token);
-
-      if (!isPinConfigured) {
-        // Idan sabon mai amfani ne ko bai taba saita PIN ba, a kulle shi ya saita PIN da farko
-        routeToSetupPin();
-        return;
+      // Enforce PIN setup exclusively for Customers and Agents
+      if (isPinRequiredRole(verifiedRole)) {
+        const isPinConfigured = await verifyPinStatus(finalUserData, token);
+        if (!isPinConfigured) {
+          routeToSetupPin();
+          return;
+        }
       }
 
       if (isBiometricSupported) {
@@ -437,21 +436,18 @@ const LoginScreen = ({ navigation }) => {
         } catch {}
       }
 
-      // Duba ko an saita PIN a biometric login ma
-      const isPinConfigured = await verifyPinStatus(userObj, token);
-      if (!isPinConfigured) {
-        routeToSetupPin();
-        return;
+      const activeRole = storedRole || detectRole(userObj) || "user";
+
+      // Verify PIN exclusively for Customers and Agents
+      if (isPinRequiredRole(activeRole)) {
+        const isPinConfigured = await verifyPinStatus(userObj, token);
+        if (!isPinConfigured) {
+          routeToSetupPin();
+          return;
+        }
       }
 
-      if (storedRole) {
-        redirectUser(storedRole);
-        return;
-      }
-
-      if (storedUserData) {
-        redirectUser(detectRole(userObj));
-      }
+      redirectUser(activeRole);
     } catch (err) {
       setErrorMessage(err.message || "Biometric login failed. Please use your password.");
     }
