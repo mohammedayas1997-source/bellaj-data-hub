@@ -15,6 +15,7 @@ import {
   TextInput,
   BackHandler,
   Animated,
+  Switch,
 } from "react-native";
 import { CommonActions } from "@react-navigation/native";
 import axios from "axios";
@@ -133,8 +134,10 @@ const AdminDashboard = ({ navigation }) => {
   const [activeUserTab, setActiveUserTab] = useState("customers");
   const [searchFilter, setSearchFilter] = useState("");
 
-  // MODALS STATE
-  const [modalType, setModalType] = useState(null);
+  // MODALS STATE: ALL PREVIOUS OPERATIONS RESTORED
+  const [modalType, setModalType] = useState(null); 
+  // 'create_user' | 'publish_tariff' | 'set_service_price' | 'refund_money' | 'assign_target' | 'broadcast_notification' | 'confirm_logout'
+
   const [actionLoading, setActionLoading] = useState(false);
 
   // QUICK DIALOG (SUSPEND / DELETE)
@@ -159,6 +162,9 @@ const AdminDashboard = ({ navigation }) => {
   const [allAgentsList, setAllAgentsList] = useState([]);
   const [supervisorsList, setSupervisorsList] = useState([]);
 
+  // ==========================================
+  // FORM STATES (ALL WORKFLOWS RESTORED)
+  // ==========================================
   // 1. Service Pricing Form
   const [servicePricingForm, setServicePricingForm] = useState({
     service: "NIMC_SLIP_VERIFICATION",
@@ -200,6 +206,24 @@ const AdminDashboard = ({ navigation }) => {
     validity: "30 Days",
     customerPrice: "230",
     agentPrice: "210",
+  });
+
+  // 5. Operational Target Form (Restored)
+  const [targetForm, setTargetForm] = useState({
+    targetUserId: "ALL",
+    salesGoal: "500000",
+    dataGoal: "1000",
+    agentGoal: "10",
+    month: "October 2026",
+    isGlobal: true,
+  });
+
+  // 6. Broadcast Notification Form (Restored)
+  const [broadcastForm, setBroadcastForm] = useState({
+    title: "",
+    message: "",
+    targetAudience: "ALL", // 'ALL' | 'AGENTS' | 'SUPERVISORS' | 'USERS'
+    sendEmail: true,
   });
 
   // Sidebar Animation Handler
@@ -332,6 +356,7 @@ const AdminDashboard = ({ navigation }) => {
     fetchDashboardData();
   };
 
+  // 1. SERVICE PRICING
   const handleSaveServicePricing = async () => {
     if (!servicePricingForm.baseRate || !servicePricingForm.retailPrice) {
       Alert.alert("Error", "Please fill in base cost and customer price.");
@@ -365,6 +390,7 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
+  // 2. DIRECT REFUND
   const handleExecuteRefund = async () => {
     if (!refundForm.userIdentifier.trim() || !refundForm.amount.trim()) {
       Alert.alert("Validation Error", "User Email/Phone and Refund Amount are required.");
@@ -396,6 +422,7 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
+  // 3. CREATE USER
   const handleCreateUser = async () => {
     const { fullName, email, phone, password, role, state, lga, address } = userForm;
     if (!fullName.trim() || !email.trim() || !phone.trim() || !password.trim()) {
@@ -435,6 +462,7 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
+  // 4. PUBLISH TARIFF[cite: 1]
   const handlePublishTariff = async () => {
     if (!tariffForm.planId.trim() || !tariffForm.customerPrice.trim()) {
       Alert.alert("Validation Error", "Gateway Plan ID and Customer Price are required.");
@@ -464,6 +492,72 @@ const AdminDashboard = ({ navigation }) => {
     }
   };
 
+  // 5. ASSIGN TARGET (RESTORED WORKFLOW)
+  const handleDeployTarget = async () => {
+    try {
+      setActionLoading(true);
+      const config = await getAuthHeaders();
+
+      const payload = {
+        targetUserId: targetForm.isGlobal ? "ALL" : targetForm.targetUserId,
+        salesGoal: Number(targetForm.salesGoal || 0),
+        amount: Number(targetForm.salesGoal || 0),
+        dataGoal: Number(targetForm.dataGoal || 0),
+        agentGoal: Number(targetForm.agentGoal || 0),
+        month: targetForm.month,
+        isGlobal: targetForm.isGlobal,
+      };
+
+      await axios.post(`${BASE_URL}/admin/assign-target`, payload, config).catch(async () => {
+        return await axios.post(`${BASE_URL}/admin/targets`, payload, config);
+      });
+
+      Alert.alert(
+        "Target Allocated",
+        `Operational goals deployed successfully for ${targetForm.month}.`
+      );
+      setModalType(null);
+    } catch (err) {
+      Alert.alert("Target Error", err.response?.data?.message || err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // 6. BROADCAST NOTIFICATION (RESTORED WORKFLOW)
+  const handleDispatchBroadcast = async () => {
+    if (!broadcastForm.title.trim() || !broadcastForm.message.trim()) {
+      Alert.alert("Validation Error", "Title and announcement content are required.");
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      const config = await getAuthHeaders();
+
+      const payload = {
+        title: broadcastForm.title.trim(),
+        message: broadcastForm.message.trim(),
+        target: broadcastForm.targetAudience,
+        targetAudience: broadcastForm.targetAudience,
+        sendEmail: broadcastForm.sendEmail,
+      };
+
+      await axios.post(`${BASE_URL}/admin/notifications/broadcast`, payload, config).catch(async () => {
+        return await axios.post(`${BASE_URL}/admin/broadcast`, payload, config);
+      });
+
+      Alert.alert("Broadcast Dispatched", `Notification dispatched to audience: ${broadcastForm.targetAudience}.`);
+      setModalType(null);
+      setBroadcastForm({ title: "", message: "", targetAudience: "ALL", sendEmail: true });
+    } catch (err) {
+      Alert.alert("Dispatch Error", err.response?.data?.message || err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // SUSPEND / ACTIVATE & DELETE
   const executeSuspension = async () => {
     if (!targetActionUser) return;
     const userId = targetActionUser._id || targetActionUser.id;
@@ -600,21 +694,26 @@ const AdminDashboard = ({ navigation }) => {
           </View>
         </View>
 
-        {/* QUICK CONTROL BUTTONS */}
+        {/* QUICK CONTROL BUTTONS - INCLUDES TARGETS AND BROADCAST */}
         <View style={styles.quickDeckRow}>
           <TouchableOpacity style={[styles.quickDeckBtn, { backgroundColor: COLORS.purple }]} onPress={() => setModalType("publish_tariff")}>
-            <Ionicons name="cloud-upload" size={17} color={COLORS.white} />
-            <Text style={styles.quickDeckBtnText}>+ Publish Plan</Text>
+            <Ionicons name="cloud-upload" size={16} color={COLORS.white} />
+            <Text style={styles.quickDeckBtnText}>Tariff Plan</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.quickDeckBtn, { backgroundColor: COLORS.orange }]} onPress={() => setModalType("set_service_price")}>
-            <MaterialCommunityIcons name="cog" size={18} color={COLORS.white} />
-            <Text style={styles.quickDeckBtnText}>NIMC / Service Pricing</Text>
+          <TouchableOpacity style={[styles.quickDeckBtn, { backgroundColor: COLORS.accent }]} onPress={() => setModalType("assign_target")}>
+            <Ionicons name="trophy" size={16} color={COLORS.white} />
+            <Text style={styles.quickDeckBtnText}>Assign Quota</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.quickDeckBtn, { backgroundColor: COLORS.orange }]} onPress={() => setModalType("broadcast_notification")}>
+            <Ionicons name="megaphone" size={16} color={COLORS.white} />
+            <Text style={styles.quickDeckBtnText}>Broadcast</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={[styles.quickDeckBtn, { backgroundColor: COLORS.primary }]} onPress={() => setModalType("create_user")}>
-            <Ionicons name="person-add" size={17} color={COLORS.white} />
-            <Text style={styles.quickDeckBtnText}>+ Register User</Text>
+            <Ionicons name="person-add" size={16} color={COLORS.white} />
+            <Text style={styles.quickDeckBtnText}>+ User</Text>
           </TouchableOpacity>
         </View>
 
@@ -781,7 +880,7 @@ const AdminDashboard = ({ navigation }) => {
         </View>
       </ScrollView>
 
-      {/* SIDEBAR DRAWER */}
+      {/* SIDEBAR DRAWER - RESTORED WITH ALL CONTROLS */}
       {sidebarOpen && (
         <TouchableOpacity
           style={styles.sidebarBackdrop}
@@ -841,6 +940,30 @@ const AdminDashboard = ({ navigation }) => {
               >
                 <MaterialCommunityIcons name="account-tie" size={18} color="#94A3B8" />
                 <Text style={styles.sidebarMenuText}>Field Supervisors</Text>
+              </TouchableOpacity>
+
+              <Text style={styles.sidebarSectionTitle}>Operational Governance</Text>
+
+              <TouchableOpacity
+                style={styles.sidebarMenuItem}
+                onPress={() => {
+                  toggleSidebar(false);
+                  setModalType("assign_target");
+                }}
+              >
+                <Ionicons name="trophy-outline" size={18} color="#94A3B8" />
+                <Text style={styles.sidebarMenuText}>Assign Quota / Target</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.sidebarMenuItem}
+                onPress={() => {
+                  toggleSidebar(false);
+                  setModalType("broadcast_notification");
+                }}
+              >
+                <Ionicons name="megaphone-outline" size={18} color="#94A3B8" />
+                <Text style={styles.sidebarMenuText}>Dispatch Broadcast</Text>
               </TouchableOpacity>
 
               <Text style={styles.sidebarSectionTitle}>Commercial Controls</Text>
@@ -1167,7 +1290,7 @@ const AdminDashboard = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* MODAL 4: PUBLISH TARIFF */}
+      {/* MODAL 4: PUBLISH TARIFF[cite: 1] */}
       <Modal visible={modalType === "publish_tariff"} transparent animationType="slide" onRequestClose={() => setModalType(null)}>
         <View style={styles.modalBackdrop}>
           <View style={[styles.modalBox, { maxHeight: "94%" }]}>
@@ -1314,7 +1437,176 @@ const AdminDashboard = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* MODAL 5: INSPECT SUPERVISOR OUTLETS */}
+      {/* MODAL 5: ASSIGN TARGET (RESTORED TO DASHBOARD) */}
+      <Modal visible={modalType === "assign_target"} transparent animationType="slide" onRequestClose={() => setModalType(null)}>
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalBox, { maxHeight: "90%" }]}>
+            <View style={styles.modalHead}>
+              <View>
+                <Text style={styles.modalTitle}>Deploy Operational Targets</Text>
+                <Text style={styles.modalSubtitle}>Monthly Performance Quotas for Team Outlets</Text>
+              </View>
+              <TouchableOpacity onPress={() => setModalType(null)}>
+                <Ionicons name="close" size={24} color={COLORS.muted} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.inputGuide}>Target Month / Operational Cycle</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={targetForm.month}
+                onChangeText={(t) => setTargetForm({ ...targetForm, month: t })}
+                placeholder="e.g. October 2026"
+                placeholderTextColor={COLORS.muted}
+              />
+
+              <View style={styles.switchRowContainer}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 13.5, fontWeight: "800", color: COLORS.text }}>Global Deployment</Text>
+                  <Text style={{ fontSize: 11, color: COLORS.muted }}>Apply quota to all active field agents and supervisors</Text>
+                </View>
+                <Switch
+                  value={targetForm.isGlobal}
+                  onValueChange={(v) => setTargetForm({ ...targetForm, isGlobal: v })}
+                  trackColor={{ false: "#CBD5E1", true: "#86EFAC" }}
+                  thumbColor={targetForm.isGlobal ? COLORS.secondary : "#F1F5F9"}
+                />
+              </View>
+
+              {!targetForm.isGlobal && (
+                <>
+                  <Text style={styles.inputGuide}>Target Recipient Identifier (Email / ID / Phone)</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder="Enter beneficiary agent or supervisor reference"
+                    value={targetForm.targetUserId}
+                    onChangeText={(t) => setTargetForm({ ...targetForm, targetUserId: t })}
+                    placeholderTextColor={COLORS.muted}
+                  />
+                </>
+              )}
+
+              <Text style={styles.inputGuide}>Financial Sales Quota (₦)</Text>
+              <TextInput
+                style={styles.modalInput}
+                keyboardType="numeric"
+                value={targetForm.salesGoal}
+                onChangeText={(t) => setTargetForm({ ...targetForm, salesGoal: t })}
+                placeholder="e.g. 500000"
+                placeholderTextColor={COLORS.muted}
+              />
+
+              <Text style={styles.inputGuide}>Data Volume Target (GB)</Text>
+              <TextInput
+                style={styles.modalInput}
+                keyboardType="numeric"
+                value={targetForm.dataGoal}
+                onChangeText={(t) => setTargetForm({ ...targetForm, dataGoal: t })}
+                placeholder="e.g. 1000"
+                placeholderTextColor={COLORS.muted}
+              />
+
+              <Text style={styles.inputGuide}>Team Expansion / Agent Acquisition Quota</Text>
+              <TextInput
+                style={styles.modalInput}
+                keyboardType="numeric"
+                value={targetForm.agentGoal}
+                onChangeText={(t) => setTargetForm({ ...targetForm, agentGoal: t })}
+                placeholder="e.g. 10"
+                placeholderTextColor={COLORS.muted}
+              />
+
+              <TouchableOpacity
+                style={[styles.modalSubmitBtn, { backgroundColor: COLORS.accent }]}
+                onPress={handleDeployTarget}
+                disabled={actionLoading}
+              >
+                {actionLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalSubmitBtnText}>COMMIT AND DEPLOY TARGET</Text>}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL 6: BROADCAST NOTIFICATION (RESTORED TO DASHBOARD) */}
+      <Modal visible={modalType === "broadcast_notification"} transparent animationType="slide" onRequestClose={() => setModalType(null)}>
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalBox, { maxHeight: "90%" }]}>
+            <View style={styles.modalHead}>
+              <View>
+                <Text style={styles.modalTitle}>Dispatch Push Broadcast</Text>
+                <Text style={styles.modalSubtitle}>In-App Notifications & Automated Emails</Text>
+              </View>
+              <TouchableOpacity onPress={() => setModalType(null)}>
+                <Ionicons name="close" size={24} color={COLORS.muted} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.inputGuide}>Target Audience Scope</Text>
+              <View style={styles.serviceSelectorRow}>
+                {[
+                  { id: "ALL", label: "All Users" },
+                  { id: "AGENTS", label: "Agents Only" },
+                  { id: "SUPERVISORS", label: "Supervisors" },
+                  { id: "USERS", label: "Customers" },
+                ].map((aud) => (
+                  <TouchableOpacity
+                    key={aud.id}
+                    style={[styles.servicePill, broadcastForm.targetAudience === aud.id && styles.servicePillActive]}
+                    onPress={() => setBroadcastForm({ ...broadcastForm, targetAudience: aud.id })}
+                  >
+                    <Text style={[styles.servicePillText, broadcastForm.targetAudience === aud.id && styles.servicePillTextActive]}>{aud.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.inputGuide}>Announcement Title</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="e.g. System Maintenance or Data Tariff Update"
+                value={broadcastForm.title}
+                onChangeText={(t) => setBroadcastForm({ ...broadcastForm, title: t })}
+                placeholderTextColor={COLORS.muted}
+              />
+
+              <Text style={styles.inputGuide}>Announcement Body</Text>
+              <TextInput
+                style={[styles.modalInput, { minHeight: 90, textAlignVertical: "top" }]}
+                placeholder="Compose announcement message..."
+                multiline
+                value={broadcastForm.message}
+                onChangeText={(t) => setBroadcastForm({ ...broadcastForm, message: t })}
+                placeholderTextColor={COLORS.muted}
+              />
+
+              <View style={styles.switchRowContainer}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 13.5, fontWeight: "800", color: COLORS.text }}>Send Direct Email Copies</Text>
+                  <Text style={{ fontSize: 11, color: COLORS.muted }}>Deliver copies to registered email accounts via SMTP</Text>
+                </View>
+                <Switch
+                  value={broadcastForm.sendEmail}
+                  onValueChange={(v) => setBroadcastForm({ ...broadcastForm, sendEmail: v })}
+                  trackColor={{ false: "#CBD5E1", true: "#86EFAC" }}
+                  thumbColor={broadcastForm.sendEmail ? COLORS.secondary : "#F1F5F9"}
+                />
+              </View>
+
+              <TouchableOpacity
+                style={[styles.modalSubmitBtn, { backgroundColor: COLORS.orange }]}
+                onPress={handleDispatchBroadcast}
+                disabled={actionLoading}
+              >
+                {actionLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalSubmitBtnText}>DISPATCH BROADCAST NOW</Text>}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL 7: INSPECT SUPERVISOR OUTLETS */}
       <Modal visible={Boolean(selectedSupervisorTeam)} transparent animationType="slide" onRequestClose={() => setSelectedSupervisorTeam(null)}>
         <View style={styles.modalBackdrop}>
           <View style={[styles.modalBox, { maxHeight: "88%" }]}>
@@ -1405,7 +1697,7 @@ const AdminDashboard = ({ navigation }) => {
 };
 
 // ==========================================
-// STYLES BUILDER (SOLVES GETSTYLES IS NOT DEFINED CRASH)
+// STYLES BUILDER (INCLUDES ALL WORKFLOW STYLES)
 // ==========================================
 const getStyles = (COLORS) =>
   StyleSheet.create({
@@ -1482,18 +1774,18 @@ const getStyles = (COLORS) =>
     finMetricLabel: { color: COLORS.muted, fontSize: 10, fontWeight: "800", textTransform: "uppercase" },
     finMetricVal: { fontSize: 16, fontWeight: "900", marginTop: 3 },
 
-    quickDeckRow: { flexDirection: "row", gap: 8, marginBottom: 14 },
+    quickDeckRow: { flexDirection: "row", gap: 6, marginBottom: 14 },
     quickDeckBtn: {
       flex: 1,
       borderRadius: 12,
       paddingVertical: 12,
-      paddingHorizontal: 8,
+      paddingHorizontal: 6,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-      gap: 6,
+      gap: 4,
     },
-    quickDeckBtnText: { color: COLORS.white, fontWeight: "900", fontSize: 11 },
+    quickDeckBtnText: { color: COLORS.white, fontWeight: "900", fontSize: 10.5 },
 
     categoryPillsWrapper: { flexDirection: "row", gap: 8, marginBottom: 12 },
     categoryBtnPill: {
@@ -1816,6 +2108,17 @@ const getStyles = (COLORS) =>
     smallPillActive: { backgroundColor: "#0284C7", borderColor: "#0284C7" },
     smallPillText: { fontSize: 11, fontWeight: "800", color: COLORS.muted },
     smallPillTextActive: { color: COLORS.white },
+
+    switchRowContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingVertical: 12,
+      borderTopWidth: 1,
+      borderBottomWidth: 1,
+      borderColor: COLORS.border,
+      marginVertical: 8,
+    },
 
     agentMiniCard: {
       backgroundColor: COLORS.soft,
