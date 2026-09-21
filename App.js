@@ -88,7 +88,8 @@ function DrawerNavigator() {
 }
 
 function AppContent() {
-  const { isDarkMode } = useContext(ThemeContext);
+  const context = useContext(ThemeContext);
+  const isDarkMode = context ? context.isDarkMode : false;
 
   return (
     <NavigationContainer theme={isDarkMode ? DarkTheme : DefaultTheme}>
@@ -99,73 +100,140 @@ function AppContent() {
           headerTintColor: "#ffffff",
         }}
       >
-        
-        <Stack.Screen name="Onboarding" component={OnboardingScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+        {/* SHAFUKAN SHIGA NA FARKO */}
+        <Stack.Screen
+          name="Onboarding"
+          component={OnboardingScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="Login"
+          component={LoginScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="Signup"
+          component={SignupScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="ForgotPassword"
+          component={ForgotPasswordScreen}
+          options={{ title: "Forgot Password" }}
+        />
 
-        <Stack.Screen name="SetupPin" component={SetupPinScreen} />
-        <Stack.Screen name="SetupPinScreen" component={SetupPinScreen} />
-        <Stack.Screen name="SetupPinSuccess" component={SuccessScreen} />
-        <Stack.Screen name="Signup" component={SignupScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
-        <Stack.Screen name="Success" component={SuccessScreen} />
-        <Stack.Screen name="NewSale" component={SuccessScreen} />
-        <Stack.Screen name="Main" component={DrawerNavigator} options={{ headerShown: false }} />
+        {/* SHAFIN SET TRANSACTION PIN GA CUSTOMER DA AGENT */}
+        <Stack.Screen
+          name="SetupPin"
+          component={SetupPinScreen}
+          options={{ headerShown: false, gestureEnabled: false }}
+        />
+        <Stack.Screen
+          name="SetupPinScreen"
+          component={SetupPinScreen}
+          options={{ headerShown: false, gestureEnabled: false }}
+        />
+        <Stack.Screen
+          name="SetupPinSuccess"
+          component={SuccessScreen}
+          options={{ headerShown: false }}
+        />
 
-        <Stack.Screen name="Dashboard" component={HomeScreen} />
-        <Stack.Screen name="BuyAirtime" component={AirtimeScreen} />
-        <Stack.Screen name="FundWallet" component={FundWalletScreen} />
-        <Stack.Screen name="BuyData" component={BuyDataScreen} />
-        <Stack.Screen name="Electricity" component={ElectricityScreen} />
-        <Stack.Screen name="NIMC" component={NIMCScreen} />
-        <Stack.Screen name="BVNScreen" component={BVNScreen} />
-        <Stack.Screen name="Cable" component={CableScreen} />
-        <Stack.Screen name="Profile" component={ProfileScreen} />
-        <Stack.Screen name="Contact" component={ContactScreen} />
-        
+        {/* BABBAN DRAWER NA APP */}
+        <Stack.Screen
+          name="Main"
+          component={DrawerNavigator}
+          options={{ headerShown: false }}
+        />
 
-        <Stack.Screen name="AdminDashboard" component={AdminDashboard} />
-        <Stack.Screen name="AgentDashboard" component={AgentDashboard} />
-        <Stack.Screen name="SupportDashboard" component={SupportDashboard} />
-        <Stack.Screen name="SupervisorDashboard" component={SupervisorDashboard} />
-        <Stack.Screen name="SuperAdminDashboard" component={SuperAdminDashboard} />
+        {/* SHAFUKAN DASHBOARDS */}
+        <Stack.Screen
+          name="Dashboard"
+          component={HomeScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="AdminDashboard"
+          component={AdminDashboard}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="AgentDashboard"
+          component={AgentDashboard}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="SupportDashboard"
+          component={SupportDashboard}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="SupervisorDashboard"
+          component={SupervisorDashboard}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="SuperAdminDashboard"
+          component={SuperAdminDashboard}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="LeaderDashboard"
+          component={LeaderDashboard}
+          options={{ headerShown: false }}
+        />
 
-        <Stack.Screen name="AdminUserControl" component={AdminControlScreen} />
-        <Stack.Screen name="AdminControl" component={AdminControlScreen} />
+        {/* AYYUKAN KUDI DA SAYEN DATA/AIRTIME */}
+        <Stack.Screen name="BuyAirtime" component={AirtimeScreen} options={{ title: "Buy Airtime" }} />
+        <Stack.Screen name="FundWallet" component={FundWalletScreen} options={{ title: "Fund Wallet" }} />
+        <Stack.Screen name="BuyData" component={BuyDataScreen} options={{ title: "Buy Data Bundle" }} />
+        <Stack.Screen name="Electricity" component={ElectricityScreen} options={{ title: "Electricity Bills" }} />
+        <Stack.Screen name="Cable" component={CableScreen} options={{ title: "Cable TV Subscription" }} />
+        <Stack.Screen name="Success" component={SuccessScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="NewSale" component={SuccessScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="SalesHistory" component={HistoryScreen} options={{ title: "Transaction History" }} />
+        <Stack.Screen name="SalesLogs" component={HistoryScreen} options={{ title: "Sales Logs" }} />
 
-        <Stack.Screen name="UserManagement" component={UserManagement} />
-        <Stack.Screen name="SuperAdminUsers" component={UserManagement} />
-        <Stack.Screen name="AllUsers" component={UserManagement} />
+        {/* PROFILE DA SECURITY */}
+        <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="UpdatePin" component={UpdatePin} options={{ headerShown: false }} />
+        <Stack.Screen name="Contact" component={ContactScreen} options={{ title: "Contact Support" }} />
+        <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: "Notifications" }} />
+        <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: "App Settings" }} />
 
-        <Stack.Screen name="Notifications" component={NotificationsScreen} />
-        <Stack.Screen name="Settings" component={SettingsScreen} />
-        <Stack.Screen name="AssignTarget" component={AssignTargetScreen} />
-        <Stack.Screen name="AssignTargets" component={AssignTargetScreen} />
-        <Stack.Screen name="LeaderDashboard" component={LeaderDashboard} />
-        <Stack.Screen name="CreateSupervisor" component={CreateSupervisorScreen} />
-        <Stack.Screen name="ManageAgents" component={ManageAgentsScreen} />
+        {/* IDENTITY: NIMC & BVN */}
+        <Stack.Screen name="NIMC" component={NIMCScreen} options={{ title: "NIMC Services" }} />
+        <Stack.Screen name="BVNScreen" component={BVNScreen} options={{ title: "BVN Verification" }} />
+        <Stack.Screen name="NIMCRequests" component={NIMCRequests} options={{ title: "NIMC Processing Queue" }} />
+        <Stack.Screen name="NimcRequests" component={NIMCRequests} options={{ title: "NIMC Requests" }} />
+        <Stack.Screen name="NIMCModification" component={NIMCModificationScreen} options={{ title: "NIMC Modification" }} />
+        <Stack.Screen name="NIMCHistory" component={NIMCHistory} options={{ title: "NIMC Request History" }} />
+        <Stack.Screen name="BVNHistory" component={BVNHistory} options={{ title: "BVN History" }} />
+        <Stack.Screen name="NINValidation" component={NINValidation} options={{ title: "NIN Validation" }} />
 
-        <Stack.Screen name="NIMCRequests" component={NIMCRequests} />
-        <Stack.Screen name="NimcRequests" component={NIMCRequests} />
-        <Stack.Screen name="NIMCModification" component={NIMCModificationScreen} />
-        <Stack.Screen name="NIMCHistory" component={NIMCHistory} />
-        <Stack.Screen name="BVNHistory" component={BVNHistory} />
-        <Stack.Screen name="UpdatePin" component={UpdatePin} />
+        {/* ADMIN & SUPERVISOR TOOLS */}
+        <Stack.Screen name="AdminUserControl" component={AdminControlScreen} options={{ title: "Admin User Controls" }} />
+        <Stack.Screen name="AdminControl" component={AdminControlScreen} options={{ title: "System Controls" }} />
+        <Stack.Screen name="UserManagement" component={UserManagement} options={{ title: "User Directory" }} />
+        <Stack.Screen name="SuperAdminUsers" component={UserManagement} options={{ title: "SuperAdmin Users" }} />
+        <Stack.Screen name="AllUsers" component={UserManagement} options={{ title: "All Registered Accounts" }} />
+        <Stack.Screen name="AssignTarget" component={AssignTargetScreen} options={{ title: "Assign Targets" }} />
+        <Stack.Screen name="AssignTargets" component={AssignTargetScreen} options={{ title: "Target Allocation" }} />
+        <Stack.Screen name="CreateSupervisor" component={CreateSupervisorScreen} options={{ title: "Enroll Supervisor" }} />
+        <Stack.Screen name="ManageAgents" component={ManageAgentsScreen} options={{ title: "Manage Agent Outlets" }} />
+        <Stack.Screen name="PricingSettings" component={PricingSettings} options={{ title: "Pricing Engine Configuration" }} />
 
-        <Stack.Screen name="SalesHistory" component={HistoryScreen} />
-        <Stack.Screen name="SalesLogs" component={HistoryScreen} />
-
+        {/* PLACEHOLDERS & EXTRA SCREENS */}
         <Stack.Screen name="IssueResolution" component={PlaceholderScreen} />
-        <Stack.Screen name="PricingSettings" component={PricingSettings} />
         <Stack.Screen name="BvnRequests" component={PlaceholderScreen} />
         <Stack.Screen name="DataPlans" component={PlaceholderScreen} />
         <Stack.Screen name="CableTvPlans" component={PlaceholderScreen} />
         <Stack.Screen name="SupportActivities" component={PlaceholderScreen} />
 
-        <Stack.Screen name="About" component={AboutScreen} />
-        <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
-        <Stack.Screen name="Terms" component={TermsScreen} />
-        <Stack.Screen name="NINValidation" component={NINValidation} />
+        {/* LEGAL & POLICIES */}
+        <Stack.Screen name="About" component={AboutScreen} options={{ title: "About Bellaj Data Hub" }} />
+        <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={{ title: "Privacy Policy" }} />
+        <Stack.Screen name="Terms" component={TermsScreen} options={{ title: "Terms of Service" }} />
       </Stack.Navigator>
     </NavigationContainer>
   );
