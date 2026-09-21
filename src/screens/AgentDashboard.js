@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import {
   SafeAreaView,
   Switch,
   useWindowDimensions,
+  Animated,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import * as LocalAuthentication from "expo-local-authentication";
@@ -23,6 +24,7 @@ import {
   MaterialCommunityIcons,
   Ionicons,
   FontAwesome5,
+  Feather,
 } from "@expo/vector-icons";
 import { CommonActions } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -41,8 +43,12 @@ const COLORS = {
   accent: "#2563EB",
   purple: "#7C3AED",
   orange: "#EA580C",
+  teal: "#0D9488",
   sidebarBg: "#062819",
   sidebarBorder: "#0c3b26",
+  card: "#FFFFFF",
+  softGreen: "#DCFCE7",
+  softRed: "#FEE2E2",
 };
 
 const AgentDashboard = ({ navigation, route }) => {
@@ -56,17 +62,24 @@ const AgentDashboard = ({ navigation, route }) => {
   const [isBalanceVisible, setIsBalanceVisible] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // Fingerprint State
+  // Biometrics
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [biometricSupported, setBiometricSupported] = useState(false);
 
-  // Modals
+  // Modals & Navigation
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const sidebarWidth = isWeb ? 280 : Math.min(width * 0.82, 320);
+  const sidebarAnim = useRef(new Animated.Value(-sidebarWidth)).current;
+
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
   const [logoutProcessing, setLogoutProcessing] = useState(false);
+  const [profileModalVisible, setProfileModalVisible] = useState(false);
 
+  // Performance & Stats
   const [performance, setPerformance] = useState({
     totalGB: 0,
+    totalAirtime: 0,
+    totalServiceRequests: 0,
     totalSalesValue: 0,
     commissionsEarned: 0,
     bonusEarned: 0,
@@ -93,25 +106,29 @@ const AgentDashboard = ({ navigation, route }) => {
     payload?.user || payload?.data?.user || payload?.data || payload || null;
 
   const normalizeList = (payload) => {
-    const data = payload?.data || payload || [];
+    const data = payload?.data || payload?.notifications || payload || [];
     if (Array.isArray(data)) return data;
     if (Array.isArray(data?.notifications)) return data.notifications;
     return [];
   };
 
-  const fetchWithFallback = async (endpoints, config) => {
-    for (const url of endpoints) {
-      try {
-        const res = await axios.get(url, config);
-        if (res?.data) return res.data;
-      } catch {
-        // Continue to fallback
-      }
+  const toggleSidebar = (open) => {
+    if (open) {
+      setSidebarOpen(true);
+      Animated.timing(sidebarAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: false,
+      }).start();
+    } else {
+      Animated.timing(sidebarAnim, {
+        toValue: -sidebarWidth,
+        duration: 220,
+        useNativeDriver: false,
+      }).start(() => setSidebarOpen(false));
     }
-    return null;
   };
 
-  // Check and Load Fingerprint Setting
   const checkBiometricSetup = useCallback(async () => {
     try {
       const compatible = await LocalAuthentication.hasHardwareAsync();
@@ -133,21 +150,21 @@ const AgentDashboard = ({ navigation, route }) => {
 
         if (!hasHardware || !isEnrolled) {
           Alert.alert(
-            "Fingerprint Not Ready",
-            "Please register a fingerprint or face scan on your phone settings first."
+            "Biometrics Unavailable",
+            "Please register a fingerprint or face authentication in your device settings."
           );
           return;
         }
 
         const auth = await LocalAuthentication.authenticateAsync({
-          promptMessage: "Confirm Fingerprint for Bellaj Login",
+          promptMessage: "Authenticate to enable Fingerprint Login",
           fallbackLabel: "Use Password",
         });
 
         if (auth.success) {
           await AsyncStorage.setItem("useBiometricLogin", "true");
           setBiometricEnabled(true);
-          Alert.alert("Success", "Fingerprint Login has been turned ON.");
+          Alert.alert("Success", "Fingerprint Login activated.");
         } else {
           setBiometricEnabled(false);
         }
@@ -157,9 +174,33 @@ const AgentDashboard = ({ navigation, route }) => {
     } else {
       await AsyncStorage.setItem("useBiometricLogin", "false");
       setBiometricEnabled(false);
-      Alert.alert("Notice", "Fingerprint Login has been turned OFF.");
+      Alert.alert("Notice", "Fingerprint Login disabled.");
     }
   };
+
+  // Real-time live notifications fetcher
+  const syncLiveNotifications = useCallback(async () => {
+    try {
+      const config = await getHeaders();
+      const notifEndpoints = [
+        `${BASE_URL}/notifications`,
+        `${BASE_URL}/user/notifications`,
+        `${BASE_URL}/notifications/unread`,
+      ];
+
+      for (const url of notifEndpoints) {
+        try {
+          const res = await axios.get(url, config);
+          if (res?.data) {
+            const list = normalizeList(res.data);
+            const count = list.filter((item) => !item?.isRead && !item?.read).length;
+            setUnreadCount(count);
+            break;
+          }
+        } catch {}
+      }
+    } catch {}
+  }, []);
 
   const loadDashboard = useCallback(async () => {
     try {
@@ -175,61 +216,90 @@ const AgentDashboard = ({ navigation, route }) => {
 
       await checkBiometricSetup();
 
-      const profileEndpoints = [
-        `${BASE_URL}/auth/me`,
-        `${BASE_URL}/auth/user-profile`,
-        `${BASE_URL}/users/profile`,
-      ];
-      const perfEndpoints = [
-        `${BASE_URL}/agent/performance`,
-        `${BASE_URL}/agent/stats`,
-      ];
-      const supEndpoints = [
-        `${BASE_URL}/agent/my-supervisor`,
-        `${BASE_URL}/agent/supervisor`,
-      ];
-      const notifEndpoints = [
-        `${BASE_URL}/notifications`,
-        `${BASE_URL}/user/notifications`,
-      ];
+      const [profileRes, perfRes, supRes, txRes] = await Promise.allSettled([
+        axios.get(`${BASE_URL}/users/profile`, config).catch(() => axios.get(`${BASE_URL}/auth/me`, config)),
+        axios.get(`${BASE_URL}/agent/performance`, config).catch(() => axios.get(`${BASE_URL}/agent/stats`, config)),
+        axios.get(`${BASE_URL}/agent/my-supervisor`, config).catch(() => axios.get(`${BASE_URL}/agent/supervisor`, config)),
+        axios.get(`${BASE_URL}/agent/transactions`, config).catch(() => axios.get(`${BASE_URL}/transactions`, config)),
+      ]);
 
-      const [profileRes, perfRes, supRes, notificationRes] =
-        await Promise.allSettled([
-          fetchWithFallback(profileEndpoints, config),
-          fetchWithFallback(perfEndpoints, config),
-          fetchWithFallback(supEndpoints, config),
-          fetchWithFallback(notifEndpoints, config),
-        ]);
-
-      if (profileRes.status === "fulfilled" && profileRes.value) {
-        setUserData(normalizeProfile(profileRes.value));
+      if (profileRes.status === "fulfilled" && profileRes.value?.data) {
+        const prof = normalizeProfile(profileRes.value.data);
+        if (prof) {
+          setUserData(prof);
+          await AsyncStorage.setItem("userData", JSON.stringify(prof));
+        }
       }
 
-      if (perfRes.status === "fulfilled" && perfRes.value) {
-        const payload = perfRes.value?.data || perfRes.value || {};
-        setPerformance((prev) => ({ ...prev, ...payload }));
+      let dynamicGB = 0;
+      let dynamicAirtime = 0;
+      let dynamicRequests = 0;
+
+      if (txRes.status === "fulfilled" && txRes.value?.data) {
+        const txList = txRes.value.data?.transactions || txRes.value.data?.data || [];
+        if (Array.isArray(txList)) {
+          txList.forEach((tx) => {
+            const type = String(tx.type || tx.category || tx.service || "").toLowerCase();
+            const desc = String(tx.description || tx.narration || tx.planName || "").toLowerCase();
+            const amt = Number(tx.amount || 0);
+
+            if (type.includes("data") || desc.includes("gb") || desc.includes("mb")) {
+              const matchGB = desc.match(/(\d+(\.\d+)?)\s*gb/i);
+              const matchMB = desc.match(/(\d+(\.\d+)?)\s*mb/i);
+              if (matchGB) dynamicGB += parseFloat(matchGB[1]);
+              else if (matchMB) dynamicGB += parseFloat(matchMB[1]) / 1024;
+              else dynamicGB += 1;
+            }
+
+            if (type.includes("airtime") || desc.includes("vtu")) {
+              dynamicAirtime += amt;
+            }
+
+            if (type.includes("nimc") || type.includes("bvn") || type.includes("cable") || type.includes("electricity")) {
+              dynamicRequests += 1;
+            }
+          });
+        }
       }
 
-      if (supRes.status === "fulfilled" && supRes.value) {
-        const payload = supRes.value;
+      if (perfRes.status === "fulfilled" && perfRes.value?.data) {
+        const payload = perfRes.value.data?.data || perfRes.value.data || {};
+        setPerformance((prev) => ({
+          ...prev,
+          ...payload,
+          totalGB: payload.totalGB || parseFloat(dynamicGB.toFixed(2)),
+          totalAirtime: payload.totalAirtime || dynamicAirtime,
+          totalServiceRequests: payload.totalServiceRequests || dynamicRequests,
+        }));
+      } else {
+        setPerformance((prev) => ({
+          ...prev,
+          totalGB: parseFloat(dynamicGB.toFixed(2)),
+          totalAirtime: dynamicAirtime,
+          totalServiceRequests: dynamicRequests,
+        }));
+      }
+
+      if (supRes.status === "fulfilled" && supRes.value?.data) {
+        const payload = supRes.value.data;
         setSupervisor(payload?.data || payload?.supervisor || payload || null);
       }
 
-      if (notificationRes.status === "fulfilled" && notificationRes.value) {
-        const list = normalizeList(notificationRes.value);
-        setUnreadCount(list.filter((item) => !item?.isRead && !item?.read).length);
-      }
-    } catch {
-      // Keep UI functional
+      await syncLiveNotifications();
+    } catch (e) {
+      console.log("Error loading agent workspace:", e.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [checkBiometricSetup]);
+  }, [checkBiometricSetup, syncLiveNotifications]);
 
   useEffect(() => {
     loadDashboard();
-  }, [loadDashboard]);
+    // Live notification polling interval
+    const liveTimer = setInterval(syncLiveNotifications, 15000);
+    return () => clearInterval(liveTimer);
+  }, [loadDashboard, syncLiveNotifications]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -237,7 +307,7 @@ const AgentDashboard = ({ navigation, route }) => {
   };
 
   const safeNavigate = (screenName, params = {}) => {
-    setSidebarOpen(false);
+    toggleSidebar(false);
     if (!screenName || screenName === "AgentDashboard") return;
 
     try {
@@ -247,7 +317,7 @@ const AgentDashboard = ({ navigation, route }) => {
         ...params,
       });
     } catch {
-      Alert.alert("Notice", `Screen '${screenName}' is opening.`);
+      Alert.alert("Navigation", `Opening screen '${screenName}'`);
     }
   };
 
@@ -265,19 +335,14 @@ const AgentDashboard = ({ navigation, route }) => {
       ]);
 
       setLogoutModalVisible(false);
-      setSidebarOpen(false);
+      toggleSidebar(false);
 
-      try {
-        navigation.dispatch(
-          CommonActions.reset({
-            index: 0,
-            routes: [{ name: "Login" }],
-          })
-        );
-        return;
-      } catch {}
-
-      navigation.navigate("Login");
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: "Login" }],
+        })
+      );
     } catch {
       if (Platform.OS === "web" && typeof window !== "undefined") {
         window.location.reload();
@@ -300,7 +365,7 @@ const AgentDashboard = ({ navigation, route }) => {
 
   const openWhatsApp = () => {
     const phoneNumber = "+2349075207281";
-    const message = "Hello Bellaj Support, I need help with my Agent account.";
+    const message = "Hello Bellaj Support Desk, I require assistance with my Agent terminal.";
     const appUrl = `whatsapp://send?phone=${phoneNumber}&text=${encodeURIComponent(message)}`;
     const webUrl = `https://wa.me/${phoneNumber.replace("+", "")}?text=${encodeURIComponent(message)}`;
     Linking.openURL(appUrl).catch(() => Linking.openURL(webUrl));
@@ -311,7 +376,7 @@ const AgentDashboard = ({ navigation, route }) => {
       userData?.name ||
       userData?.fullName ||
       `${userData?.firstName || ""} ${userData?.surname || ""}`.trim();
-    return name || "Agent";
+    return name || "Field Retail Agent";
   }, [userData]);
 
   const balance = Number(userData?.walletBalance || userData?.balance || 0);
@@ -324,43 +389,43 @@ const AgentDashboard = ({ navigation, route }) => {
       : 0;
 
   const quickServices = [
-    { icon: "wifi", label: "Data", screen: "BuyData", color: COLORS.primary },
-    { icon: "phone-alt", label: "Airtime", screen: "BuyAirtime", color: COLORS.secondary },
+    { icon: "wifi", label: "Data Bundles", screen: "BuyData", color: COLORS.primary },
+    { icon: "phone-alt", label: "VTU Airtime", screen: "BuyAirtime", color: COLORS.secondary },
     { icon: "bolt", label: "Electricity", screen: "Electricity", color: "#EAB308" },
     { icon: "tv", label: "Cable TV", screen: "Cable", color: COLORS.purple },
-    { icon: "id-card", label: "NIMC Form", screen: "NIMC", color: COLORS.accent },
-    { icon: "fingerprint", label: "NIMC Edit", screen: "NIMCModification", color: "#EC4899" },
+    { icon: "id-card", label: "NIMC Slips", screen: "NIMC", color: COLORS.accent },
+    { icon: "fingerprint", label: "NIMC Modify", screen: "NIMCModification", color: "#EC4899" },
     { icon: "user-shield", label: "BVN Check", screen: "BVNScreen", color: COLORS.muted },
     { icon: "shield-alt", label: "NIN Verify", screen: "NINValidation", color: COLORS.secondary },
-    { icon: "history", label: "History", screen: "SalesHistory", color: COLORS.orange },
+    { icon: "headset", label: "Support Desk", screen: "SupportDashboard", color: COLORS.teal },
+    { icon: "history", label: "Audit Logs", screen: "SalesHistory", color: COLORS.orange },
   ];
 
-  // Easy Simple English Sidebar Navigation
   const sidebarNavGroups = [
     {
-      group: "Main Work",
+      group: "Terminal Commerce",
       routes: [
-        { title: "Sell (New Order)", icon: "cart-plus", action: () => safeNavigate("NewSale") },
-        { title: "Add Money (Wallet)", icon: "wallet-plus-outline", action: () => safeNavigate("FundWallet") },
-        { title: "My Sales Records", icon: "history", action: () => safeNavigate("SalesHistory") },
-        { title: "Wallet Money History", icon: "receipt-text-outline", action: () => safeNavigate("SalesHistory") },
+        { title: "Sell Data & Airtime", icon: "cart-plus", action: () => safeNavigate("BuyData") },
+        { title: "Fund Wallet Account", icon: "wallet-plus-outline", action: () => safeNavigate("FundWallet") },
+        { title: "Commercial Sales Logs", icon: "receipt-text-outline", action: () => safeNavigate("SalesHistory") },
       ],
     },
     {
-      group: "Services to Sell",
+      group: "Identity & Utilities",
       routes: [
-        { title: "Sell Data & Airtime", icon: "cellphone-wireless", action: () => safeNavigate("BuyData") },
-        { title: "NIMC / NIN Work", icon: "fingerprint", action: () => safeNavigate("NIMC") },
-        { title: "BVN Verification", icon: "card-account-details-outline", action: () => safeNavigate("BVNScreen") },
-        { title: "Pay Light Bills", icon: "flash-outline", action: () => safeNavigate("Electricity") },
+        { title: "NIMC / NIN Enrollment", icon: "fingerprint", action: () => safeNavigate("NIMC") },
+        { title: "BVN Validation Gate", icon: "card-account-details-outline", action: () => safeNavigate("BVNScreen") },
+        { title: "Utility Bill Settlement", icon: "flash-outline", action: () => safeNavigate("Electricity") },
+        { title: "Cable TV Subscriptions", icon: "television", action: () => safeNavigate("Cable") },
       ],
     },
     {
-      group: "Account & Security",
+      group: "Governance & Account",
       routes: [
-        { title: "Messages & News", icon: "bell-outline", action: () => safeNavigate("Notifications") },
-        { title: "My Profile Details", icon: "account-circle-outline", action: () => safeNavigate("Profile") },
-        { title: "Talk to Support (WhatsApp)", icon: "headset", action: openWhatsApp },
+        { title: "Support Operations Desk", icon: "headset", action: () => safeNavigate("SupportDashboard") },
+        { title: "My Profile File", icon: "account-box-outline", action: () => setProfileModalVisible(true) },
+        { title: "Update Transaction PIN", icon: "key-outline", action: () => safeNavigate("UpdatePin") },
+        { title: "Direct WhatsApp Line", icon: "whatsapp", action: openWhatsApp },
       ],
     },
   ];
@@ -373,12 +438,12 @@ const AgentDashboard = ({ navigation, route }) => {
         </View>
         <View style={{ flex: 1, marginLeft: 12 }}>
           <Text style={styles.sidebarBrandTitle}>Bellaj Data Hub</Text>
-          <Text style={styles.sidebarBrandTag}>Agent Menu</Text>
+          <Text style={styles.sidebarBrandTag}>Executive Agent Suite</Text>
         </View>
         {!isWeb && (
           <TouchableOpacity
             style={styles.sidebarCloseBtn}
-            onPress={() => setSidebarOpen(false)}
+            onPress={() => toggleSidebar(false)}
           >
             <Ionicons name="close" size={22} color={COLORS.white} />
           </TouchableOpacity>
@@ -388,15 +453,28 @@ const AgentDashboard = ({ navigation, route }) => {
       <ScrollView showsVerticalScrollIndicator={false} style={styles.sidebarScroll}>
         <TouchableOpacity
           style={[styles.sidebarMenuItem, styles.sidebarMenuItemActive]}
-          onPress={() => setSidebarOpen(false)}
+          onPress={() => toggleSidebar(false)}
         >
           <MaterialCommunityIcons name="view-dashboard" size={20} color={COLORS.white} />
           <Text style={[styles.sidebarMenuText, styles.sidebarMenuTextActive]}>
-            Home (Dashboard)
+            Overview Dashboard
           </Text>
         </TouchableOpacity>
 
-        {/* FINGERPRINT LOGIN SETUP SECTION IN SIDEBAR */}
+        {/* PROFILE ACTION IN SIDEBAR */}
+        <TouchableOpacity
+          style={styles.sidebarMenuItem}
+          onPress={() => {
+            toggleSidebar(false);
+            setProfileModalVisible(true);
+          }}
+        >
+          <Ionicons name="person-circle-outline" size={20} color="#94A3B8" />
+          <Text style={styles.sidebarMenuText}>Agent Identity File</Text>
+          <Ionicons name="chevron-forward" size={14} color="#64748B" />
+        </TouchableOpacity>
+
+        {/* FINGERPRINT ENROLLMENT */}
         <View style={styles.biometricSection}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
             <MaterialCommunityIcons
@@ -405,13 +483,13 @@ const AgentDashboard = ({ navigation, route }) => {
               color={biometricEnabled ? COLORS.secondary : "#CBD5E1"}
             />
             <View style={{ flex: 1 }}>
-              <Text style={styles.biometricTitle}>Fingerprint Login</Text>
+              <Text style={styles.biometricTitle}>Biometric Terminal</Text>
               <Text style={styles.biometricSubText}>
                 {biometricSupported
                   ? biometricEnabled
-                    ? "Active for quick login"
-                    : "Turn ON to login with finger"
-                  : "Not set on phone"}
+                    ? "Fingerprint login is ACTIVE"
+                    : "Enable instant touch login"
+                  : "Hardware not supported"}
               </Text>
             </View>
             <Switch
@@ -453,12 +531,12 @@ const AgentDashboard = ({ navigation, route }) => {
         <TouchableOpacity
           style={styles.sidebarLogoutBtn}
           onPress={() => {
-            setSidebarOpen(false);
+            toggleSidebar(false);
             setLogoutModalVisible(true);
           }}
         >
           <Ionicons name="power" size={18} color="#FCA5A5" />
-          <Text style={styles.sidebarLogoutText}>Logout (Sign Out)</Text>
+          <Text style={styles.sidebarLogoutText}>Sign Out of Console</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -472,23 +550,23 @@ const AgentDashboard = ({ navigation, route }) => {
         {/* Desktop Fixed Executive Sidebar */}
         {isWeb && <View style={styles.desktopSidebar}>{renderSidebarContent()}</View>}
 
-        {/* Mobile Slide-Out Sidebar Modal */}
-        {!isWeb && (
-          <Modal
-            visible={sidebarOpen}
-            animationType="fade"
-            transparent
-            onRequestClose={() => setSidebarOpen(false)}
+        {/* Mobile Animated Slide-Out Sidebar Drawer */}
+        {!isWeb && sidebarOpen && (
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => toggleSidebar(false)}
           >
-            <View style={styles.modalOverlay}>
-              <TouchableOpacity
-                style={styles.modalBackdropTap}
-                activeOpacity={1}
-                onPress={() => setSidebarOpen(false)}
-              />
-              <View style={styles.mobileSidebarContainer}>{renderSidebarContent()}</View>
-            </View>
-          </Modal>
+            <Animated.View
+              style={[
+                styles.mobileSidebarContainer,
+                { width: sidebarWidth, transform: [{ translateX: sidebarAnim }] },
+              ]}
+              onStartShouldSetResponder={() => true}
+            >
+              {renderSidebarContent()}
+            </Animated.View>
+          </TouchableOpacity>
         )}
 
         {/* Workspace Canvas */}
@@ -497,27 +575,36 @@ const AgentDashboard = ({ navigation, route }) => {
           <View style={styles.header}>
             <TouchableOpacity
               style={styles.headerIconBtn}
-              onPress={() => setSidebarOpen(true)}
+              onPress={() => toggleSidebar(true)}
               accessibilityLabel="Open Menu"
             >
               <Ionicons name="menu" size={26} color={COLORS.white} />
             </TouchableOpacity>
 
             <View style={styles.headerTextBox}>
-              <Text style={styles.headerTitle}>Agent Dashboard</Text>
+              <Text style={styles.headerTitle}>Agent Console</Text>
               <Text style={styles.headerSubtitle}>
                 Welcome, {agentName}
               </Text>
             </View>
 
+            {/* Profile Avatar Trigger Button */}
+            <TouchableOpacity
+              onPress={() => setProfileModalVisible(true)}
+              style={styles.profileAvatarBtn}
+            >
+              <Ionicons name="person" size={18} color={COLORS.primary} />
+            </TouchableOpacity>
+
+            {/* Real-time Notifications Bell with Live Badge */}
             <TouchableOpacity
               onPress={() => safeNavigate("Notifications")}
               style={styles.notificationBtn}
             >
-              <Ionicons name="notifications-outline" size={22} color={COLORS.white} />
+              <Ionicons name="notifications-outline" size={21} color={COLORS.white} />
               {unreadCount > 0 && (
                 <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{unreadCount}</Text>
+                  <Text style={styles.badgeText}>{unreadCount > 9 ? "9+" : unreadCount}</Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -526,7 +613,7 @@ const AgentDashboard = ({ navigation, route }) => {
               style={styles.logoutBtn}
               onPress={() => setLogoutModalVisible(true)}
             >
-              <Ionicons name="power" size={20} color={COLORS.white} />
+              <Ionicons name="power" size={19} color={COLORS.white} />
             </TouchableOpacity>
           </View>
 
@@ -555,11 +642,11 @@ const AgentDashboard = ({ navigation, route }) => {
                 <View style={styles.walletTop}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                     <MaterialCommunityIcons name="wallet-outline" size={18} color="#BBF7D0" />
-                    <Text style={styles.walletLabel}>Your Wallet Money</Text>
+                    <Text style={styles.walletLabel}>Authorized Wallet Balance</Text>
                   </View>
                   <TouchableOpacity onPress={() => safeNavigate("SalesHistory")}>
                     <Text style={styles.historyText}>
-                      See History <Ionicons name="chevron-forward" size={12} color={COLORS.white} />
+                      Audits <Ionicons name="chevron-forward" size={12} color={COLORS.white} />
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -585,57 +672,70 @@ const AgentDashboard = ({ navigation, route }) => {
                     onPress={() => safeNavigate("FundWallet")}
                     activeOpacity={0.88}
                   >
-                    <Ionicons name="add-circle" size={18} color={COLORS.white} />
-                    <Text style={styles.actionBtnText}>ADD MONEY</Text>
+                    <Ionicons name="add-circle" size={17} color={COLORS.white} />
+                    <Text style={styles.actionBtnText}>FUND WALLET</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={styles.newSaleBtn}
-                    onPress={() => safeNavigate("NewSale")}
+                    onPress={() => safeNavigate("BuyData")}
                     activeOpacity={0.88}
                   >
-                    <MaterialCommunityIcons name="cart-plus" size={18} color={COLORS.white} />
-                    <Text style={styles.actionBtnText}>SELL NOW</Text>
+                    <MaterialCommunityIcons name="cart-plus" size={17} color={COLORS.white} />
+                    <Text style={styles.actionBtnText}>SELL DATA</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={styles.supportBtn}
-                    onPress={openWhatsApp}
+                    onPress={() => safeNavigate("SupportDashboard")}
                     activeOpacity={0.88}
                   >
-                    <Ionicons name="logo-whatsapp" size={18} color="#22C55E" />
-                    <Text style={styles.actionBtnText}>HELP</Text>
+                    <Ionicons name="headset" size={17} color={COLORS.white} />
+                    <Text style={styles.actionBtnText}>SUPPORT</Text>
                   </TouchableOpacity>
                 </View>
               </View>
 
-              {/* Performance Cards */}
-              <View style={styles.statsGrid}>
-                <View style={[styles.statCard, { borderLeftColor: COLORS.primary }]}>
-                  <Text style={styles.statLabel}>Data Sold</Text>
-                  <Text style={styles.statValue}>
-                    {Number(performance.totalGB || 0).toLocaleString()} <Text style={styles.statUnit}>GB</Text>
-                  </Text>
+              {/* LIVE COMMERCIAL METRICS: DATA GB, AIRTIME & SERVICE REQUESTS */}
+              <View style={styles.liveMetricsContainer}>
+                <View style={styles.liveMetricCard}>
+                  <View style={[styles.liveMetricIconBox, { backgroundColor: "#DBEAFE" }]}>
+                    <Ionicons name="wifi" size={17} color="#2563EB" />
+                  </View>
+                  <Text style={styles.liveMetricNumber}>{performance.totalGB.toLocaleString()} GB</Text>
+                  <Text style={styles.liveMetricLabel}>Data Delivered</Text>
                 </View>
 
+                <View style={styles.liveMetricCard}>
+                  <View style={[styles.liveMetricIconBox, { backgroundColor: "#DCFCE7" }]}>
+                    <Ionicons name="call" size={17} color="#16A34A" />
+                  </View>
+                  <Text style={styles.liveMetricNumber}>₦{performance.totalAirtime.toLocaleString()}</Text>
+                  <Text style={styles.liveMetricLabel}>Airtime Sold</Text>
+                </View>
+
+                <View style={styles.liveMetricCard}>
+                  <View style={[styles.liveMetricIconBox, { backgroundColor: "#F3E8FF" }]}>
+                    <Ionicons name="layers" size={17} color="#9333EA" />
+                  </View>
+                  <Text style={styles.liveMetricNumber}>{performance.totalServiceRequests.toLocaleString()}</Text>
+                  <Text style={styles.liveMetricLabel}>VAS / Requests</Text>
+                </View>
+              </View>
+
+              {/* Financial Commissions & Performance */}
+              <View style={styles.statsGrid}>
                 <View style={[styles.statCard, { borderLeftColor: COLORS.secondary }]}>
-                  <Text style={styles.statLabel}>Total Sales</Text>
+                  <Text style={styles.statLabel}>Revenue Handled</Text>
                   <Text style={styles.statValue}>
                     ₦{Number(currentSales || 0).toLocaleString()}
                   </Text>
                 </View>
 
                 <View style={[styles.statCard, { borderLeftColor: COLORS.orange }]}>
-                  <Text style={styles.statLabel}>Your Commission</Text>
+                  <Text style={styles.statLabel}>Direct Commission</Text>
                   <Text style={[styles.statValue, { color: COLORS.orange }]}>
                     ₦{Number(performance.commissionsEarned || 0).toLocaleString()}
-                  </Text>
-                </View>
-
-                <View style={[styles.statCard, { borderLeftColor: COLORS.purple }]}>
-                  <Text style={styles.statLabel}>Bonus Earned</Text>
-                  <Text style={[styles.statValue, { color: COLORS.purple }]}>
-                    ₦{Number(performance.bonusEarned || 0).toLocaleString()}
                   </Text>
                 </View>
               </View>
@@ -644,7 +744,7 @@ const AgentDashboard = ({ navigation, route }) => {
               <View style={styles.targetCard}>
                 <View style={styles.targetHeader}>
                   <View>
-                    <Text style={styles.targetLabel}>Month Target</Text>
+                    <Text style={styles.targetLabel}>Operational Quota</Text>
                     <Text style={styles.targetValue}>₦{targetSales.toLocaleString()}</Text>
                   </View>
                   <View style={{ alignItems: "flex-end" }}>
@@ -667,16 +767,16 @@ const AgentDashboard = ({ navigation, route }) => {
 
                 <View style={styles.targetRowAlt}>
                   <Text style={styles.progressSubText}>
-                    Sold: <Text style={styles.boldText}>₦{currentSales.toLocaleString()}</Text>
+                    Realized: <Text style={styles.boldText}>₦{currentSales.toLocaleString()}</Text>
                   </Text>
                   <Text style={styles.remainingText}>
-                    Remaining: <Text style={styles.boldTextRed}>₦{remainingToTarget.toLocaleString()}</Text>
+                    Deficit: <Text style={styles.boldTextRed}>₦{remainingToTarget.toLocaleString()}</Text>
                   </Text>
                 </View>
               </View>
 
-              {/* Bank Account Details */}
-              <Text style={styles.sectionLabel}>Bank Account for Wallet Funding</Text>
+              {/* Dedicated Bank Accounts */}
+              <Text style={styles.sectionLabel}>Dedicated Settlement Bank Account</Text>
               <View style={styles.bankCardsWrapper}>
                 {userData?.accountNumber && userData?.accountNumber !== "Initialization Pending" ? (
                   <BankCard
@@ -687,16 +787,16 @@ const AgentDashboard = ({ navigation, route }) => {
                   />
                 ) : (
                   <BankCard
-                    bank="Bank Account Generating"
-                    acc="Please wait a moment..."
+                    bank="Virtual Account Allocation"
+                    acc="Generating credentials..."
                     code="POS"
-                    onCopy={() => Alert.alert("Wait", "Account number is loading.")}
+                    onCopy={() => Alert.alert("Wait", "Account details currently synchronizing.")}
                   />
                 )}
               </View>
 
-              {/* Services Grid */}
-              <Text style={styles.sectionLabel}>Services to Sell</Text>
+              {/* Quick Services Grid */}
+              <Text style={styles.sectionLabel}>Commercial Channels</Text>
               <View style={styles.servicesContainer}>
                 <View style={styles.grid}>
                   {quickServices.map((service, index) => (
@@ -707,7 +807,7 @@ const AgentDashboard = ({ navigation, route }) => {
                       activeOpacity={0.85}
                     >
                       <View style={styles.iconBox}>
-                        <FontAwesome5 name={service.icon} size={20} color={service.color} />
+                        <FontAwesome5 name={service.icon} size={19} color={service.color} />
                       </View>
                       <Text style={styles.gridLabel}>{service.label}</Text>
                     </TouchableOpacity>
@@ -715,21 +815,21 @@ const AgentDashboard = ({ navigation, route }) => {
                 </View>
               </View>
 
-              {/* Assigned Supervisor */}
+              {/* Field Supervisor Dossier */}
               <View style={styles.supervisorCard}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 }}>
                   <MaterialCommunityIcons name="shield-account" size={22} color={COLORS.secondary} />
-                  <Text style={styles.sectionTitle}>Your Supervisor</Text>
+                  <Text style={styles.sectionTitle}>Field Supervisory Command</Text>
                 </View>
 
                 {supervisor ? (
                   <View style={styles.supInfoBox}>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.supName}>
-                        {supervisor?.name || supervisor?.fullName || "Supervisor"}
+                        {supervisor?.name || supervisor?.fullName || "Assigned Supervisor"}
                       </Text>
                       <Text style={styles.supPhone}>
-                        {supervisor?.phone || supervisor?.email || "No phone number"}
+                        {supervisor?.phone || supervisor?.email || "No contact line available"}
                       </Text>
                     </View>
                     {supervisor?.phone ? (
@@ -737,14 +837,14 @@ const AgentDashboard = ({ navigation, route }) => {
                         style={styles.callSupBtn}
                         onPress={() => Linking.openURL(`tel:${supervisor.phone}`)}
                       >
-                        <Ionicons name="call" size={16} color={COLORS.white} />
+                        <Ionicons name="call" size={15} color={COLORS.white} />
                         <Text style={styles.callSupText}>Call</Text>
                       </TouchableOpacity>
                     ) : null}
                   </View>
                 ) : (
                   <Text style={styles.infoText}>
-                    Direct Account (No individual supervisor assigned).
+                    Direct Account: Reporting directly to central administrative desk.
                   </Text>
                 )}
               </View>
@@ -752,6 +852,70 @@ const AgentDashboard = ({ navigation, route }) => {
           )}
         </View>
       </View>
+
+      {/* ============================================================= */}
+      {/* PROFESSIONAL AGENT PROFILE MODAL */}
+      {/* ============================================================= */}
+      <Modal
+        visible={profileModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setProfileModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalBox, { maxHeight: "88%" }]}>
+            <View style={styles.profileModalHeader}>
+              <View style={styles.profileAvatarLarge}>
+                <Text style={styles.profileAvatarLargeText}>
+                  {agentName.charAt(0).toUpperCase()}
+                </Text>
+              </View>
+              <Text style={styles.profileModalName}>{agentName}</Text>
+              <View style={styles.roleBadgeModal}>
+                <Text style={styles.roleBadgeModalText}>AUTHORIZED RETAIL AGENT</Text>
+              </View>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={{ width: "100%", marginVertical: 12 }}>
+              <View style={styles.profileItemRow}>
+                <Text style={styles.profileItemLabel}>Email</Text>
+                <Text style={styles.profileItemValue}>{userData?.email || "N/A"}</Text>
+              </View>
+
+              <View style={styles.profileItemRow}>
+                <Text style={styles.profileItemLabel}>Telephone</Text>
+                <Text style={styles.profileItemValue}>{userData?.phone || "N/A"}</Text>
+              </View>
+
+              <View style={styles.profileItemRow}>
+                <Text style={styles.profileItemLabel}>State & Region</Text>
+                <Text style={styles.profileItemValue}>
+                  {userData?.lga ? `${userData.lga}, ` : ""}{userData?.state || "Gombe"}
+                </Text>
+              </View>
+
+              <View style={styles.profileItemRow}>
+                <Text style={styles.profileItemLabel}>Settlement Bank</Text>
+                <Text style={styles.profileItemValue}>{userData?.bankName || "Wema Bank"}</Text>
+              </View>
+
+              <View style={styles.profileItemRow}>
+                <Text style={styles.profileItemLabel}>Account Number</Text>
+                <Text style={[styles.profileItemValue, { fontWeight: "900", color: COLORS.primary }]}>
+                  {userData?.accountNumber || "Generating"}
+                </Text>
+              </View>
+            </ScrollView>
+
+            <TouchableOpacity
+              style={styles.modalCloseFullBtn}
+              onPress={() => setProfileModalVisible(false)}
+            >
+              <Text style={styles.modalCloseFullBtnText}>Close Identity File</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Logout Modal */}
       <Modal
@@ -763,11 +927,11 @@ const AgentDashboard = ({ navigation, route }) => {
         <View style={styles.modalBackdrop}>
           <View style={styles.modalBox}>
             <View style={styles.modalIconWrap}>
-              <Ionicons name="power" size={30} color={COLORS.danger} />
+              <Ionicons name="power" size={28} color={COLORS.danger} />
             </View>
-            <Text style={styles.modalHeading}>Leave Account?</Text>
+            <Text style={styles.modalHeading}>Terminate Session?</Text>
             <Text style={styles.modalSubheading}>
-              Are you sure you want to log out from this device?
+              Are you sure you want to sign out from this commercial terminal?
             </Text>
 
             <View style={styles.modalActionRow}>
@@ -787,7 +951,7 @@ const AgentDashboard = ({ navigation, route }) => {
                 {logoutProcessing ? (
                   <ActivityIndicator size="small" color={COLORS.white} />
                 ) : (
-                  <Text style={styles.modalConfirmText}>Log Out</Text>
+                  <Text style={styles.modalConfirmText}>Sign Out</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -809,12 +973,16 @@ const BankCard = ({ bank, acc, code, onCopy }) => (
         <Text style={styles.accNo}>{acc}</Text>
       </View>
     </View>
-    <Ionicons name="copy-outline" size={20} color={COLORS.primary} />
+    <Ionicons name="copy-outline" size={19} color={COLORS.primary} />
   </TouchableOpacity>
 );
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: COLORS.light },
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLORS.light,
+    ...(Platform.OS === "web" ? { minHeight: "100vh", height: "100%" } : {}),
+  },
   mainLayout: { flex: 1, flexDirection: "row", width: "100%" },
 
   desktopSidebar: {
@@ -825,74 +993,79 @@ const styles = StyleSheet.create({
   },
 
   modalOverlay: {
-    flex: 1,
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
     backgroundColor: "rgba(15, 23, 42, 0.7)",
-    flexDirection: "row",
+    zIndex: 999,
   },
-  modalBackdropTap: { flex: 1 },
   mobileSidebarContainer: {
-    width: 310,
-    maxWidth: "85%",
+    position: "absolute",
+    top: 0,
+    bottom: 0,
     backgroundColor: COLORS.sidebarBg,
-    height: "100%",
+    borderRightWidth: 1,
+    borderRightColor: COLORS.sidebarBorder,
   },
 
   sidebarInner: { flex: 1, display: "flex", flexDirection: "column" },
   sidebarHeader: {
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === "android" ? 48 : 26,
-    paddingBottom: 20,
+    paddingTop: Platform.OS === "android" ? 44 : 24,
+    paddingBottom: 18,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.sidebarBorder,
     flexDirection: "row",
     alignItems: "center",
   },
   sidebarBadgeBox: {
-    width: 42,
-    height: 42,
+    width: 40,
+    height: 40,
     borderRadius: 12,
     backgroundColor: COLORS.secondary,
     alignItems: "center",
     justifyContent: "center",
   },
-  sidebarBrandTitle: { color: COLORS.white, fontSize: 16, fontWeight: "900" },
-  sidebarBrandTag: { color: "#86EFAC", fontSize: 11, fontWeight: "600", marginTop: 2 },
+  sidebarBrandTitle: { color: COLORS.white, fontSize: 15, fontWeight: "900" },
+  sidebarBrandTag: { color: "#86EFAC", fontSize: 10.5, fontWeight: "600", marginTop: 2 },
   sidebarCloseBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(255,255,255,0.12)",
   },
-  sidebarScroll: { flex: 1, paddingHorizontal: 14, paddingTop: 14 },
+  sidebarScroll: { flex: 1, paddingHorizontal: 12, paddingTop: 12 },
 
   biometricSection: {
     backgroundColor: "rgba(255,255,255,0.06)",
     padding: 12,
     borderRadius: 12,
-    marginBottom: 16,
-    marginTop: 6,
+    marginBottom: 14,
+    marginTop: 4,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.1)",
   },
-  biometricTitle: { color: COLORS.white, fontWeight: "800", fontSize: 13 },
+  biometricTitle: { color: COLORS.white, fontWeight: "800", fontSize: 12.5 },
   biometricSubText: { color: "#94A3B8", fontSize: 10, marginTop: 2 },
 
-  sidebarSection: { marginTop: 14 },
+  sidebarSection: { marginTop: 12 },
   sidebarSectionTitle: {
     color: "#64748B",
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: "900",
     letterSpacing: 1,
-    marginBottom: 8,
+    marginBottom: 6,
     textTransform: "uppercase",
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
   },
   sidebarMenuItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 11,
+    paddingVertical: 10,
     paddingHorizontal: 10,
     borderRadius: 10,
     marginBottom: 4,
@@ -903,7 +1076,7 @@ const styles = StyleSheet.create({
   sidebarMenuText: {
     flex: 1,
     color: "#CBD5E1",
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: "700",
     marginLeft: 10,
   },
@@ -934,16 +1107,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   headerIconBtn: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
     borderRadius: 12,
     backgroundColor: "rgba(255,255,255,0.18)",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 10,
   },
+  profileAvatarBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#DCFCE7",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 8,
+  },
   headerTextBox: { flex: 1 },
-  headerTitle: { color: COLORS.white, fontSize: 18, fontWeight: "900" },
+  headerTitle: { color: COLORS.white, fontSize: 17, fontWeight: "900" },
   headerSubtitle: {
     color: "#DCFCE7",
     marginTop: 2,
@@ -951,8 +1133,8 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   notificationBtn: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
     borderRadius: 12,
     backgroundColor: "rgba(255,255,255,0.18)",
     alignItems: "center",
@@ -964,7 +1146,7 @@ const styles = StyleSheet.create({
     right: 2,
     top: 2,
     backgroundColor: COLORS.danger,
-    borderRadius: 10,
+    borderRadius: 9,
     minWidth: 16,
     height: 16,
     justifyContent: "center",
@@ -973,8 +1155,8 @@ const styles = StyleSheet.create({
   },
   badgeText: { color: COLORS.white, fontSize: 9, fontWeight: "900" },
   logoutBtn: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
     borderRadius: 12,
     backgroundColor: COLORS.danger,
     alignItems: "center",
@@ -994,36 +1176,37 @@ const styles = StyleSheet.create({
     padding: 30,
   },
   loaderText: { marginTop: 12, color: COLORS.primary, fontWeight: "800" },
+
   walletCard: {
     backgroundColor: COLORS.primary,
     borderRadius: 20,
-    padding: 20,
-    marginBottom: 16,
+    padding: 18,
+    marginBottom: 12,
   },
   walletTop: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-  walletLabel: { color: "#FFE4E4", fontSize: 12, fontWeight: "700" },
-  historyText: { color: COLORS.white, fontSize: 12, fontWeight: "800" },
-  balanceContainer: { flexDirection: "row", alignItems: "center", marginVertical: 12 },
-  currency: { color: COLORS.white, fontSize: 22, fontWeight: "800" },
+  walletLabel: { color: "#FFE4E4", fontSize: 11.5, fontWeight: "700" },
+  historyText: { color: COLORS.white, fontSize: 11.5, fontWeight: "800" },
+  balanceContainer: { flexDirection: "row", alignItems: "center", marginVertical: 10 },
+  currency: { color: COLORS.white, fontSize: 20, fontWeight: "800" },
   balanceText: {
     color: COLORS.white,
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: "900",
     marginLeft: 6,
   },
   walletActions: {
     flexDirection: "row",
     gap: 8,
-    marginTop: 6,
+    marginTop: 4,
   },
   actionBtn: {
     flex: 1,
-    height: 44,
-    borderRadius: 12,
+    height: 42,
+    borderRadius: 10,
     backgroundColor: COLORS.secondary,
     flexDirection: "row",
     justifyContent: "center",
@@ -1032,8 +1215,8 @@ const styles = StyleSheet.create({
   },
   newSaleBtn: {
     flex: 1,
-    height: 44,
-    borderRadius: 12,
+    height: 42,
+    borderRadius: 10,
     backgroundColor: COLORS.accent,
     flexDirection: "row",
     justifyContent: "center",
@@ -1042,9 +1225,9 @@ const styles = StyleSheet.create({
   },
   supportBtn: {
     flex: 1,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: "rgba(255,255,255,0.15)",
+    height: 42,
+    borderRadius: 10,
+    backgroundColor: COLORS.teal,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
@@ -1053,138 +1236,179 @@ const styles = StyleSheet.create({
   actionBtnText: {
     color: COLORS.white,
     fontWeight: "900",
-    fontSize: 11,
+    fontSize: 10.5,
   },
+
+  // LIVE OPERATIONAL METRICS
+  liveMetricsContainer: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 12,
+  },
+  liveMetricCard: {
+    flex: 1,
+    backgroundColor: COLORS.card,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  liveMetricIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
+  liveMetricNumber: {
+    fontSize: 12.5,
+    fontWeight: "900",
+    color: COLORS.dark,
+    textAlign: "center",
+  },
+  liveMetricLabel: {
+    fontSize: 9.5,
+    fontWeight: "700",
+    color: COLORS.muted,
+    marginTop: 2,
+    textAlign: "center",
+  },
+
   statsGrid: {
     flexDirection: "row",
-    flexWrap: "wrap",
     justifyContent: "space-between",
-    rowGap: 10,
-    marginBottom: 16,
+    gap: 8,
+    marginBottom: 12,
   },
   statCard: {
-    width: "48.5%",
+    flex: 1,
+    backgroundColor: COLORS.white,
+    padding: 12,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  statLabel: { fontSize: 10.5, color: COLORS.muted, fontWeight: "800" },
+  statValue: { fontSize: 15, fontWeight: "900", color: COLORS.dark, marginTop: 4 },
+
+  targetCard: {
     backgroundColor: COLORS.white,
     padding: 14,
     borderRadius: 14,
-    borderLeftWidth: 5,
     borderWidth: 1,
     borderColor: COLORS.border,
-  },
-  statLabel: { fontSize: 11, color: COLORS.muted, fontWeight: "800" },
-  statValue: { fontSize: 16, fontWeight: "900", color: COLORS.dark, marginTop: 4 },
-  statUnit: { fontSize: 12, color: COLORS.muted },
-  targetCard: {
-    backgroundColor: COLORS.white,
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   targetHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   targetRowAlt: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 10,
+    marginTop: 8,
   },
-  targetLabel: { fontSize: 11, color: COLORS.muted, fontWeight: "700" },
-  targetValue: { fontSize: 15, fontWeight: "900", color: COLORS.dark },
-  percentageText: { fontSize: 18, fontWeight: "900", color: COLORS.secondary },
+  targetLabel: { fontSize: 10.5, color: COLORS.muted, fontWeight: "700" },
+  targetValue: { fontSize: 14, fontWeight: "900", color: COLORS.dark },
+  percentageText: { fontSize: 16, fontWeight: "900", color: COLORS.secondary },
   progressTrack: {
     width: "100%",
-    height: 8,
+    height: 7,
     backgroundColor: COLORS.border,
     borderRadius: 4,
-    marginTop: 12,
+    marginTop: 10,
     overflow: "hidden",
   },
   progressBar: { height: "100%", borderRadius: 4 },
-  progressSubText: { fontSize: 11, color: COLORS.muted, fontWeight: "600" },
-  remainingText: { fontSize: 11, color: COLORS.muted, fontWeight: "600" },
+  progressSubText: { fontSize: 10.5, color: COLORS.muted, fontWeight: "600" },
+  remainingText: { fontSize: 10.5, color: COLORS.muted, fontWeight: "600" },
   boldText: { fontWeight: "900", color: COLORS.dark },
   boldTextRed: { fontWeight: "900", color: COLORS.danger },
+
   sectionLabel: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "900",
     color: COLORS.dark,
-    marginBottom: 10,
-    letterSpacing: 0.3,
+    marginBottom: 8,
+    letterSpacing: 0.2,
   },
   bankCardsWrapper: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
   bankBox: {
     backgroundColor: COLORS.white,
-    padding: 14,
-    borderRadius: 14,
+    padding: 12,
+    borderRadius: 12,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderLeftWidth: 5,
+    borderLeftWidth: 4,
     borderLeftColor: COLORS.primary,
   },
   bankInfo: { flexDirection: "row", alignItems: "center" },
   bankLogoCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
+    width: 34,
+    height: 34,
+    borderRadius: 8,
     backgroundColor: "#FEE2E2",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 10,
   },
-  bankLogoText: { color: COLORS.danger, fontWeight: "900", fontSize: 12 },
-  bankTitle: { fontSize: 11, color: COLORS.muted, fontWeight: "700" },
-  accNo: { fontSize: 15, color: COLORS.dark, fontWeight: "900" },
+  bankLogoText: { color: COLORS.danger, fontWeight: "900", fontSize: 11 },
+  bankTitle: { fontSize: 10.5, color: COLORS.muted, fontWeight: "700" },
+  accNo: { fontSize: 14, color: COLORS.dark, fontWeight: "900" },
+
   servicesContainer: {
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 16,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 14,
     backgroundColor: COLORS.white,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   grid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
-  gridItem: { width: "31%", alignItems: "center", marginBottom: 14 },
+  gridItem: { width: "31%", alignItems: "center", marginBottom: 12 },
   iconBox: {
-    width: 50,
-    height: 50,
-    borderRadius: 14,
+    width: 46,
+    height: 46,
+    borderRadius: 12,
     backgroundColor: COLORS.light,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 6,
+    marginBottom: 5,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   gridLabel: {
     color: COLORS.dark,
-    fontSize: 11,
+    fontSize: 10.5,
     textAlign: "center",
     fontWeight: "800",
   },
+
   supervisorCard: {
     backgroundColor: COLORS.white,
     padding: 14,
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderLeftWidth: 5,
+    borderLeftWidth: 4,
     borderLeftColor: COLORS.secondary,
     marginBottom: 14,
   },
-  sectionTitle: { fontSize: 14, fontWeight: "900", color: COLORS.dark },
+  sectionTitle: { fontSize: 13, fontWeight: "900", color: COLORS.dark },
   supInfoBox: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  supName: { fontWeight: "900", fontSize: 14, color: COLORS.dark },
-  supPhone: { color: COLORS.secondary, marginTop: 2, fontWeight: "700", fontSize: 12 },
+  supName: { fontWeight: "900", fontSize: 13.5, color: COLORS.dark },
+  supPhone: { color: COLORS.secondary, marginTop: 2, fontWeight: "700", fontSize: 11.5 },
   callSupBtn: {
     backgroundColor: COLORS.secondary,
     paddingHorizontal: 12,
@@ -1194,8 +1418,79 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 4,
   },
-  callSupText: { color: COLORS.white, fontWeight: "800", fontSize: 12 },
-  infoText: { color: COLORS.muted, fontWeight: "600", fontSize: 12 },
+  callSupText: { color: COLORS.white, fontWeight: "800", fontSize: 11.5 },
+  infoText: { color: COLORS.muted, fontWeight: "600", fontSize: 11.5 },
+
+  // PROFILE MODAL STYLES
+  profileModalHeader: {
+    alignItems: "center",
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    width: "100%",
+  },
+  profileAvatarLarge: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: "#DCFCE7",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  profileAvatarLargeText: {
+    fontSize: 26,
+    fontWeight: "900",
+    color: COLORS.primary,
+  },
+  profileModalName: {
+    fontSize: 16,
+    fontWeight: "900",
+    color: COLORS.dark,
+  },
+  roleBadgeModal: {
+    backgroundColor: COLORS.softGreen,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 20,
+    marginTop: 4,
+  },
+  roleBadgeModalText: {
+    fontSize: 9.5,
+    fontWeight: "900",
+    color: COLORS.secondary,
+  },
+  profileItemRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  profileItemLabel: {
+    fontSize: 11.5,
+    fontWeight: "700",
+    color: COLORS.muted,
+  },
+  profileItemValue: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: COLORS.dark,
+  },
+  modalCloseFullBtn: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: "center",
+    width: "100%",
+    marginTop: 8,
+  },
+  modalCloseFullBtnText: {
+    color: COLORS.white,
+    fontWeight: "900",
+    fontSize: 12.5,
+  },
+
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(15, 23, 42, 0.7)",
@@ -1205,36 +1500,36 @@ const styles = StyleSheet.create({
   },
   modalBox: {
     width: "100%",
-    maxWidth: 380,
+    maxWidth: 420,
     backgroundColor: COLORS.white,
     borderRadius: 20,
-    padding: 22,
+    padding: 20,
     alignItems: "center",
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   modalIconWrap: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     backgroundColor: "#FEE2E2",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 14,
+    marginBottom: 12,
   },
   modalHeading: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "900",
     color: COLORS.dark,
-    marginBottom: 6,
+    marginBottom: 4,
     textAlign: "center",
   },
   modalSubheading: {
-    fontSize: 12,
+    fontSize: 11.5,
     color: COLORS.muted,
     textAlign: "center",
-    marginBottom: 18,
-    lineHeight: 18,
+    marginBottom: 16,
+    lineHeight: 16,
   },
   modalActionRow: {
     flexDirection: "row",
@@ -1246,28 +1541,28 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.light,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 12,
-    paddingVertical: 12,
+    borderRadius: 10,
+    paddingVertical: 11,
     alignItems: "center",
     justifyContent: "center",
   },
   modalCancelText: {
     color: COLORS.dark,
     fontWeight: "800",
-    fontSize: 13,
+    fontSize: 12.5,
   },
   modalConfirmBtn: {
     flex: 1,
     backgroundColor: COLORS.danger,
-    borderRadius: 12,
-    paddingVertical: 12,
+    borderRadius: 10,
+    paddingVertical: 11,
     alignItems: "center",
     justifyContent: "center",
   },
   modalConfirmText: {
     color: COLORS.white,
     fontWeight: "900",
-    fontSize: 13,
+    fontSize: 12.5,
   },
 });
 

@@ -1,11 +1,10 @@
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Image,
   StatusBar,
   ToastAndroid,
   Linking,
@@ -17,6 +16,7 @@ import {
   SafeAreaView,
   Switch,
   useWindowDimensions,
+  Animated,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import * as LocalAuthentication from "expo-local-authentication";
@@ -25,7 +25,6 @@ import {
   Ionicons,
   FontAwesome5,
 } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { CommonActions } from "@react-navigation/native";
@@ -45,6 +44,7 @@ const COLORS = {
   accent: "#2563EB",
   purple: "#7C3AED",
   orange: "#EA580C",
+  teal: "#0D9488",
   sidebarBg: "#062819",
   sidebarBorder: "#0c3b26",
 };
@@ -61,6 +61,11 @@ const HomeScreen = ({ navigation, route }) => {
 
   // Sidebar Controls
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const sidebarWidth = isWeb ? 280 : Math.min(width * 0.82, 320);
+  const sidebarAnim = useRef(new Animated.Value(-sidebarWidth)).current;
+
+  // Profile Modal State
+  const [profileModalVisible, setProfileModalVisible] = useState(false);
 
   // Biometric Setup State
   const [biometricEnabled, setBiometricEnabled] = useState(false);
@@ -98,16 +103,21 @@ const HomeScreen = ({ navigation, route }) => {
     );
   };
 
-  const fetchWithFallback = async (endpoints, config) => {
-    for (const url of endpoints) {
-      try {
-        const res = await axios.get(url, config);
-        if (res?.data) return res.data;
-      } catch {
-        // Fallback chain
-      }
+  const toggleSidebar = (open) => {
+    if (open) {
+      setSidebarOpen(true);
+      Animated.timing(sidebarAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: false,
+      }).start();
+    } else {
+      Animated.timing(sidebarAnim, {
+        toValue: -sidebarWidth,
+        duration: 220,
+        useNativeDriver: false,
+      }).start(() => setSidebarOpen(false));
     }
-    return null;
   };
 
   const checkBiometricSetup = useCallback(async () => {
@@ -131,8 +141,8 @@ const HomeScreen = ({ navigation, route }) => {
 
         if (!hasHardware || !isEnrolled) {
           Alert.alert(
-            "Fingerprint Not Ready",
-            "Please register a fingerprint or face scan on your device settings first."
+            "Biometrics Unavailable",
+            "Please configure biometric lock on your phone settings first."
           );
           return;
         }
@@ -159,12 +169,45 @@ const HomeScreen = ({ navigation, route }) => {
     }
   };
 
+  // Real-time notification synchronization
+  const syncLiveNotifications = useCallback(async () => {
+    try {
+      const config = await getAuthHeaders();
+      const notificationEndpoints = [
+        `${BASE_URL}/notifications/unread`,
+        `${BASE_URL}/notifications`,
+        `${BASE_URL}/user/notifications`,
+      ];
+
+      for (const url of notificationEndpoints) {
+        try {
+          const res = await axios.get(url, config);
+          if (res?.data) {
+            const payload = res.data;
+            let count = 0;
+            if (typeof payload?.count === "number") {
+              count = payload.count;
+            } else if (typeof payload?.data?.count === "number") {
+              count = payload.data.count;
+            } else {
+              const list = payload?.data || payload?.notifications || payload || [];
+              if (Array.isArray(list)) {
+                count = list.filter((n) => !n.isRead && !n.read).length;
+              }
+            }
+            setNotificationCount(count);
+            break;
+          }
+        } catch {}
+      }
+    } catch {}
+  }, []);
+
   const fetchUserData = useCallback(async () => {
     try {
       setLoading(true);
       const config = await getAuthHeaders();
 
-      // Read local cache immediately to prevent layout shifts
       const cached = await AsyncStorage.getItem("userData");
       if (cached) {
         try {
@@ -174,45 +217,20 @@ const HomeScreen = ({ navigation, route }) => {
 
       await checkBiometricSetup();
 
-      const profileEndpoints = [
-        `${BASE_URL}/auth/me`,
-        `${BASE_URL}/user/profile`,
-        `${BASE_URL}/users/profile`,
-      ];
-      const walletEndpoints = [
-        `${BASE_URL}/wallet/details`,
-        `${BASE_URL}/wallet/balance`,
-        `${BASE_URL}/user/wallet`,
-      ];
-      const notificationEndpoints = [
-        `${BASE_URL}/notifications/unread`,
-        `${BASE_URL}/notifications`,
-      ];
-
-      const [profileRes, walletRes, notifRes] = await Promise.allSettled([
-        fetchWithFallback(profileEndpoints, config),
-        fetchWithFallback(walletEndpoints, config),
-        fetchWithFallback(notificationEndpoints, config),
+      const [profileRes, walletRes] = await Promise.allSettled([
+        axios.get(`${BASE_URL}/users/profile`, config).catch(() => axios.get(`${BASE_URL}/auth/me`, config)),
+        axios.get(`${BASE_URL}/wallet/details`, config).catch(() => axios.get(`${BASE_URL}/wallet/balance`, config)),
       ]);
 
       let profileData = {};
       let walletData = {};
 
-      if (profileRes.status === "fulfilled" && profileRes.value) {
-        profileData = normalizeUser(profileRes.value) || {};
+      if (profileRes.status === "fulfilled" && profileRes.value?.data) {
+        profileData = normalizeUser(profileRes.value.data) || {};
       }
 
-      if (walletRes.status === "fulfilled" && walletRes.value) {
-        walletData = normalizeUser(walletRes.value) || {};
-      }
-
-      if (notifRes.status === "fulfilled" && notifRes.value) {
-        const payload = notifRes.value;
-        setNotificationCount(
-          payload?.count ??
-          payload?.data?.count ??
-          (Array.isArray(payload?.data) ? payload.data.filter((n) => !n.isRead).length : 0)
-        );
+      if (walletRes.status === "fulfilled" && walletRes.value?.data) {
+        walletData = normalizeUser(walletRes.value.data) || {};
       }
 
       const merged = { ...profileData, ...walletData };
@@ -220,36 +238,30 @@ const HomeScreen = ({ navigation, route }) => {
         setUserData(merged);
         await AsyncStorage.setItem("userData", JSON.stringify(merged));
       }
+
+      await syncLiveNotifications();
     } catch {
-      // Retain state
+      // Retain previous state
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [checkBiometricSetup]);
+  }, [checkBiometricSetup, syncLiveNotifications]);
 
   useEffect(() => {
     fetchUserData();
-  }, [fetchUserData]);
+    // Live notification polling interval
+    const notifTimer = setInterval(syncLiveNotifications, 15000);
+    return () => clearInterval(notifTimer);
+  }, [fetchUserData, syncLiveNotifications]);
 
   const onRefresh = () => {
     setRefreshing(true);
     fetchUserData();
   };
 
-  const goBack = () => {
-    if (route?.params?.backScreen && route.params.backScreen !== "Dashboard") {
-      navigation.navigate(route.params.backScreen);
-      return;
-    }
-    if (navigation.canGoBack?.()) {
-      navigation.goBack();
-      return;
-    }
-  };
-
   const safeNavigate = (screenName, params = {}) => {
-    setSidebarOpen(false);
+    toggleSidebar(false);
     if (!screenName || screenName === "Dashboard") return;
 
     try {
@@ -277,19 +289,14 @@ const HomeScreen = ({ navigation, route }) => {
       ]);
 
       setLogoutModalVisible(false);
-      setSidebarOpen(false);
+      toggleSidebar(false);
 
-      try {
-        navigation.dispatch(
-          CommonActions.reset({
-            index: 0,
-            routes: [{ name: "Login" }],
-          })
-        );
-        return;
-      } catch {}
-
-      navigation.navigate("Login");
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: "Login" }],
+        })
+      );
     } catch {
       if (Platform.OS === "web" && typeof window !== "undefined") {
         window.location.reload();
@@ -379,7 +386,7 @@ const HomeScreen = ({ navigation, route }) => {
       group: "Account & Support",
       routes: [
         { title: "Notifications & News", icon: "bell-outline", action: () => safeNavigate("Notifications") },
-        { title: "Profile Credentials", icon: "account-circle-outline", action: () => safeNavigate("Profile") },
+        { title: "Update Transaction PIN", icon: "key-outline", action: () => safeNavigate("UpdatePin") },
         { title: "Customer Support Desk", icon: "headset", action: openWhatsApp },
       ],
     },
@@ -398,7 +405,7 @@ const HomeScreen = ({ navigation, route }) => {
         {!isWeb && (
           <TouchableOpacity
             style={styles.sidebarCloseBtn}
-            onPress={() => setSidebarOpen(false)}
+            onPress={() => toggleSidebar(false)}
           >
             <Ionicons name="close" size={22} color={COLORS.white} />
           </TouchableOpacity>
@@ -408,7 +415,7 @@ const HomeScreen = ({ navigation, route }) => {
       <ScrollView showsVerticalScrollIndicator={false} style={styles.sidebarScroll}>
         <TouchableOpacity
           style={[styles.sidebarMenuItem, styles.sidebarMenuItemActive]}
-          onPress={() => setSidebarOpen(false)}
+          onPress={() => toggleSidebar(false)}
         >
           <MaterialCommunityIcons name="view-dashboard" size={20} color={COLORS.white} />
           <Text style={[styles.sidebarMenuText, styles.sidebarMenuTextActive]}>
@@ -416,7 +423,20 @@ const HomeScreen = ({ navigation, route }) => {
           </Text>
         </TouchableOpacity>
 
-        {/* Unified Fingerprint Setup Section in Sidebar */}
+        {/* Profile Details Shortcut Inside Drawer */}
+        <TouchableOpacity
+          style={styles.sidebarMenuItem}
+          onPress={() => {
+            toggleSidebar(false);
+            setProfileModalVisible(true);
+          }}
+        >
+          <Ionicons name="person-circle-outline" size={20} color="#94A3B8" />
+          <Text style={styles.sidebarMenuText}>My Profile Details</Text>
+          <Ionicons name="chevron-forward" size={14} color="#64748B" />
+        </TouchableOpacity>
+
+        {/* Biometrics Toggle Setting */}
         <View style={styles.biometricSection}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
             <MaterialCommunityIcons
@@ -473,7 +493,7 @@ const HomeScreen = ({ navigation, route }) => {
         <TouchableOpacity
           style={styles.sidebarLogoutBtn}
           onPress={() => {
-            setSidebarOpen(false);
+            toggleSidebar(false);
             setLogoutModalVisible(true);
           }}
         >
@@ -492,23 +512,23 @@ const HomeScreen = ({ navigation, route }) => {
         {/* Desktop Fixed Executive Sidebar */}
         {isWeb && <View style={styles.desktopSidebar}>{renderSidebarContent()}</View>}
 
-        {/* Mobile Slide-Out Sidebar Modal */}
-        {!isWeb && (
-          <Modal
-            visible={sidebarOpen}
-            animationType="fade"
-            transparent
-            onRequestClose={() => setSidebarOpen(false)}
+        {/* Mobile Slide-Out Animated Sidebar Drawer */}
+        {!isWeb && sidebarOpen && (
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => toggleSidebar(false)}
           >
-            <View style={styles.modalOverlay}>
-              <TouchableOpacity
-                style={styles.modalBackdropTap}
-                activeOpacity={1}
-                onPress={() => setSidebarOpen(false)}
-              />
-              <View style={styles.mobileSidebarContainer}>{renderSidebarContent()}</View>
-            </View>
-          </Modal>
+            <Animated.View
+              style={[
+                styles.mobileSidebarContainer,
+                { width: sidebarWidth, transform: [{ translateX: sidebarAnim }] },
+              ]}
+              onStartShouldSetResponder={() => true}
+            >
+              {renderSidebarContent()}
+            </Animated.View>
+          </TouchableOpacity>
         )}
 
         {/* Workspace Canvas */}
@@ -517,7 +537,7 @@ const HomeScreen = ({ navigation, route }) => {
           <View style={styles.header}>
             <TouchableOpacity
               style={styles.headerIconBtn}
-              onPress={() => setSidebarOpen(true)}
+              onPress={() => toggleSidebar(true)}
               accessibilityLabel="Open Navigation Sidebar"
             >
               <Ionicons name="menu" size={26} color={COLORS.white} />
@@ -530,6 +550,15 @@ const HomeScreen = ({ navigation, route }) => {
               </Text>
             </View>
 
+            {/* Profile Avatar Icon in Header */}
+            <TouchableOpacity
+              onPress={() => setProfileModalVisible(true)}
+              style={styles.profileAvatarBtn}
+            >
+              <Ionicons name="person" size={18} color={COLORS.primary} />
+            </TouchableOpacity>
+
+            {/* Real-time Notifications Bell with Dynamic Badge */}
             <TouchableOpacity
               onPress={() => safeNavigate("Notifications")}
               style={styles.notificationBtn}
@@ -537,7 +566,9 @@ const HomeScreen = ({ navigation, route }) => {
               <Ionicons name="notifications-outline" size={22} color={COLORS.white} />
               {notificationCount > 0 && (
                 <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{notificationCount}</Text>
+                  <Text style={styles.badgeText}>
+                    {notificationCount > 9 ? "9+" : notificationCount}
+                  </Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -684,7 +715,71 @@ const HomeScreen = ({ navigation, route }) => {
         </View>
       </View>
 
-      {/* Cross-Platform Universal Logout Dialog */}
+      {/* ============================================================= */}
+      {/* PROFESSIONAL PROFILE CREDENTIALS MODAL */}
+      {/* ============================================================= */}
+      <Modal
+        visible={profileModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setProfileModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalBox, { maxHeight: "88%" }]}>
+            <View style={styles.profileModalHeader}>
+              <View style={styles.profileAvatarLarge}>
+                <Text style={styles.profileAvatarLargeText}>
+                  {userName.charAt(0).toUpperCase()}
+                </Text>
+              </View>
+              <Text style={styles.profileModalName}>{userName}</Text>
+              <View style={styles.roleBadgeModal}>
+                <Text style={styles.roleBadgeModalText}>SUBSCRIBER ACCOUNT</Text>
+              </View>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={{ width: "100%", marginVertical: 12 }}>
+              <View style={styles.profileItemRow}>
+                <Text style={styles.profileItemLabel}>Email Address</Text>
+                <Text style={styles.profileItemValue}>{userData?.email || "Not Provided"}</Text>
+              </View>
+
+              <View style={styles.profileItemRow}>
+                <Text style={styles.profileItemLabel}>Phone Number</Text>
+                <Text style={styles.profileItemValue}>{userData?.phone || "Not Provided"}</Text>
+              </View>
+
+              <View style={styles.profileItemRow}>
+                <Text style={styles.profileItemLabel}>State & Region</Text>
+                <Text style={styles.profileItemValue}>
+                  {userData?.lga ? `${userData.lga}, ` : ""}{userData?.state || "Gombe"}
+                </Text>
+              </View>
+
+              <View style={styles.profileItemRow}>
+                <Text style={styles.profileItemLabel}>Virtual Bank</Text>
+                <Text style={styles.profileItemValue}>{bankName}</Text>
+              </View>
+
+              <View style={styles.profileItemRow}>
+                <Text style={styles.profileItemLabel}>Dedicated Account</Text>
+                <Text style={[styles.profileItemValue, { fontWeight: "900", color: COLORS.primary }]}>
+                  {accountNumber || "Generating..."}
+                </Text>
+              </View>
+            </ScrollView>
+
+            <TouchableOpacity
+              style={styles.modalCloseFullBtn}
+              onPress={() => setProfileModalVisible(false)}
+            >
+              <Text style={styles.modalCloseFullBtnText}>Close Profile File</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Universal Logout Dialog */}
       <Modal
         visible={logoutModalVisible}
         transparent
@@ -760,10 +855,13 @@ const TrustItem = ({ icon, title, sub, color, bg }) => (
 );
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: COLORS.light },
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLORS.light,
+    ...(Platform.OS === "web" ? { minHeight: "100vh", height: "100%" } : {}),
+  },
   mainLayout: { flex: 1, flexDirection: "row", width: "100%" },
 
-  // Desktop Fixed Sidebar
   desktopSidebar: {
     width: 280,
     backgroundColor: COLORS.sidebarBg,
@@ -771,76 +869,80 @@ const styles = StyleSheet.create({
     borderRightColor: COLORS.sidebarBorder,
   },
 
-  // Mobile Slide Modal Sidebar
   modalOverlay: {
-    flex: 1,
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
     backgroundColor: "rgba(15, 23, 42, 0.7)",
-    flexDirection: "row",
+    zIndex: 999,
   },
-  modalBackdropTap: { flex: 1 },
   mobileSidebarContainer: {
-    width: 310,
-    maxWidth: "85%",
+    position: "absolute",
+    top: 0,
+    bottom: 0,
     backgroundColor: COLORS.sidebarBg,
-    height: "100%",
+    borderRightWidth: 1,
+    borderRightColor: COLORS.sidebarBorder,
   },
 
   sidebarInner: { flex: 1, display: "flex", flexDirection: "column" },
   sidebarHeader: {
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === "android" ? 48 : 26,
-    paddingBottom: 20,
+    paddingTop: Platform.OS === "android" ? 44 : 24,
+    paddingBottom: 18,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.sidebarBorder,
     flexDirection: "row",
     alignItems: "center",
   },
   sidebarBadgeBox: {
-    width: 42,
-    height: 42,
+    width: 40,
+    height: 40,
     borderRadius: 12,
     backgroundColor: COLORS.secondary,
     alignItems: "center",
     justifyContent: "center",
   },
-  sidebarBrandTitle: { color: COLORS.white, fontSize: 16, fontWeight: "900" },
-  sidebarBrandTag: { color: "#86EFAC", fontSize: 11, fontWeight: "600", marginTop: 2 },
+  sidebarBrandTitle: { color: COLORS.white, fontSize: 15, fontWeight: "900" },
+  sidebarBrandTag: { color: "#86EFAC", fontSize: 10.5, fontWeight: "600", marginTop: 2 },
   sidebarCloseBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(255,255,255,0.12)",
   },
-  sidebarScroll: { flex: 1, paddingHorizontal: 14, paddingTop: 14 },
+  sidebarScroll: { flex: 1, paddingHorizontal: 12, paddingTop: 12 },
 
   biometricSection: {
     backgroundColor: "rgba(255,255,255,0.06)",
     padding: 12,
     borderRadius: 12,
-    marginBottom: 16,
-    marginTop: 6,
+    marginBottom: 14,
+    marginTop: 4,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.1)",
   },
-  biometricTitle: { color: COLORS.white, fontWeight: "800", fontSize: 13 },
+  biometricTitle: { color: COLORS.white, fontWeight: "800", fontSize: 12.5 },
   biometricSubText: { color: "#94A3B8", fontSize: 10, marginTop: 2 },
 
-  sidebarSection: { marginTop: 14 },
+  sidebarSection: { marginTop: 12 },
   sidebarSectionTitle: {
     color: "#64748B",
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: "900",
     letterSpacing: 1,
-    marginBottom: 8,
+    marginBottom: 6,
     textTransform: "uppercase",
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
   },
   sidebarMenuItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 11,
+    paddingVertical: 10,
     paddingHorizontal: 10,
     borderRadius: 10,
     marginBottom: 4,
@@ -851,7 +953,7 @@ const styles = StyleSheet.create({
   sidebarMenuText: {
     flex: 1,
     color: "#CBD5E1",
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: "700",
     marginLeft: 10,
   },
@@ -882,16 +984,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   headerIconBtn: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
     borderRadius: 12,
     backgroundColor: "rgba(255,255,255,0.18)",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 10,
   },
+  profileAvatarBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#DCFCE7",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 8,
+  },
   headerTextBox: { flex: 1 },
-  headerTitle: { color: COLORS.white, fontSize: 18, fontWeight: "900" },
+  headerTitle: { color: COLORS.white, fontSize: 17, fontWeight: "900" },
   headerSubtitle: {
     color: "#DCFCE7",
     marginTop: 2,
@@ -899,8 +1010,8 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   notificationBtn: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
     borderRadius: 12,
     backgroundColor: "rgba(255,255,255,0.18)",
     alignItems: "center",
@@ -912,7 +1023,7 @@ const styles = StyleSheet.create({
     right: 2,
     top: 2,
     backgroundColor: COLORS.danger,
-    borderRadius: 10,
+    borderRadius: 9,
     minWidth: 16,
     height: 16,
     justifyContent: "center",
@@ -921,8 +1032,8 @@ const styles = StyleSheet.create({
   },
   badgeText: { color: COLORS.white, fontSize: 9, fontWeight: "900" },
   logoutBtn: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
     borderRadius: 12,
     backgroundColor: COLORS.danger,
     alignItems: "center",
@@ -945,33 +1056,33 @@ const styles = StyleSheet.create({
   walletCard: {
     backgroundColor: COLORS.primary,
     borderRadius: 20,
-    padding: 20,
-    marginBottom: 16,
+    padding: 18,
+    marginBottom: 14,
   },
   walletTop: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-  walletLabel: { color: "#FFE4E4", fontSize: 12, fontWeight: "700" },
-  historyText: { color: COLORS.white, fontSize: 12, fontWeight: "800" },
-  balanceContainer: { flexDirection: "row", alignItems: "center", marginVertical: 12 },
-  currency: { color: COLORS.white, fontSize: 22, fontWeight: "800" },
+  walletLabel: { color: "#FFE4E4", fontSize: 11.5, fontWeight: "700" },
+  historyText: { color: COLORS.white, fontSize: 11.5, fontWeight: "800" },
+  balanceContainer: { flexDirection: "row", alignItems: "center", marginVertical: 10 },
+  currency: { color: COLORS.white, fontSize: 20, fontWeight: "800" },
   balanceText: {
     color: COLORS.white,
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: "900",
     marginLeft: 6,
   },
   walletActions: {
     flexDirection: "row",
     gap: 8,
-    marginTop: 6,
+    marginTop: 4,
   },
   actionBtn: {
     flex: 1,
-    height: 44,
-    borderRadius: 12,
+    height: 42,
+    borderRadius: 10,
     backgroundColor: COLORS.secondary,
     flexDirection: "row",
     justifyContent: "center",
@@ -980,9 +1091,9 @@ const styles = StyleSheet.create({
   },
   supportBtn: {
     flex: 1,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: "rgba(255,255,255,0.15)",
+    height: 42,
+    borderRadius: 10,
+    backgroundColor: COLORS.teal,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
@@ -991,12 +1102,12 @@ const styles = StyleSheet.create({
   actionBtnText: {
     color: COLORS.white,
     fontWeight: "900",
-    fontSize: 11,
+    fontSize: 10.5,
   },
   statsRow: {
     flexDirection: "row",
     gap: 10,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   statBox: {
     flex: 1,
@@ -1005,91 +1116,91 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderLeftWidth: 5,
+    borderLeftWidth: 4,
   },
   statValue: {
     color: COLORS.dark,
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "900",
     marginTop: 6,
   },
   statLabel: {
     color: COLORS.muted,
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: "800",
     marginTop: 2,
   },
   statUnit: { fontSize: 11, color: COLORS.muted },
   sectionLabel: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "900",
     color: COLORS.dark,
-    marginBottom: 10,
-    letterSpacing: 0.3,
+    marginBottom: 8,
+    letterSpacing: 0.2,
   },
   bankBox: {
     backgroundColor: COLORS.white,
-    padding: 14,
-    borderRadius: 14,
+    padding: 12,
+    borderRadius: 12,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderLeftWidth: 5,
+    borderLeftWidth: 4,
     borderLeftColor: COLORS.primary,
   },
   bankInfo: { flexDirection: "row", alignItems: "center", flex: 1 },
   bankLogoCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 8,
     backgroundColor: "#FEE2E2",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 10,
   },
-  bankLogoText: { color: COLORS.danger, fontWeight: "900", fontSize: 12 },
-  bankTitle: { fontSize: 11, color: COLORS.muted, fontWeight: "700" },
-  accNo: { fontSize: 16, fontWeight: "900", color: COLORS.dark },
+  bankLogoText: { color: COLORS.danger, fontWeight: "900", fontSize: 11 },
+  bankTitle: { fontSize: 10.5, color: COLORS.muted, fontWeight: "700" },
+  accNo: { fontSize: 15, fontWeight: "900", color: COLORS.dark },
   accountName: {
     color: COLORS.muted,
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: "600",
     marginTop: 2,
   },
   servicesContainer: {
-    borderRadius: 16,
-    padding: 14,
+    borderRadius: 14,
+    padding: 12,
     backgroundColor: COLORS.white,
     borderWidth: 1,
     borderColor: COLORS.border,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    rowGap: 14,
+    rowGap: 12,
   },
   gridItem: {
     width: "24%",
     alignItems: "center",
   },
   iconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
+    width: 46,
+    height: 46,
+    borderRadius: 12,
     backgroundColor: COLORS.light,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 6,
+    marginBottom: 5,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   gridLabel: {
-    fontSize: 11,
+    fontSize: 10.5,
     textAlign: "center",
     fontWeight: "800",
     color: COLORS.dark,
@@ -1101,22 +1212,93 @@ const styles = StyleSheet.create({
   footerHeadline: {
     textAlign: "center",
     fontWeight: "900",
-    fontSize: 14,
+    fontSize: 13,
     color: COLORS.primary,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   trustGrid: { flexDirection: "row", justifyContent: "space-around" },
   trustItem: { alignItems: "center", width: "30%" },
   trustIconCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 18,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 6,
   },
-  trustTitle: { fontWeight: "900", fontSize: 12, color: COLORS.dark },
-  trustSub: { fontSize: 10, color: COLORS.muted },
+  trustTitle: { fontWeight: "900", fontSize: 11.5, color: COLORS.dark },
+  trustSub: { fontSize: 9.5, color: COLORS.muted },
+
+  // PROFILE MODAL STYLES
+  profileModalHeader: {
+    alignItems: "center",
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    width: "100%",
+  },
+  profileAvatarLarge: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: "#DCFCE7",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  profileAvatarLargeText: {
+    fontSize: 26,
+    fontWeight: "900",
+    color: COLORS.primary,
+  },
+  profileModalName: {
+    fontSize: 16,
+    fontWeight: "900",
+    color: COLORS.dark,
+  },
+  roleBadgeModal: {
+    backgroundColor: COLORS.softGreen,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 20,
+    marginTop: 4,
+  },
+  roleBadgeModalText: {
+    fontSize: 9.5,
+    fontWeight: "900",
+    color: COLORS.secondary,
+  },
+  profileItemRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  profileItemLabel: {
+    fontSize: 11.5,
+    fontWeight: "700",
+    color: COLORS.muted,
+  },
+  profileItemValue: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: COLORS.dark,
+  },
+  modalCloseFullBtn: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: "center",
+    width: "100%",
+    marginTop: 8,
+  },
+  modalCloseFullBtnText: {
+    color: COLORS.white,
+    fontWeight: "900",
+    fontSize: 12.5,
+  },
+
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(15, 23, 42, 0.7)",
@@ -1126,36 +1308,36 @@ const styles = StyleSheet.create({
   },
   modalBox: {
     width: "100%",
-    maxWidth: 380,
+    maxWidth: 420,
     backgroundColor: COLORS.white,
     borderRadius: 20,
-    padding: 22,
+    padding: 20,
     alignItems: "center",
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   modalIconWrap: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     backgroundColor: "#FEE2E2",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 14,
+    marginBottom: 12,
   },
   modalHeading: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "900",
     color: COLORS.dark,
-    marginBottom: 6,
+    marginBottom: 4,
     textAlign: "center",
   },
   modalSubheading: {
-    fontSize: 12,
+    fontSize: 11.5,
     color: COLORS.muted,
     textAlign: "center",
-    marginBottom: 18,
-    lineHeight: 18,
+    marginBottom: 16,
+    lineHeight: 16,
   },
   modalActionRow: {
     flexDirection: "row",
@@ -1167,28 +1349,28 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.light,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 12,
-    paddingVertical: 12,
+    borderRadius: 10,
+    paddingVertical: 11,
     alignItems: "center",
     justifyContent: "center",
   },
   modalCancelText: {
     color: COLORS.dark,
     fontWeight: "800",
-    fontSize: 13,
+    fontSize: 12.5,
   },
   modalConfirmBtn: {
     flex: 1,
     backgroundColor: COLORS.danger,
-    borderRadius: 12,
-    paddingVertical: 12,
+    borderRadius: 10,
+    paddingVertical: 11,
     alignItems: "center",
     justifyContent: "center",
   },
   modalConfirmText: {
     color: COLORS.white,
     fontWeight: "900",
-    fontSize: 13,
+    fontSize: 12.5,
   },
 });
 
