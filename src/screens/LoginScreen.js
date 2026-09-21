@@ -78,6 +78,61 @@ const LoginScreen = ({ navigation }) => {
   const getUserPayload = (data) =>
     data?.user || data?.data?.user || data?.data || {};
 
+  // Duba ko mai amfani ya riga ya saita Transaction PIN
+  const verifyPinStatus = async (userPayload, token) => {
+    try {
+      // 1. Duba kai tsaye daga bayanan da login endpoint ya dawo da su
+      const hasLocalPinFlag =
+        userPayload?.isPinSet === true ||
+        userPayload?.hasPin === true ||
+        userPayload?.has_transaction_pin === true ||
+        userPayload?.pin_set === true ||
+        (userPayload?.pin && String(userPayload.pin).trim() !== "0000" && String(userPayload.pin).trim() !== "");
+
+      if (hasLocalPinFlag) {
+        return true;
+      }
+
+      // 2. Duba ko an taba adana PIN din a wayar
+      const localCachedPin = await AsyncStorage.getItem("transactionPin");
+      if (localCachedPin && localCachedPin.trim().length === 4 && localCachedPin !== "0000") {
+        return true;
+      }
+
+      // 3. Tambayi server kai tsaye ta hanyar pin-status endpoints
+      if (token) {
+        const pinEndpoints = [
+          `${BASE_URL}/user/pin-status`,
+          `${BASE_URL}/api/v1/user/pin-status`,
+          `${BASE_URL}/users/pin-status`,
+        ];
+
+        for (const url of pinEndpoints) {
+          try {
+            const res = await axios.get(url, {
+              headers: { Authorization: `Bearer ${token}` },
+              timeout: 10000,
+            });
+            const status =
+              res.data?.hasPin ||
+              res.data?.has_transaction_pin ||
+              res.data?.pin_set ||
+              res.data?.isPinSet ||
+              res.data?.data?.hasPin;
+
+            if (status !== undefined) {
+              return Boolean(status);
+            }
+          } catch {}
+        }
+      }
+
+      return false;
+    } catch {
+      return false;
+    }
+  };
+
   const redirectUser = (role) => {
     const normalizedRole = String(role || "user").trim().toLowerCase();
 
@@ -89,6 +144,7 @@ const LoginScreen = ({ navigation }) => {
       supervisor: "SupervisorDashboard",
       agent: "AgentDashboard",
       user: "Dashboard",
+      customer: "Dashboard",
     };
 
     const targetScreen = roleTargetMap[normalizedRole] || "Dashboard";
@@ -125,6 +181,20 @@ const LoginScreen = ({ navigation }) => {
     navigation.navigate("Main", { screen: targetScreen });
   };
 
+  // Hanyar da ke tura sabon mai amfani zuwa shafin saita PIN
+  const routeToSetupPin = () => {
+    try {
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: "SetupPin", params: { isFirstTime: true } }],
+        })
+      );
+    } catch {
+      navigation.navigate("SetupPin", { isFirstTime: true });
+    }
+  };
+
   const checkLoginStatus = async () => {
     try {
       const token =
@@ -135,14 +205,27 @@ const LoginScreen = ({ navigation }) => {
 
       if (!token) return;
 
+      let userObj = {};
+      if (storedUserData) {
+        try {
+          userObj = JSON.parse(storedUserData);
+        } catch {}
+      }
+
+      // Duba ko ya saita PIN
+      const isPinReady = await verifyPinStatus(userObj, token);
+      if (!isPinReady) {
+        routeToSetupPin();
+        return;
+      }
+
       if (storedRole) {
         redirectUser(storedRole);
         return;
       }
 
-      if (storedUserData) {
-        const user = JSON.parse(storedUserData);
-        const resolvedRole = detectRole(user);
+      if (userObj) {
+        const resolvedRole = detectRole(userObj);
         if (resolvedRole) {
           redirectUser(resolvedRole);
         }
@@ -185,7 +268,6 @@ const LoginScreen = ({ navigation }) => {
     setLoading(true);
 
     try {
-      // Haɗa hanyoyin gama-gari da kuma na musamman na supervisor
       const endpoints = [
         `${BASE_URL}/api/v1/auth/login`,
         `${BASE_URL}/api/v1/auth/supervisor-login`,
@@ -214,11 +296,9 @@ const LoginScreen = ({ navigation }) => {
           }
         } catch (err) {
           lastErr = err;
-          // Idan account an dakatar da shi (403 Forbidden), tsayar da bincike
           if (err?.response?.status === 403) {
             throw err;
           }
-          // Idan kuskuren 401 ne, kar ka jefa kuskure nan take, bari ya gwada supervisor-login
         }
       }
 
@@ -265,9 +345,17 @@ const LoginScreen = ({ navigation }) => {
       await AsyncStorage.setItem("userData", JSON.stringify(finalUserData));
       await AsyncStorage.setItem("userRole", verifiedRole);
 
-      // Saita token na musamman idan admin ko supervisor ne
       if (verifiedRole === "admin" || verifiedRole === "superadmin") {
         await AsyncStorage.setItem("adminToken", token);
+      }
+
+      // DUBA KO MAI AMFANI YA SAKAR DA TRANSACTION PIN KAFIN WUCEWA
+      const isPinConfigured = await verifyPinStatus(finalUserData, token);
+
+      if (!isPinConfigured) {
+        // Idan sabon mai amfani ne ko bai taba saita PIN ba, a kulle shi ya saita PIN da farko
+        routeToSetupPin();
+        return;
       }
 
       if (isBiometricSupported) {
@@ -342,14 +430,27 @@ const LoginScreen = ({ navigation }) => {
 
       if (!result.success) return;
 
+      let userObj = {};
+      if (storedUserData) {
+        try {
+          userObj = JSON.parse(storedUserData);
+        } catch {}
+      }
+
+      // Duba ko an saita PIN a biometric login ma
+      const isPinConfigured = await verifyPinStatus(userObj, token);
+      if (!isPinConfigured) {
+        routeToSetupPin();
+        return;
+      }
+
       if (storedRole) {
         redirectUser(storedRole);
         return;
       }
 
       if (storedUserData) {
-        const user = JSON.parse(storedUserData);
-        redirectUser(detectRole(user));
+        redirectUser(detectRole(userObj));
       }
     } catch (err) {
       setErrorMessage(err.message || "Biometric login failed. Please use your password.");

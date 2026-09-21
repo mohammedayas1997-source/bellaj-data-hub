@@ -26,7 +26,7 @@ import SuccessScreen from "./src/screens/SuccessScreen";
 import AirtimeScreen from "./src/screens/AirtimeScreen";
 import FundWalletScreen from "./src/screens/FundWalletScreen";
 import ContactScreen from "./src/screens/ContactScreen";
-import SetupPinScreen from "./screens/SetupPinScreen";
+import SetupPinScreen from "./src/screens/SetupPinScreen";
 import SupervisorDashboard from "./src/screens/SupervisorDashboard";
 import AdminControlScreen from "./src/screens/AdminControlScreen";
 import AssignTargetScreen from "./src/screens/AssignTargetScreen";
