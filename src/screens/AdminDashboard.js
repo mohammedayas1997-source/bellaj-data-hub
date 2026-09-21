@@ -22,6 +22,47 @@ import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
 import BASE_URL from "../config/api";
 import { ThemeContext } from "../context/ThemeContext";
 
+// CIKAKKEN BAYANIN JIHOHIN NAJERIYA 36 DA KANANAN HUKUMOMINSU (LGAS)
+const NIGERIA_STATES_AND_LGAS = {
+  Abia: ["Aba North", "Aba South", "Arochukwu", "Bende", "Ikwuano", "Isiala Ngwa North", "Isiala Ngwa South", "Isuikwuato", "Obi Ngwa", "Ohafia", "Osisioma", "Ugwunagbo", "Ukwa East", "Ukwa West", "Umuahia North", "Umuahia South", "Umu Nneochi"],
+  Adamawa: ["Demsa", "Fufure", "Ganye", "Gayuk", "Gombi", "Grie", "Hong", "Jada", "Lamurde", "Madagali", "Maiha", "Mayo Belwa", "Michika", "Mubi North", "Mubi South", "Numan", "Shelleng", "Song", "Toungo", "Yola North", "Yola South"],
+  AkwaIbom: ["Abak", "Eastern Obolo", "Eket", "Esit Eket", "Essien Udim", "Etim Ekpo", "Etinan", "Ibeno", "Ibesikpo Asutan", "Ibiono-Ibom", "Ika", "Ikono", "Ikot Abasi", "Ikot Ekpene", "Ini", "Itu", "Mbo", "Mkpat-Enin", "Nsit-Atai", "Nsit-Ibom", "Nsit-Ubium", "Obot Akara", "Okobo", "Onna", "Oron", "Oruk Anam", "Udung-Uko", "Ukanafun", "Uruan", "Urue-Offong/Oruko", "Uyo"],
+  Anambra: ["Aguata", "Anambra East", "Anambra West", "Anaocha", "Awka North", "Awka South", "Ayamelum", "Dunukofia", "Ekwusigo", "Idemili North", "Idemili South", "Ihiala", "Njikoka", "Nnewi North", "Nnewi South", "Ogbaru", "Onitsha North", "Onitsha South", "Orumba North", "Orumba South", "Oyi"],
+  Bauchi: ["Alkaleri", "Bauchi", "Bogoro", "Damban", "Darazo", "Dass", "Gamawa", "Ganjuwa", "Giade", "Itas/Gadau", "Jama'are", "Katagum", "Kirfi", "Misau", "Ningi", "Shira", "Tafawa Balewa", "Toro", "Warji", "Zaki"],
+  Bayelsa: ["Brass", "Ekeremor", "Kolokuma/Opokuma", "Nembe", "Ogbia", "Sagbama", "Southern Ijaw", "Yenagoa"],
+  Benue: ["Agatu", "Apa", "Ado", "Buruku", "Gboko", "Guma", "Gwer East", "Gwer West", "Katsina-Ala", "Konshisha", "Kwande", "Logo", "Makurdi", "Obi", "Ogbadibo", "Ohimini", "Oju", "Okpokwu", "Oturkpo", "Tarka", "Ukum", "Ushongo", "Vandeikya"],
+  Borno: ["Abadam", "Askira/Uba", "Bama", "Bayo", "Biu", "Chibok", "Damboa", "Dikwa", "Gubio", "Guzamala", "Gwoza", "Hawul", "Jere", "Kaga", "Kala/Balge", "Konduga", "Kukawa", "Kwaya Kusar", "Mafa", "Magumeri", "Maiduguri", "Marte", "Mobbar", "Monguno", "Ngala", "Nganzai", "Shani"],
+  CrossRiver: ["Abi", "Akamkpa", "Akpabuyo", "Bakassi", "Bekwarra", "Biase", "Boki", "Calabar Municipal", "Calabar South", "Etung", "Ikom", "Obanliku", "Obubra", "Obudu", "Odukpani", "Ogoja", "Yakuur", "Yala"],
+  Delta: ["Aniocha North", "Aniocha South", "Bomadi", "Burutu", "Ethiope East", "Ethiope West", "Ika North East", "Ika South", "Isoko North", "Isoko South", "Ndokwa East", "Ndokwa West", "Okpe", "Oshimili North", "Oshimili South", "Patani", "Sapele", "Udu", "Ughelli North", "Ughelli South", "Ukwuani", "Uvwie", "Warri North", "Warri South", "Warri South West"],
+  Ebonyi: ["Abakaliki", "Afikpo North", "Afikpo South", "Ebonyi", "Ezza North", "Ezza South", "Ikwo", "Ishielu", "Ivo", "Izzi", "Ohaozara", "Ohaukwu", "Onicha"],
+  Edo: ["Akoko-Edo", "Egor", "Esan Central", "Esan North-East", "Esan South-East", "Esan West", "Etsako Central", "Etsako East", "Etsako West", "Igueben", "Ikpoba Okha", "Orhionmwon", "Oredo", "Ovia North-East", "Ovia South-West", "Owan East", "Owan West", "Uhunmwonde"],
+  Ekiti: ["Ado Ekiti", "Efon", "Ekiti East", "Ekiti South-West", "Ekiti West", "Emure", "Gbonyin", "Ido Osi", "Ijero", "Ikole", "Ilejemeje", "Irepodun/Ifelodun", "Ise/Orun", "Moba", "Oye"],
+  Enugu: ["Aninri", "Awgu", "Enugu East", "Enugu North", "Enugu South", "Ezeagu", "Igbo Etiti", "Igbo Eze North", "Igbo Eze South", "Isi Uzo", "Nkanu East", "Nkanu West", "Nsukka", "Oji River", "Udenu", "Udi", "Uzo Uwani"],
+  FCT: ["Abaji", "Bwari", "Gwagwalada", "Kuje", "Kwali", "Municipal Area Council"],
+  Gombe: ["Akko", "Balanga", "Billiri", "Dukku", "Funakaye", "Gombe", "Kaltungo", "Kwami", "Nafada", "Shongom", "Yamaltu/Deba"],
+  Imo: ["Aboh Mbaise", "Ahiazu Mbaise", "Ehime Mbano", "Ezinihitte", "Ideato North", "Ideato South", "Ihitte/Uboma", "Ikeduru", "Isiala Mbano", "Isu", "Mbaitoli", "Ngor Okpala", "Njaba", "Nkwerre", "Nwangele", "Obowo", "Oguta", "Ohaji/Egbema", "Okigwe", "Orlu", "Orsu", "Oru East", "Oru West", "Owerri Municipal", "Owerri North", "Owerri West", "Unuimo"],
+  Jigawa: ["Auyo", "Babura", "Biriniwa", "Birnin Kudu", "Buji", "Dutse", "Gagarawa", "Garki", "Gumel", "Guri", "Gwaram", "Gwiwa", "Hadejia", "Jahun", "Kafin Hausa", "Kazaure", "Kiri Kasama", "Kiyawa", "Kaugama", "Maigatari", "Malam Madori", "Miga", "Ringim", "Roni", "Sule Tankarkar", "Taura", "Yankwashi"],
+  Kaduna: ["Birnin Gwari", "Chikun", "Giwa", "Igabi", "Ikara", "Jaba", "Jema'a", "Kachia", "Kaduna North", "Kaduna South", "Kagarko", "Kajuru", "Kaura", "Kauru", "Kubau", "Kudan", "Lere", "Makarfi", "Sabon Gari", "Sanga", "Soba", "Zangon Kataf", "Zaria"],
+  Kano: ["Ajingi", "Albasu", "Bagwai", "Bebeji", "Bichi", "Bunkure", "Dala", "Dambatta", "Dawakin Kudu", "Dawakin Tofa", "Doguwa", "Fagge", "Gabasawa", "Garko", "Garun Mallam", "Gaya", "Gezawa", "Gwale", "Gwarzo", "Kabo", "Kano Municipal", "Karaye", "Kibiya", "Kiru", "Kumbotso", "Kunchi", "Kura", "Madobi", "Makoda", "Minjibir", "Nasarawa", "Rano", "Rimin Gado", "Rogo", "Shanono", "Sumaila", "Takai", "Tarauni", "Tofa", "Tsanyawa", "Tudun Wada", "Ungogo", "Warawa", "Wudil"],
+  Katsina: ["Bakori", "Batagarawa", "Batsari", "Baure", "Bindawa", "Charanchi", "Dandume", "Danja", "Dan Musa", "Daura", "Dutsin Ma", "Faskari", "Funtua", "Ingawa", "Jibia", "Kafur", "Kaita", "Kankara", "Kankia", "Katsina", "Kurfi", "Kusada", "Mai'Adua", "Malumfashi", "Mani", "Mashi", "Matazu", "Musawa", "Rimi", "Sabuwa", "Safana", "Sandamu", "Zango"],
+  Kebbi: ["Aleiro", "Arewa Dandi", "Argungu", "Augie", "Bagudo", "Birnin Kebbi", "Bunza", "Dandi", "Fakai", "Gwandu", "Jega", "Kalgo", "Koko/Besse", "Maiyama", "Ngaski", "Sakaba", "Shanga", "Suru", "Danko/Wasagu", "Yauri", "Zuru"],
+  Kogi: ["Adavi", "Ajaokuta", "Ankpa", "Bassa", "Dekina", "Ibaji", "Idah", "Igalamela Odolu", "Ijumu", "Kabba/Bunu", "Kogi", "Lokoja", "Mopa Muro", "Ofu", "Ogori/Magongo", "Okehi", "Okene", "Olamaboro", "Omala", "Yagba East", "Yagba West"],
+  Kwara: ["Asa", "Baruten", "Edu", "Ekiti", "Ifelodun", "Ilorin East", "Ilorin South", "Ilorin West", "Irepodun", "Isin", "Kaiama", "Moro", "Offa", "Oke Ero", "Oyun", "Pategi"],
+  Lagos: ["Agege", "Ajeromi-Ifelodun", "Alimosho", "Amuwo-Odofin", "Apapa", "Badagry", "Epe", "Eti Osa", "Ibeju-Lekki", "Ifako-Ijaiye", "Ikeja", "Ikorodu", "Kosofe", "Lagos Island", "Lagos Mainland", "Mushin", "Ojo", "Oshodi-Isolo", "Shomolu", "Surulere"],
+  Nasarawa: ["Akwanga", "Awe", "Doma", "Karu", "Keana", "Keffi", "Kokona", "Lafia", "Nasarawa", "Nasarawa Egon", "Obi", "Toto", "Wamba"],
+  Niger: ["Agaie", "Agwara", "Bida", "Borgu", "Bosso", "Chanchaga", "Edati", "Gbako", "Gurara", "Katcha", "Kontagora", "Lapai", "Lavun", "Magama", "Mariga", "Mashegu", "Mokwa", "Moya", "Paikoro", "Rafi", "Rijau", "Shiroro", "Suleja", "Tafa", "Wushishi"],
+  Ogun: ["Abeokuta North", "Abeokuta South", "Ado-Odo/Ota", "Egbado North", "Egbado South", "Ewekoro", "Ifo", "Ijebu East", "Ijebu North", "Ijebu North East", "Ijebu Ode", "Ikenne", "Ilugun", "Imeko Afon", "Ipokia", "Obafemi Owode", "Odeda", "Odogbolu", "Ogun Waterside", "Remo North", "Shagamu"],
+  Ondo: ["Akoko North-East", "Akoko North-West", "Akoko South-East", "Akoko South-West", "Akure North", "Akure South", "Ese Odo", "Idanre", "Ifedore", "Ilaje", "Ile Oluji/Okeigbo", "Irele", "Odigbo", "Okitipupa", "Ondo East", "Ondo West", "Ose", "Owo"],
+  Osun: ["Atakunmosa East", "Atakunmosa West", "Aiyedaade", "Aiyedire", "Boluwaduro", "Boripe", "Ede North", "Ede South", "Ife Central", "Ife East", "Ife North", "Ife South", "Egbedore", "Ejigbo", "Ifedayo", "Ifelodun", "Ila", "Ilesa East", "Ilesa West", "Irepodun", "Irewole", "Isokan", "Iwo", "Obokun", "Odo Otin", "Ola Oluwa", "Olorunda", "Oriade", "Orolu", "Osogbo"],
+  Oyo: ["Afijio", "Akinyele", "Atiba", "Atisbo", "Egbeda", "Ibadan North", "Ibadan North-East", "Ibadan North-West", "Ibadan South-East", "Ibadan South-West", "Ibarapa Central", "Ibarapa East", "Ibarapa North", "Ido", "Irepo", "Iseyin", "Itesiwaju", "Iwajowa", "Ogbomosho North", "Ogbomosho South", "Ogo Oluwa", "Olorunsogo", "Oluyole", "Ona Ara", "Orelope", "Ori Ire", "Oyo East", "Oyo West", "Saki East", "Saki West", "Surulere"],
+  Plateau: ["Barkin Ladi", "Bassa", "Bokkos", "Jos East", "Jos North", "Jos South", "Kanam", "Kanke", "Langtang North", "Langtang South", "Mangu", "Mikang", "Pankshin", "Qua'an Pan", "Riyom", "Shendam", "Wase"],
+  Rivers: ["Abua/Odual", "Ahoada East", "Ahoada West", "Akuku-Toru", "Andoni", "Asari-Toru", "Bonny", "Degema", "Eleme", "Emuoha", "Etche", "Gokana", "Ikwerre", "Khana", "Obio/Akpor", "Ogba/Egbema/Ndoni", "Ogu/Bolo", "Okrika", "Omuma", "Opobo/Nkoro", "Oyigbo", "Port Harcourt", "Tai"],
+  Sokoto: ["Binji", "Bodinga", "Dange Shuni", "Gada", "Goronyo", "Gudu", "Gwadabawa", "Illela", "Isa", "Kebbe", "Kware", "Rabah", "Sabon Birni", "Shagari", "Silame", "Sokoto North", "Sokoto South", "Tambuwal", "Tangaza", "Tureta", "Wamako", "Wurno", "Yabo"],
+  Taraba: ["Ardo Kola", "Bali", "Donga", "Gashaka", "Gassol", "Ibi", "Jalingo", "Karim Lamido", "Kumi", "Lau", "Sardauna", "Takum", "Ussa", "Wukari", "Yorro", "Zing"],
+  Yobe: ["Bade", "Bursari", "Damaturu", "Fika", "Fune", "Geidam", "Gujba", "Gulani", "Jakusko", "Karasuwa", "Machina", "Nangere", "Nguru", "Potiskum", "Tarmuwa", "Yunusari", "Yusufari"],
+  Zamfara: ["Anka", "Bakura", "Birnin Magaji/Kiyaw", "Bukkuyum", "Bungudu", "Gummi", "Gusau", "Kaura Namoda", "Maradun", "Maru", "Shinkafi", "Talata Mafara", "Chafe", "Zurmi"],
+};
+
 const LIGHT = {
   primary: "#0B5E3C",
   secondary: "#16A34A",
@@ -80,22 +121,20 @@ const AdminDashboard = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Active Directory Tabs
+  // Tabs
   const [directoryTab, setDirectoryTab] = useState("supervisors"); // 'supervisors' | 'all_users'
   const [searchFilter, setSearchFilter] = useState("");
 
-  // Modals & Prompts
-  const [modalType, setModalType] = useState(null);
+  // Modals Controller
+  const [modalType, setModalType] = useState(null); // 'create_user' | 'publish_tariff' | 'customer_service' | 'system_health' | 'confirm_logout'
   const [actionLoading, setActionLoading] = useState(false);
   const [logoutProcessing, setLogoutProcessing] = useState(false);
 
-  // Action Confirmation State
+  // Quick Action Dialogs (Suspend/Delete)
   const [targetActionUser, setTargetActionUser] = useState(null);
-  const [actionDialogType, setActionDialogType] = useState(null); // 'confirm_suspend' | 'confirm_delete'
+  const [actionDialogType, setActionDialogType] = useState(null);
 
-  // System Health State
-  const [systemHealth, setSystemHealth] = useState(null);
-
+  // Dashboard Stats
   const [stats, setStats] = useState({
     users: 0,
     nimc: 0,
@@ -106,58 +145,42 @@ const AdminDashboard = ({ navigation }) => {
     supervisorsCount: 0,
   });
 
-  // Data State
   const [supervisorsList, setSupervisorsList] = useState([]);
   const [allUsersList, setAllUsersList] = useState([]);
-  const [selectedSupervisor, setSelectedSupervisor] = useState(null);
-  const [supervisorAgents, setSupervisorAgents] = useState([]);
-  const [allAgentsList, setAllAgentsList] = useState([]);
   const [customerTickets, setCustomerTickets] = useState([]);
-  const [pricingList, setPricingList] = useState([]);
+  const [systemHealth, setSystemHealth] = useState(null);
 
-  // Create Supervisor Form & Visibility State
-  const [showSupervisorPassword, setShowSupervisorPassword] = useState(false);
-  const [supervisorSuccessMsg, setSupervisorSuccessMsg] = useState("");
-  const [supervisorForm, setSupervisorForm] = useState({
-    firstName: "",
-    surname: "",
+  // ==========================================
+  // 1. STATE NA CIKEKEN FORM NA REGISTER USER
+  // ==========================================
+  const [showPassword, setShowPassword] = useState(false);
+  const [userFormSuccess, setUserFormSuccess] = useState("");
+  const [showRolePicker, setShowRolePicker] = useState(false);
+  const [showStatePicker, setShowStatePicker] = useState(false);
+  const [showLgaPicker, setShowLgaPicker] = useState(false);
+
+  const [userForm, setUserForm] = useState({
+    fullName: "",
     email: "",
     phone: "",
     password: "",
+    role: "supervisor", // customer, agent, supervisor, support, staff
+    state: "Gombe",
+    lga: "Gombe",
+    address: "",
   });
 
-  // Transfer Agent Form
-  const [transferForm, setTransferForm] = useState({
-    agentId: "",
-    agentName: "",
-    targetSupervisorId: "",
-  });
-
-  // Broadcast Notification Form
-  const [broadcastForm, setBroadcastForm] = useState({
-    title: "",
-    message: "",
-    targetAudience: "ALL",
-    sendEmail: false,
-  });
-
-  // Pricing Form
-  const [pricingForm, setPricingForm] = useState({
-    serviceType: "SME_DATA",
-    unitRate: "",
-    margin: "",
-    agentMargin: "",
-  });
-
-  // Quota Target Form
-  const [targetForm, setTargetForm] = useState({
-    amount: "",
-    agentGoal: "",
-    dataGoal: "",
-    agentRef: "",
-    isGlobal: false,
-    month: "September 2026",
-    note: "",
+  // ==========================================
+  // 2. STATE NA PUBLISH NEW DATA TARIFF (PLAN)
+  // ==========================================
+  const [tariffForm, setTariffForm] = useState({
+    network: "MTN",
+    planType: "DC",
+    planId: "", // Gateway Plan ID (Al-Ihsan Provider ID)
+    volume: "1.0 GB",
+    validity: "30 Days",
+    customerPrice: "",
+    agentPrice: "",
   });
 
   // Navigation Lock
@@ -178,7 +201,6 @@ const AdminDashboard = ({ navigation }) => {
       setModalType("confirm_logout");
       return true;
     };
-
     const backSub = BackHandler.addEventListener("hardwareBackPress", onBackPress);
     return () => backSub.remove();
   }, [sidebarOpen, modalType, actionDialogType]);
@@ -210,23 +232,12 @@ const AdminDashboard = ({ navigation }) => {
     return [];
   };
 
-  const getCount = (payload, key) => {
-    if (typeof payload?.count === "number") return payload.count;
-    if (typeof payload?.total === "number") return payload.total;
-    if (typeof payload?.totalUsers === "number") return payload.totalUsers;
-    if (typeof payload?.data?.count === "number") return payload.data.count;
-    if (typeof payload?.data?.total === "number") return payload.data.total;
-    return getArray(payload, key).length;
-  };
-
   const fetchWithFallback = async (endpoints, config) => {
     for (const url of endpoints) {
       try {
         const res = await axios.get(url, config);
         if (res?.data) return res.data;
-      } catch {
-        // Continue
-      }
+      } catch {}
     }
     return null;
   };
@@ -236,88 +247,47 @@ const AdminDashboard = ({ navigation }) => {
       setLoading(true);
       const config = await getAuthHeaders();
 
-      const userEndpoints = [
-        `${BASE_URL}/admin/users`,
-        `${BASE_URL}/api/v1/admin/users`,
-      ];
-      const supervisorEndpoints = [
-        `${BASE_URL}/admin/supervisors`,
-        `${BASE_URL}/api/v1/admin/supervisors`,
-      ];
-      const agentEndpoints = [
-        `${BASE_URL}/admin/agents`,
-        `${BASE_URL}/api/v1/admin/agents`,
-      ];
-      const reportEndpoints = [
-        `${BASE_URL}/admin/reports`,
-        `${BASE_URL}/api/v1/admin/reports`,
-      ];
-      const salesEndpoints = [
-        `${BASE_URL}/admin/sales-stats`,
-        `${BASE_URL}/api/v1/admin/sales-stats`,
-      ];
-      const txEndpoints = [
-        `${BASE_URL}/admin/transactions`,
-        `${BASE_URL}/api/v1/admin/transactions`,
-      ];
-      const pricingEndpoints = [
-        `${BASE_URL}/admin/pricing`,
-        `${BASE_URL}/api/v1/admin/pricing`,
-      ];
+      const userEndpoints = [`${BASE_URL}/admin/users`, `${BASE_URL}/api/v1/admin/users`];
+      const supervisorEndpoints = [`${BASE_URL}/admin/supervisors`, `${BASE_URL}/api/v1/admin/supervisors`];
+      const reportEndpoints = [`${BASE_URL}/admin/reports`, `${BASE_URL}/api/v1/admin/reports`];
+      const salesEndpoints = [`${BASE_URL}/admin/sales-stats`, `${BASE_URL}/api/v1/admin/sales-stats`];
+      const txEndpoints = [`${BASE_URL}/admin/transactions`, `${BASE_URL}/api/v1/admin/transactions`];
 
-      const [usersRes, supsRes, agentsRes, reportsRes, salesRes, txRes, priceRes] =
-        await Promise.allSettled([
-          fetchWithFallback(userEndpoints, config),
-          fetchWithFallback(supervisorEndpoints, config),
-          fetchWithFallback(agentEndpoints, config),
-          fetchWithFallback(reportEndpoints, config),
-          fetchWithFallback(salesEndpoints, config),
-          fetchWithFallback(txEndpoints, config),
-          fetchWithFallback(pricingEndpoints, config),
-        ]);
+      const [usersRes, supsRes, reportsRes, salesRes, txRes] = await Promise.allSettled([
+        fetchWithFallback(userEndpoints, config),
+        fetchWithFallback(supervisorEndpoints, config),
+        fetchWithFallback(reportEndpoints, config),
+        fetchWithFallback(salesEndpoints, config),
+        fetchWithFallback(txEndpoints, config),
+      ]);
 
       const uData = usersRes.status === "fulfilled" ? usersRes.value : null;
       const sData = supsRes.status === "fulfilled" ? supsRes.value : null;
-      const aData = agentsRes.status === "fulfilled" ? agentsRes.value : null;
       const rData = reportsRes.status === "fulfilled" ? reportsRes.value : null;
       const salesData = salesRes.status === "fulfilled" ? salesRes.value : null;
       const tData = txRes.status === "fulfilled" ? txRes.value : null;
-      const pData = priceRes.status === "fulfilled" ? priceRes.value : null;
 
       const allUsers = getArray(uData, "users");
       let supsList = getArray(sData, "supervisors");
-      let agentsList = getArray(aData, "agents");
 
       if (supsList.length === 0 && allUsers.length > 0) {
-        supsList = allUsers.filter(
-          (u) => (u.role || "").toLowerCase() === "supervisor"
-        );
-      }
-      if (agentsList.length === 0 && allUsers.length > 0) {
-        agentsList = allUsers.filter(
-          (u) => (u.role || "").toLowerCase() === "agent"
-        );
+        supsList = allUsers.filter((u) => (u.role || "").toLowerCase() === "supervisor");
       }
 
       setAllUsersList(allUsers);
       setSupervisorsList(supsList);
-      setAllAgentsList(agentsList);
       setCustomerTickets(getArray(rData, "reports"));
-      setPricingList(getArray(pData, "pricing"));
 
       const extractedSales =
-        salesData?.finance?.totalRevenue ??
-        salesData?.totalRevenue ??
-        salesData?.totalSales ??
-        0;
+        salesData?.finance?.totalRevenue ?? salesData?.totalRevenue ?? salesData?.totalSales ?? 0;
 
       setStats({
-        users: getCount(uData, "users") || allUsers.length,
+        users: allUsers.length,
         nimc: 0,
         bvn: 0,
-        reports: getCount(rData, "reports"),
+        reports: getArray(rData, "reports").length,
         sales: Number(extractedSales || 0),
-        transactions: getCount(tData, "transactions"),
+        transactions: getArray(tData, "transactions").length,
         supervisorsCount: supsList.length,
       });
     } catch (err) {
@@ -337,137 +307,37 @@ const AdminDashboard = ({ navigation }) => {
     fetchStats();
   };
 
-  const triggerSuspendPrompt = (user) => {
-    setTargetActionUser(user);
-    setActionDialogType("confirm_suspend");
-  };
+  // ==========================================
+  // ACTION: CREATE USER / SUPERVISOR / STAFF
+  // ==========================================
+  const handleCreateUser = async () => {
+    const { fullName, email, phone, password, role, state, lga, address } = userForm;
 
-  const executeSuspension = async () => {
-    if (!targetActionUser) return;
-    const userId = targetActionUser._id || targetActionUser.id;
-    const isCurrentlySuspended = Boolean(targetActionUser.isSuspended);
-
-    try {
-      setActionLoading(true);
-      const config = await getAuthHeaders();
-      const payload = { isSuspended: !isCurrentlySuspended };
-
-      const endpoints = [
-        `${BASE_URL}/admin/users/${userId}/status`,
-        `${BASE_URL}/api/v1/admin/users/${userId}/status`,
-        `${BASE_URL}/admin/supervisors/${userId}/status`,
-        `${BASE_URL}/admin/suspend-user/${userId}`,
-      ];
-
-      for (const ep of endpoints) {
-        try {
-          const res = await axios.patch(ep, payload, config).catch(async () => {
-            return await axios.put(ep, payload, config);
-          });
-          if (res?.status === 200 || res?.data?.success) break;
-        } catch {
-          // Next
-        }
-      }
-
-      setActionDialogType(null);
-      setTargetActionUser(null);
-      fetchStats();
-      Alert.alert(
-        "Status Updated",
-        `Account status for ${targetActionUser.name || targetActionUser.email} has been updated to ${
-          isCurrentlySuspended ? "ACTIVE" : "SUSPENDED"
-        }.`
-      );
-    } catch (err) {
-      Alert.alert("Action Failed", err.response?.data?.message || err.message);
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const triggerDeletePrompt = (user) => {
-    setTargetActionUser(user);
-    setActionDialogType("confirm_delete");
-  };
-
-  const executePermanentDelete = async () => {
-    if (!targetActionUser) return;
-    const userId = targetActionUser._id || targetActionUser.id;
-    const userName = targetActionUser.name || targetActionUser.email;
-
-    try {
-      setActionLoading(true);
-      const config = await getAuthHeaders();
-
-      const endpoints = [
-        `${BASE_URL}/admin/users/${userId}`,
-        `${BASE_URL}/api/v1/admin/users/${userId}`,
-        `${BASE_URL}/admin/users/delete/${userId}`,
-      ];
-
-      for (const ep of endpoints) {
-        try {
-          const res = await axios.delete(ep, config);
-          if (res?.status === 200 || res?.data?.success) break;
-        } catch {
-          // Next
-        }
-      }
-
-      setActionDialogType(null);
-      setTargetActionUser(null);
-      fetchStats();
-      Alert.alert("Permanently Deleted", `Account "${userName}" has been permanently removed from the database.`);
-    } catch (err) {
-      Alert.alert("Delete Error", err.response?.data?.message || err.message);
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleInspectSystemHealth = async () => {
-    try {
-      setActionLoading(true);
-      const config = await getAuthHeaders();
-      const endpoints = [
-        `${BASE_URL}/admin/system/health-check`,
-        `${BASE_URL}/api/v1/admin/system/health-check`,
-        `${BASE_URL}/admin/health`,
-      ];
-      const res = await fetchWithFallback(endpoints, config);
-      if (res?.success || res?.systemStatus) {
-        setSystemHealth(res);
-        setModalType("system_health");
-      } else {
-        Alert.alert("System Operational", "All server clusters and database engines are responding normally.");
-      }
-    } catch {
-      Alert.alert("Notice", "System diagnostic completed successfully.");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleCreateSupervisor = async () => {
-    const { firstName, surname, email, phone, password } = supervisorForm;
-    if (!firstName.trim() || !email.trim() || !password.trim() || !phone.trim()) {
-      Alert.alert("Validation Error", "All fields are required.");
+    if (!fullName.trim() || !email.trim() || !phone.trim() || !password.trim()) {
+      Alert.alert("Validation Error", "Full Name, Email, Phone, and Password are required.");
       return;
     }
 
     try {
       setActionLoading(true);
-      setSupervisorSuccessMsg("");
+      setUserFormSuccess("");
       const config = await getAuthHeaders();
+
+      const nameParts = fullName.trim().split(" ");
+      const firstName = nameParts[0] || "User";
+      const surname = nameParts.slice(1).join(" ") || "Bellaj";
+
       const payload = {
-        name: `${firstName} ${surname}`.trim(),
-        firstName: firstName.trim(),
-        surname: surname.trim(),
+        name: fullName.trim(),
+        firstName,
+        surname,
         email: email.toLowerCase().trim(),
         phone: phone.trim(),
         password: password.trim(),
-        role: "supervisor",
+        role: role.toLowerCase().trim(),
+        state,
+        lga,
+        address: address.trim(),
       };
 
       const endpoints = [
@@ -483,140 +353,142 @@ const AdminDashboard = ({ navigation }) => {
         } catch {}
       }
 
-      setSupervisorSuccessMsg(`Supervisor ${payload.name} created successfully!`);
-      setSupervisorForm({ firstName: "", surname: "", email: "", phone: "", password: "" });
+      setUserFormSuccess(`Account for ${fullName} (${role.toUpperCase()}) created successfully!`);
+      setUserForm({
+        fullName: "",
+        email: "",
+        phone: "",
+        password: "",
+        role: "supervisor",
+        state: "Gombe",
+        lga: "Gombe",
+        address: "",
+      });
       fetchStats();
+
       setTimeout(() => {
-        setSupervisorSuccessMsg("");
+        setUserFormSuccess("");
         setModalType(null);
-      }, 1800);
+      }, 2000);
     } catch (err) {
-      Alert.alert("Network Error", err.message || "Failed to reach server.");
+      Alert.alert("Error", err.response?.data?.message || err.message);
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleInspectSupervisorAgents = (supervisor) => {
-    setSelectedSupervisor(supervisor);
-    const supId = String(supervisor._id || supervisor.id);
-    const under = allAgentsList.filter(
-      (ag) =>
-        String(ag.assignedSupervisor?._id || ag.assignedSupervisor || ag.supervisorId) === supId
-    );
-    setSupervisorAgents(under);
-    setModalType("supervisor_hub");
-  };
-
-  const handleExecuteTransfer = async () => {
-    if (!transferForm.agentId || !transferForm.targetSupervisorId) {
-      Alert.alert("Selection Missing", "Please select destination supervisor.");
+  // ==========================================
+  // ACTION: PUBLISH NEW DATA TARIFF (PLAN)
+  // ==========================================
+  const handlePublishTariff = async () => {
+    if (!tariffForm.planId.trim() || !tariffForm.customerPrice.trim() || !tariffForm.agentPrice.trim()) {
+      Alert.alert("Validation Error", "Gateway Plan ID, Customer Price, and Retail Price are required.");
       return;
     }
 
     try {
       setActionLoading(true);
       const config = await getAuthHeaders();
+
       const payload = {
-        agentId: transferForm.agentId,
-        supervisorId: transferForm.targetSupervisorId,
-        targetSupervisorId: transferForm.targetSupervisorId,
+        network: tariffForm.network,
+        planType: tariffForm.planType,
+        planId: tariffForm.planId.trim(),
+        volume: tariffForm.volume,
+        validity: tariffForm.validity,
+        customerPrice: Number(tariffForm.customerPrice),
+        agentPrice: Number(tariffForm.agentPrice),
       };
 
-      await axios.put(`${BASE_URL}/admin/transfer-agent`, payload, config).catch(async () => {
-        return await axios.put(`${BASE_URL}/api/v1/admin/transfer-agent`, payload, config);
+      await axios.post(`${BASE_URL}/admin/set-plan`, payload, config).catch(async () => {
+        return await axios.post(`${BASE_URL}/api/v1/admin/pricing`, payload, config);
       });
 
-      Alert.alert("Transferred", "Agent transferred to new supervisor successfully.");
-      setModalType("supervisor_hub");
-      fetchStats();
-    } catch (err) {
-      Alert.alert("Transfer Error", err.response?.data?.message || "Could not reassign agent.");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleResolveTicket = async (ticketId) => {
-    try {
-      setActionLoading(true);
-      const config = await getAuthHeaders();
-      await axios.patch(`${BASE_URL}/admin/reports/${ticketId}/resolve`, { status: "resolved" }, config);
-      Alert.alert("Resolved", "Customer ticket marked as resolved.");
-      fetchStats();
-    } catch {
-      Alert.alert("Notice", "Ticket updated.");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleSendBroadcast = async () => {
-    if (!broadcastForm.title.trim() || !broadcastForm.message.trim()) {
-      Alert.alert("Validation Error", "Title and content are required.");
-      return;
-    }
-
-    try {
-      setActionLoading(true);
-      const config = await getAuthHeaders();
-      await axios.post(`${BASE_URL}/admin/notifications/broadcast`, {
-        title: broadcastForm.title.trim(),
-        message: broadcastForm.message.trim(),
-        target: broadcastForm.targetAudience,
-        sendEmail: broadcastForm.sendEmail,
-      }, config);
-
-      Alert.alert("Broadcast Delivered", "Notification pushed to selected audience.");
+      Alert.alert("Tariff Published 🚀", `${tariffForm.network} ${tariffForm.volume} published to database & app.`);
       setModalType(null);
-      setBroadcastForm({ title: "", message: "", targetAudience: "ALL", sendEmail: false });
+      setTariffForm({
+        network: "MTN",
+        planType: "DC",
+        planId: "",
+        volume: "1.0 GB",
+        validity: "30 Days",
+        customerPrice: "",
+        agentPrice: "",
+      });
     } catch (err) {
-      Alert.alert("Dispatch Error", err.message);
+      Alert.alert("Publish Failed", err.response?.data?.message || err.message);
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleUpdatePricing = async () => {
-    if (!pricingForm.unitRate || !pricingForm.margin) {
-      Alert.alert("Validation Error", "Rate and margin are required.");
-      return;
-    }
+  // ==========================================
+  // ACTION: SUSPEND / ACTIVATE USER
+  // ==========================================
+  const executeSuspension = async () => {
+    if (!targetActionUser) return;
+    const userId = targetActionUser._id || targetActionUser.id;
+    const isCurrentlySuspended = Boolean(targetActionUser.isSuspended);
 
     try {
       setActionLoading(true);
       const config = await getAuthHeaders();
-      await axios.put(`${BASE_URL}/admin/pricing`, {
-        service: pricingForm.serviceType,
-        serviceType: pricingForm.serviceType,
-        rate: Number(pricingForm.unitRate),
-        baseRate: Number(pricingForm.unitRate),
-        margin: Number(pricingForm.margin),
-      }, config);
+      const payload = { isSuspended: !isCurrentlySuspended };
 
-      Alert.alert("Pricing Updated", "Service pricing rules applied.");
-      setModalType(null);
+      const endpoints = [
+        `${BASE_URL}/admin/users/${userId}/status`,
+        `${BASE_URL}/api/v1/admin/users/${userId}/status`,
+        `${BASE_URL}/admin/suspend-user/${userId}`,
+      ];
+
+      for (const ep of endpoints) {
+        try {
+          await axios.patch(ep, payload, config).catch(async () => {
+            return await axios.put(ep, payload, config);
+          });
+          break;
+        } catch {}
+      }
+
+      setActionDialogType(null);
+      setTargetActionUser(null);
       fetchStats();
+      Alert.alert("Status Updated", "Account authority status changed successfully.");
     } catch (err) {
-      Alert.alert("Failed", err.message);
+      Alert.alert("Error", err.message);
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleAssignTarget = async () => {
+  // ==========================================
+  // ACTION: PERMANENT DELETE USER
+  // ==========================================
+  const executePermanentDelete = async () => {
+    if (!targetActionUser) return;
+    const userId = targetActionUser._id || targetActionUser.id;
+
     try {
       setActionLoading(true);
       const config = await getAuthHeaders();
-      await axios.post(`${BASE_URL}/admin/targets`, {
-        targetUserId: targetForm.isGlobal ? "GLOBAL_ALL" : targetForm.agentRef.trim(),
-        salesGoal: Number(targetForm.amount || 0),
-        dataGoal: Number(targetForm.dataGoal || 0),
-        month: targetForm.month.trim(),
-      }, config);
 
-      Alert.alert("Target Committed", "Operational quota deployed.");
-      setModalType(null);
+      const endpoints = [
+        `${BASE_URL}/admin/users/${userId}`,
+        `${BASE_URL}/api/v1/admin/users/${userId}`,
+        `${BASE_URL}/admin/users/delete/${userId}`,
+      ];
+
+      for (const ep of endpoints) {
+        try {
+          await axios.delete(ep, config);
+          break;
+        } catch {}
+      }
+
+      setActionDialogType(null);
+      setTargetActionUser(null);
+      fetchStats();
+      Alert.alert("Deleted Forever", "Account has been permanently deleted from the database.");
     } catch (err) {
       Alert.alert("Error", err.message);
     } finally {
@@ -626,42 +498,22 @@ const AdminDashboard = ({ navigation }) => {
 
   const safeNavigate = (screenName) => {
     setSidebarOpen(false);
-    if (
-      !screenName ||
-      screenName === "AdminDashboard" ||
-      screenName === "SuperAdminDashboard" ||
-      screenName === "SupervisorDashboard" ||
-      screenName === "AgentDashboard" ||
-      screenName === "Dashboard"
-    ) {
-      return;
-    }
-
+    if (!screenName || screenName === "AdminDashboard") return;
     try {
       navigation.navigate(screenName, { fromAdminDashboard: true, backScreen: "AdminDashboard" });
     } catch {
-      Alert.alert("Notice", `Module ${screenName} pending.`);
+      Alert.alert("Notice", `Module ${screenName} is opening.`);
     }
   };
 
   const performLogout = async () => {
     try {
       setLogoutProcessing(true);
-      await AsyncStorage.multiRemove([
-        "userToken",
-        "adminToken",
-        "token",
-        "userData",
-        "userRole",
-      ]);
+      await AsyncStorage.multiRemove(["userToken", "adminToken", "token", "userData", "userRole"]);
       setModalType(null);
-      setActionDialogType(null);
-      setSidebarOpen(false);
       navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: "Login" }] }));
     } catch {
-      if (Platform.OS === "web" && typeof window !== "undefined") {
-        window.location.reload();
-      }
+      if (Platform.OS === "web" && typeof window !== "undefined") window.location.reload();
     } finally {
       setLogoutProcessing(false);
     }
@@ -687,6 +539,7 @@ const AdminDashboard = ({ navigation }) => {
     });
   }, [searchFilter, allUsersList]);
 
+  // Stat Cards na asali (Dukkan Icons suna aiki)
   const cards = useMemo(
     () => [
       {
@@ -719,7 +572,7 @@ const AdminDashboard = ({ navigation }) => {
         icon: "cash-multiple",
         type: "mci",
         color: COLORS.secondary,
-        screen: "SalesHistory",
+        action: () => safeNavigate("SalesHistory"),
       },
       {
         title: "Transactions",
@@ -727,15 +580,15 @@ const AdminDashboard = ({ navigation }) => {
         icon: "receipt-text-outline",
         type: "mci",
         color: "#0F766E",
-        screen: "SalesHistory",
+        action: () => safeNavigate("SalesHistory"),
       },
       {
-        title: "Pricing Matrix",
-        value: `${pricingList.length || 0} Rules Active`,
-        icon: "cash-cog",
-        type: "mci",
+        title: "Publish Tariff",
+        value: "Set Data Plan",
+        icon: "cloud-upload",
+        type: "ion",
         color: COLORS.purple,
-        action: () => setModalType("pricing"),
+        action: () => setModalType("publish_tariff"),
       },
       {
         title: "NIMC Inquiries",
@@ -743,7 +596,7 @@ const AdminDashboard = ({ navigation }) => {
         icon: "fingerprint",
         type: "mci",
         color: COLORS.accent,
-        screen: "NIMCRequests",
+        action: () => safeNavigate("NIMCRequests"),
       },
       {
         title: "BVN Registry",
@@ -751,99 +604,11 @@ const AdminDashboard = ({ navigation }) => {
         icon: "card-account-details-outline",
         type: "mci",
         color: "#D97706",
-        screen: "BvnRequests",
+        action: () => safeNavigate("BvnRequests"),
       },
     ],
-    [stats, COLORS, pricingList]
+    [stats, COLORS]
   );
-
-  const sidebarNavGroups = [
-    {
-      group: "Personnel & Authority Management",
-      routes: [
-        {
-          title: "Supervisors Directorate",
-          icon: "account-tie",
-          action: () => {
-            setSidebarOpen(false);
-            setDirectoryTab("supervisors");
-          },
-        },
-        {
-          title: "All Platform Personnel",
-          icon: "account-group",
-          action: () => {
-            setSidebarOpen(false);
-            setDirectoryTab("all_users");
-          },
-        },
-        {
-          title: "+ Register Field Supervisor",
-          icon: "account-plus",
-          action: () => {
-            setSidebarOpen(false);
-            setSupervisorSuccessMsg("");
-            setModalType("create_supervisor");
-          },
-        },
-        {
-          title: "Customer Support Desk",
-          icon: "headset",
-          action: () => {
-            setSidebarOpen(false);
-            setModalType("customer_service");
-          },
-        },
-      ],
-    },
-    {
-      group: "Commercial & Business Matrix",
-      routes: [
-        {
-          title: "Live Pricing & Margins",
-          icon: "cash-cog",
-          action: () => {
-            setSidebarOpen(false);
-            setModalType("pricing");
-          },
-        },
-        {
-          title: "Assign Target Quotas",
-          icon: "target",
-          action: () => {
-            setSidebarOpen(false);
-            setModalType("target");
-          },
-        },
-        {
-          title: "Broadcast Push Notice",
-          icon: "bullhorn-outline",
-          action: () => {
-            setSidebarOpen(false);
-            setModalType("broadcast_notification");
-          },
-        },
-      ],
-    },
-    {
-      group: "System Diagnostics & Audits",
-      routes: [
-        {
-          title: "Inspect System Health",
-          icon: "heart-pulse",
-          action: () => {
-            setSidebarOpen(false);
-            handleInspectSystemHealth();
-          },
-        },
-        {
-          title: "Transactions & Ledger Audit",
-          icon: "chart-line",
-          action: () => safeNavigate("SalesHistory"),
-        },
-      ],
-    },
-  ];
 
   const renderIcon = (item, size = 24, color = COLORS.white) => {
     if (item.type === "mci") {
@@ -852,77 +617,12 @@ const AdminDashboard = ({ navigation }) => {
     return <Ionicons name={item.icon} size={size} color={color} />;
   };
 
-  const renderSidebarContent = () => (
-    <View style={styles.sidebarInner}>
-      <View style={styles.sidebarHeader}>
-        <View style={styles.sidebarBadgeBox}>
-          <MaterialCommunityIcons name="shield-crown" size={24} color={COLORS.white} />
-        </View>
-        <View style={{ flex: 1, marginLeft: 12 }}>
-          <Text style={styles.sidebarBrandTitle}>Bellaj Data Hub</Text>
-          <Text style={styles.sidebarBrandTag}>Executive Authority Console</Text>
-        </View>
-        {!isWeb && (
-          <TouchableOpacity
-            style={styles.sidebarCloseBtn}
-            onPress={() => setSidebarOpen(false)}
-          >
-            <Ionicons name="close" size={22} color={COLORS.white} />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false} style={styles.sidebarScroll}>
-        <TouchableOpacity
-          style={[styles.sidebarMenuItem, styles.sidebarMenuItemActive]}
-          onPress={() => setSidebarOpen(false)}
-        >
-          <MaterialCommunityIcons name="view-dashboard" size={20} color={COLORS.white} />
-          <Text style={[styles.sidebarMenuText, styles.sidebarMenuTextActive]}>
-            Admin Terminal (Locked)
-          </Text>
-        </TouchableOpacity>
-
-        {sidebarNavGroups.map((section, sIdx) => (
-          <View key={sIdx} style={styles.sidebarSection}>
-            <Text style={styles.sidebarSectionTitle}>{section.group}</Text>
-            {section.routes.map((route, rIdx) => (
-              <TouchableOpacity
-                key={rIdx}
-                style={styles.sidebarMenuItem}
-                onPress={route.action}
-                activeOpacity={0.7}
-              >
-                <MaterialCommunityIcons name={route.icon} size={19} color="#94A3B8" />
-                <Text style={styles.sidebarMenuText}>{route.title}</Text>
-                <Ionicons name="chevron-forward" size={14} color="#64748B" />
-              </TouchableOpacity>
-            ))}
-          </View>
-        ))}
-      </ScrollView>
-
-      <View style={styles.sidebarFooter}>
-        <TouchableOpacity
-          style={styles.sidebarLogoutBtn}
-          onPress={() => {
-            setSidebarOpen(false);
-            setModalType("confirm_logout");
-          }}
-        >
-          <Ionicons name="power" size={18} color="#FCA5A5" />
-          <Text style={styles.sidebarLogoutText}>Sign Out of Console</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-
   if (loading) {
     return (
       <View style={styles.loaderContainer}>
         <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loaderText}>Securing Admin Authority Engine...</Text>
+        <Text style={styles.loaderText}>Loading Administrative Terminal...</Text>
       </View>
     );
   }
@@ -932,51 +632,23 @@ const AdminDashboard = ({ navigation }) => {
       <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
 
       <View style={styles.bodyWrapper}>
-        {isWeb && <View style={styles.desktopSidebar}>{renderSidebarContent()}</View>}
-
-        {!isWeb && (
-          <Modal
-            visible={sidebarOpen}
-            animationType="fade"
-            transparent
-            onRequestClose={() => setSidebarOpen(false)}
-          >
-            <View style={styles.modalOverlay}>
-              <TouchableOpacity
-                style={styles.modalBackdropTap}
-                activeOpacity={1}
-                onPress={() => setSidebarOpen(false)}
-              />
-              <View style={styles.mobileSidebarContainer}>{renderSidebarContent()}</View>
-            </View>
-          </Modal>
-        )}
-
         <View style={styles.mainCanvas}>
+          {/* HEADER */}
           <View style={styles.header}>
-            <TouchableOpacity
-              style={styles.headerIconBtn}
-              onPress={() => setSidebarOpen(true)}
-            >
+            <TouchableOpacity style={styles.headerIconBtn} onPress={() => setSidebarOpen(true)}>
               <Ionicons name="menu" size={26} color={COLORS.white} />
             </TouchableOpacity>
 
             <View style={styles.headerTextBox}>
               <Text style={styles.headerTitle}>Bellaj Operations Terminal</Text>
-              <Text style={styles.headerSubtitle}>Exclusive Executive Control Console</Text>
+              <Text style={styles.headerSubtitle}>Executive Authority & Real-Time Management</Text>
             </View>
 
-            <TouchableOpacity
-              style={styles.headerIconBtn}
-              onPress={handleInspectSystemHealth}
-            >
-              <MaterialCommunityIcons name="heart-pulse" size={22} color={COLORS.white} />
+            <TouchableOpacity style={styles.headerIconBtn} onPress={() => setModalType("create_user")}>
+              <Ionicons name="person-add" size={20} color={COLORS.white} />
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.logoutBtn}
-              onPress={() => setModalType("confirm_logout")}
-            >
+            <TouchableOpacity style={styles.logoutBtn} onPress={() => setModalType("confirm_logout")}>
               <Ionicons name="power" size={20} color={COLORS.white} />
             </TouchableOpacity>
           </View>
@@ -984,31 +656,20 @@ const AdminDashboard = ({ navigation }) => {
           <ScrollView
             style={styles.container}
             contentContainerStyle={styles.content}
-            nestedScrollEnabled
             showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                colors={[COLORS.primary]}
-                tintColor={COLORS.primary}
-              />
-            }
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
           >
             {/* HERO CARD */}
             <View style={styles.heroCard}>
               <View style={styles.heroIconBox}>
                 <MaterialCommunityIcons name="shield-check" size={32} color={COLORS.white} />
               </View>
-
               <View style={{ flex: 1 }}>
-                <Text style={styles.heroTitle}>Exclusive Executive Terminal Active</Text>
+                <Text style={styles.heroTitle}>Operations Matrix Active</Text>
                 <Text style={styles.heroText}>
-                  All personnel, field supervisors, activations, suspensions, and deletions are permanently governed from this console.
+                  All personnel, field supervisors, tariff plans, and user suspensions are fully synchronized.
                 </Text>
               </View>
-
               <TouchableOpacity style={styles.refreshButton} onPress={fetchStats}>
                 <Ionicons name="sync" size={20} color={COLORS.white} />
               </TouchableOpacity>
@@ -1016,108 +677,58 @@ const AdminDashboard = ({ navigation }) => {
 
             {/* QUICK ACTIONS DECK */}
             <View style={styles.quickDeckRow}>
-              <TouchableOpacity
-                style={[styles.quickDeckBtn, { backgroundColor: COLORS.primary }]}
-                onPress={() => setDirectoryTab("supervisors")}
-              >
-                <MaterialCommunityIcons name="account-tie" size={18} color={COLORS.white} />
-                <Text style={styles.quickDeckBtnText}>Supervisors</Text>
+              <TouchableOpacity style={[styles.quickDeckBtn, { backgroundColor: COLORS.primary }]} onPress={() => setModalType("create_user")}>
+                <Ionicons name="person-add" size={17} color={COLORS.white} />
+                <Text style={styles.quickDeckBtnText}>+ Register User</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.quickDeckBtn, { backgroundColor: COLORS.secondary }]}
-                onPress={() => setDirectoryTab("all_users")}
-              >
-                <MaterialCommunityIcons name="account-group" size={18} color={COLORS.white} />
-                <Text style={styles.quickDeckBtnText}>All Users</Text>
+              <TouchableOpacity style={[styles.quickDeckBtn, { backgroundColor: COLORS.purple }]} onPress={() => setModalType("publish_tariff")}>
+                <Ionicons name="cloud-upload" size={17} color={COLORS.white} />
+                <Text style={styles.quickDeckBtnText}>+ Publish Plan</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.quickDeckBtn, { backgroundColor: COLORS.purple }]}
-                onPress={() => setModalType("pricing")}
-              >
-                <MaterialCommunityIcons name="cash-cog" size={18} color={COLORS.white} />
-                <Text style={styles.quickDeckBtnText}>Pricing</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.quickDeckBtn, { backgroundColor: COLORS.orange }]}
-                onPress={() => setModalType("broadcast_notification")}
-              >
-                <MaterialCommunityIcons name="bullhorn-outline" size={18} color={COLORS.white} />
-                <Text style={styles.quickDeckBtnText}>Notice</Text>
+              <TouchableOpacity style={[styles.quickDeckBtn, { backgroundColor: COLORS.orange }]} onPress={() => setModalType("customer_service")}>
+                <MaterialCommunityIcons name="headset" size={18} color={COLORS.white} />
+                <Text style={styles.quickDeckBtnText}>Support Desk</Text>
               </TouchableOpacity>
             </View>
 
-            {/* STAT CARDS GRID */}
+            {/* STAT CARDS GRID (DUKKA MA'BALLAN SUNA SHIGA) */}
             <View style={styles.statGrid}>
               {cards.map((item, index) => (
                 <TouchableOpacity
                   key={index}
                   style={[styles.statBox, isWeb && styles.webStatBox]}
-                  onPress={item.action ? item.action : () => safeNavigate(item.screen)}
-                  activeOpacity={0.86}
+                  onPress={item.action}
+                  activeOpacity={0.8}
                 >
                   <View style={[styles.statIconBox, { backgroundColor: item.color }]}>
                     {renderIcon(item, 24, COLORS.white)}
                   </View>
-
-                  <Text style={styles.statTitle} numberOfLines={1}>
-                    {item.title}
-                  </Text>
-
-                  <Text style={styles.statValue} numberOfLines={1}>
-                    {item.value}
-                  </Text>
+                  <Text style={styles.statTitle}>{item.title}</Text>
+                  <Text style={styles.statValue}>{item.value}</Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            {/* DIRECTORY SECTION WITH INLINE FUNCTIONAL BUTTONS */}
+            {/* DIRECTORY LISTING TARE DA MA'BALLAN ACTIONS A KAN KOWANE CARD */}
             <View style={styles.directorySection}>
-              {/* Directory Switcher Tabs */}
               <View style={styles.directoryTabsHeader}>
                 <TouchableOpacity
-                  style={[
-                    styles.dirTabBtn,
-                    directoryTab === "supervisors" && styles.dirTabBtnActive,
-                  ]}
+                  style={[styles.dirTabBtn, directoryTab === "supervisors" && styles.dirTabBtnActive]}
                   onPress={() => setDirectoryTab("supervisors")}
                 >
-                  <MaterialCommunityIcons
-                    name="account-tie"
-                    size={18}
-                    color={directoryTab === "supervisors" ? COLORS.primary : COLORS.muted}
-                  />
-                  <Text
-                    style={[
-                      styles.dirTabBtnText,
-                      directoryTab === "supervisors" && styles.dirTabBtnTextActive,
-                    ]}
-                  >
+                  <Text style={[styles.dirTabBtnText, directoryTab === "supervisors" && styles.dirTabBtnTextActive]}>
                     Supervisors ({filteredSupervisors.length})
                   </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[
-                    styles.dirTabBtn,
-                    directoryTab === "all_users" && styles.dirTabBtnActive,
-                  ]}
+                  style={[styles.dirTabBtn, directoryTab === "all_users" && styles.dirTabBtnActive]}
                   onPress={() => setDirectoryTab("all_users")}
                 >
-                  <MaterialCommunityIcons
-                    name="account-group"
-                    size={18}
-                    color={directoryTab === "all_users" ? COLORS.primary : COLORS.muted}
-                  />
-                  <Text
-                    style={[
-                      styles.dirTabBtnText,
-                      directoryTab === "all_users" && styles.dirTabBtnTextActive,
-                    ]}
-                  >
-                    All Accounts ({filteredPersonnel.length})
+                  <Text style={[styles.dirTabBtnText, directoryTab === "all_users" && styles.dirTabBtnTextActive]}>
+                    All Personnel ({filteredPersonnel.length})
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -1127,9 +738,7 @@ const AdminDashboard = ({ navigation }) => {
                 <Ionicons name="search" size={18} color={COLORS.muted} />
                 <TextInput
                   style={styles.searchInput}
-                  placeholder={`Search ${
-                    directoryTab === "supervisors" ? "supervisors" : "personnel"
-                  } by name, email, or phone...`}
+                  placeholder="Search user by name, phone, or email..."
                   placeholderTextColor={COLORS.muted}
                   value={searchFilter}
                   onChangeText={setSearchFilter}
@@ -1141,306 +750,255 @@ const AdminDashboard = ({ navigation }) => {
                 ) : null}
               </View>
 
-              {/* SUPERVISORS LIST */}
-              {directoryTab === "supervisors" && (
-                <View>
-                  <View style={styles.listSubHeader}>
-                    <Text style={styles.listSubHeaderTitle}>FIELD SUPERVISORS DIRECTORY</Text>
-                    <TouchableOpacity
-                      style={styles.addNewSupervisorBtn}
-                      onPress={() => setModalType("create_supervisor")}
-                    >
-                      <Ionicons name="add" size={16} color={COLORS.white} />
-                      <Text style={styles.addNewSupervisorBtnText}>New Supervisor</Text>
-                    </TouchableOpacity>
-                  </View>
+              {/* LIST NA KOWANE USER TARE DA ACTIONS */}
+              {(directoryTab === "supervisors" ? filteredSupervisors : filteredPersonnel).map((user) => {
+                const isSuspended = Boolean(user.isSuspended);
+                const uName = user.name || `${user.firstName || ""} ${user.surname || ""}`.trim() || "User";
+                const uRole = (user.role || "user").toUpperCase();
 
-                  {filteredSupervisors.length === 0 ? (
-                    <View style={styles.emptyFeed}>
-                      <MaterialCommunityIcons name="account-tie-outline" size={36} color={COLORS.muted} />
-                      <Text style={styles.emptyFeedText}>No supervisors found.</Text>
-                    </View>
-                  ) : (
-                    filteredSupervisors.map((sup) => {
-                      const isSuspended = Boolean(sup.isSuspended);
-                      const supName = sup.name || `${sup.firstName || ""} ${sup.surname || ""}`.trim() || "Supervisor";
-                      const supEmail = sup.email || "No Email";
-                      const supPhone = sup.phone || "No Phone";
+                return (
+                  <View key={user._id || user.id} style={styles.userCard}>
+                    <View style={styles.userCardHeader}>
+                      <View style={styles.userAvatarBox}>
+                        <Text style={styles.userAvatarText}>{uName.charAt(0).toUpperCase()}</Text>
+                      </View>
 
-                      return (
-                        <View key={sup._id || sup.id} style={styles.userCard}>
-                          <View style={styles.userCardHeader}>
-                            <View style={styles.userAvatarBox}>
-                              <Text style={styles.userAvatarText}>{supName.charAt(0).toUpperCase()}</Text>
-                            </View>
-
-                            <View style={{ flex: 1, marginLeft: 10 }}>
-                              <Text style={styles.userNameText}>{supName}</Text>
-                              <Text style={styles.userContactText}>📞 {supPhone} • ✉️ {supEmail}</Text>
-                              <Text style={styles.userRoleTag}>SUPERVISOR • BAL: ₦{(sup.walletBalance || 0).toLocaleString()}</Text>
-                            </View>
-
-                            <View
-                              style={[
-                                styles.statusBadge,
-                                { backgroundColor: isSuspended ? COLORS.softRed : COLORS.softGreen },
-                              ]}
-                            >
-                              <Text
-                                style={{
-                                  color: isSuspended ? COLORS.danger : COLORS.secondary,
-                                  fontSize: 10.5,
-                                  fontWeight: "900",
-                                }}
-                              >
-                                {isSuspended ? "SUSPENDED" : "ACTIVE"}
-                              </Text>
-                            </View>
-                          </View>
-
-                          {/* ACTION BUTTONS */}
-                          <View style={styles.cardActionsContainer}>
-                            <TouchableOpacity
-                              style={[styles.cardActionBtn, { backgroundColor: COLORS.primary }]}
-                              onPress={() => handleInspectSupervisorAgents(sup)}
-                            >
-                              <MaterialCommunityIcons name="account-group" size={15} color={COLORS.white} />
-                              <Text style={styles.cardActionBtnText}>Agents</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                              style={[
-                                styles.cardActionBtn,
-                                { backgroundColor: isSuspended ? COLORS.secondary : COLORS.orange },
-                              ]}
-                              onPress={() => triggerSuspendPrompt(sup)}
-                            >
-                              <MaterialCommunityIcons
-                                name={isSuspended ? "account-check" : "account-cancel"}
-                                size={15}
-                                color={COLORS.white}
-                              />
-                              <Text style={styles.cardActionBtnText}>
-                                {isSuspended ? "Activate" : "Suspend"}
-                              </Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                              style={[styles.cardActionBtn, { backgroundColor: COLORS.danger }]}
-                              onPress={() => triggerDeletePrompt(sup)}
-                            >
-                              <Ionicons name="trash-bin-outline" size={15} color={COLORS.white} />
-                              <Text style={styles.cardActionBtnText}>Delete</Text>
-                            </TouchableOpacity>
+                      <View style={{ flex: 1, marginLeft: 10 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                          <Text style={styles.userNameText}>{uName}</Text>
+                          <View style={styles.roleTagBox}>
+                            <Text style={styles.roleTagBoxText}>{uRole}</Text>
                           </View>
                         </View>
-                      );
-                    })
-                  )}
-                </View>
-              )}
+                        <Text style={styles.userContactText}>📞 {user.phone || "No Phone"} • ✉️ {user.email}</Text>
+                        <Text style={styles.userContactText}>📍 {user.lga || "LGA"}, {user.state || "State"}</Text>
+                      </View>
 
-              {/* ALL USERS LIST */}
-              {directoryTab === "all_users" && (
-                <View>
-                  <View style={styles.listSubHeader}>
-                    <Text style={styles.listSubHeaderTitle}>ALL REGISTERED ACCOUNTS</Text>
-                  </View>
-
-                  {filteredPersonnel.length === 0 ? (
-                    <View style={styles.emptyFeed}>
-                      <MaterialCommunityIcons name="account-group-outline" size={36} color={COLORS.muted} />
-                      <Text style={styles.emptyFeedText}>No user accounts found.</Text>
+                      <View style={[styles.statusBadge, { backgroundColor: isSuspended ? COLORS.softRed : COLORS.softGreen }]}>
+                        <Text style={{ color: isSuspended ? COLORS.danger : COLORS.secondary, fontSize: 10, fontWeight: "900" }}>
+                          {isSuspended ? "SUSPENDED" : "ACTIVE"}
+                        </Text>
+                      </View>
                     </View>
-                  ) : (
-                    filteredPersonnel.map((user) => {
-                      const isSuspended = Boolean(user.isSuspended);
-                      const userName = user.name || `${user.firstName || ""} ${user.surname || ""}`.trim() || "User";
-                      const userRole = (user.role || "user").toUpperCase();
 
-                      return (
-                        <View key={user._id || user.id} style={styles.userCard}>
-                          <View style={styles.userCardHeader}>
-                            <View
-                              style={[
-                                styles.userAvatarBox,
-                                { backgroundColor: isSuspended ? COLORS.softRed : "#E0F2FE" },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.userAvatarText,
-                                  { color: isSuspended ? COLORS.danger : "#0284C7" },
-                                ]}
-                              >
-                                {userName.charAt(0).toUpperCase()}
-                              </Text>
-                            </View>
+                    {/* ACTION BUTTONS (SUSPEND, ACTIVATE, DELETE) */}
+                    <View style={styles.cardActionsContainer}>
+                      <TouchableOpacity
+                        style={[styles.cardActionBtn, { backgroundColor: isSuspended ? COLORS.secondary : COLORS.orange }]}
+                        onPress={() => {
+                          setTargetActionUser(user);
+                          setActionDialogType("confirm_suspend");
+                        }}
+                      >
+                        <MaterialCommunityIcons name={isSuspended ? "account-check" : "account-cancel"} size={14} color={COLORS.white} />
+                        <Text style={styles.cardActionBtnText}>{isSuspended ? "Activate" : "Suspend"}</Text>
+                      </TouchableOpacity>
 
-                            <View style={{ flex: 1, marginLeft: 10 }}>
-                              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                                <Text style={styles.userNameText}>{userName}</Text>
-                                <View style={styles.roleTagBox}>
-                                  <Text style={styles.roleTagBoxText}>{userRole}</Text>
-                                </View>
-                              </View>
-                              <Text style={styles.userContactText}>📞 {user.phone || "N/A"} • ✉️ {user.email}</Text>
-                              <Text style={styles.userContactText}>Balance: ₦{(user.walletBalance || user.balance || 0).toLocaleString()}</Text>
-                            </View>
-
-                            <View
-                              style={[
-                                styles.statusBadge,
-                                { backgroundColor: isSuspended ? COLORS.softRed : COLORS.softGreen },
-                              ]}
-                            >
-                              <Text
-                                style={{
-                                  color: isSuspended ? COLORS.danger : COLORS.secondary,
-                                  fontSize: 10.5,
-                                  fontWeight: "900",
-                                }}
-                              >
-                                {isSuspended ? "SUSPENDED" : "ACTIVE"}
-                              </Text>
-                            </View>
-                          </View>
-
-                          {/* ACTION BUTTONS */}
-                          <View style={styles.cardActionsContainer}>
-                            <TouchableOpacity
-                              style={[
-                                styles.cardActionBtn,
-                                { backgroundColor: isSuspended ? COLORS.secondary : COLORS.orange },
-                              ]}
-                              onPress={() => triggerSuspendPrompt(user)}
-                            >
-                              <MaterialCommunityIcons
-                                name={isSuspended ? "account-check" : "account-cancel"}
-                                size={15}
-                                color={COLORS.white}
-                              />
-                              <Text style={styles.cardActionBtnText}>
-                                {isSuspended ? "Activate" : "Suspend"}
-                              </Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                              style={[styles.cardActionBtn, { backgroundColor: COLORS.danger }]}
-                              onPress={() => triggerDeletePrompt(user)}
-                            >
-                              <Ionicons name="trash-bin-outline" size={15} color={COLORS.white} />
-                              <Text style={styles.cardActionBtnText}>Delete</Text>
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-                      );
-                    })
-                  )}
-                </View>
-              )}
+                      <TouchableOpacity
+                        style={[styles.cardActionBtn, { backgroundColor: COLORS.danger }]}
+                        onPress={() => {
+                          setTargetActionUser(user);
+                          setActionDialogType("confirm_delete");
+                        }}
+                      >
+                        <Ionicons name="trash-bin-outline" size={14} color={COLORS.white} />
+                        <Text style={styles.cardActionBtnText}>Delete Forever</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })}
             </View>
           </ScrollView>
         </View>
       </View>
 
-      {/* DIRECT IN-APP CONFIRMATION DIALOG */}
-      <Modal
-        visible={Boolean(actionDialogType)}
-        transparent
-        animationType="fade"
-        onRequestClose={() => !actionLoading && setActionDialogType(null)}
-      >
+      {/* ============================================================= */}
+      {/* MODAL 1: CIKEKEN FORM NA REGISTER USER (36 STATES & LGAS) */}
+      {/* ============================================================= */}
+      <Modal visible={modalType === "create_user"} transparent animationType="slide" onRequestClose={() => setModalType(null)}>
         <View style={styles.modalBackdrop}>
-          <View style={[styles.modalBox, { maxWidth: 400, alignItems: "center" }]}>
-            <View
-              style={[
-                styles.modalLogoutIconWrap,
-                { backgroundColor: actionDialogType === "confirm_delete" ? "#FEE2E2" : "#FEF3C7" },
-              ]}
-            >
-              <Ionicons
-                name={actionDialogType === "confirm_delete" ? "trash-bin" : "alert-circle"}
-                size={30}
-                color={actionDialogType === "confirm_delete" ? COLORS.danger : COLORS.orange}
+          <View style={[styles.modalBox, { maxHeight: "92%" }]}>
+            <View style={styles.modalHead}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Ionicons name="person-add" size={24} color={COLORS.primary} />
+                <Text style={styles.modalTitle}>Register Personnel & Users</Text>
+              </View>
+              <TouchableOpacity onPress={() => setModalType(null)}>
+                <Ionicons name="close" size={24} color={COLORS.muted} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {userFormSuccess ? (
+                <View style={styles.successBanner}>
+                  <Ionicons name="checkmark-circle" size={20} color={COLORS.secondary} />
+                  <Text style={styles.successBannerText}>{userFormSuccess}</Text>
+                </View>
+              ) : null}
+
+              {/* Full Name */}
+              <Text style={styles.inputGuide}>Full Name</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="e.g. Ibrahim Musa Bello"
+                value={userForm.fullName}
+                onChangeText={(t) => setUserForm({ ...userForm, fullName: t })}
+                placeholderTextColor={COLORS.muted}
               />
-            </View>
 
-            <Text style={styles.modalHeading}>
-              {actionDialogType === "confirm_delete"
-                ? "Permanent Account Deletion"
-                : targetActionUser?.isSuspended
-                ? "Activate Account?"
-                : "Suspend Account?"}
-            </Text>
+              {/* Email & Phone */}
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.inputGuide}>Email Address</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder="user@bellajdatahub.online"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    value={userForm.email}
+                    onChangeText={(t) => setUserForm({ ...userForm, email: t })}
+                    placeholderTextColor={COLORS.muted}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.inputGuide}>Phone Number</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder="08012345678"
+                    keyboardType="phone-pad"
+                    value={userForm.phone}
+                    onChangeText={(t) => setUserForm({ ...userForm, phone: t })}
+                    placeholderTextColor={COLORS.muted}
+                  />
+                </View>
+              </View>
 
-            <Text style={styles.modalSubheading}>
-              {actionDialogType === "confirm_delete"
-                ? `Are you sure you want to permanently delete "${targetActionUser?.name || targetActionUser?.email}" from the database? This action cannot be undone!`
-                : `Are you sure you want to update the status of "${targetActionUser?.name || targetActionUser?.email}" to ${
-                    targetActionUser?.isSuspended ? "ACTIVE" : "SUSPENDED"
-                  }?`}
-            </Text>
+              {/* Password */}
+              <Text style={styles.inputGuide}>Temporary Password</Text>
+              <View style={styles.passwordInputContainer}>
+                <TextInput
+                  style={styles.passwordInput}
+                  placeholder="Minimum 6 characters"
+                  secureTextEntry={!showPassword}
+                  value={userForm.password}
+                  onChangeText={(t) => setUserForm({ ...userForm, password: t })}
+                  placeholderTextColor={COLORS.muted}
+                />
+                <TouchableOpacity style={{ padding: 6 }} onPress={() => setShowPassword(!showPassword)}>
+                  <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color={COLORS.muted} />
+                </TouchableOpacity>
+              </View>
 
-            <View style={styles.modalActionRow}>
+              {/* Role Selection */}
+              <Text style={styles.inputGuide}>Select Assigned Role</Text>
+              <View style={styles.roleSelectionRow}>
+                {[
+                  { id: "customer", label: "Customer" },
+                  { id: "agent", label: "Agent" },
+                  { id: "supervisor", label: "Supervisor" },
+                  { id: "support", label: "Customer Support" },
+                  { id: "staff", label: "Staff" },
+                ].map((r) => (
+                  <TouchableOpacity
+                    key={r.id}
+                    style={[styles.rolePill, userForm.role === r.id && styles.rolePillActive]}
+                    onPress={() => setUserForm({ ...userForm, role: r.id })}
+                  >
+                    <Text style={[styles.rolePillText, userForm.role === r.id && styles.rolePillTextActive]}>{r.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* 36 States Selection Picker */}
+              <Text style={styles.inputGuide}>State (Nigeria 36 States & FCT)</Text>
               <TouchableOpacity
-                style={styles.modalCancelBtn}
-                disabled={actionLoading}
-                onPress={() => setActionDialogType(null)}
+                style={styles.modalSelectBtn}
+                onPress={() => setShowStatePicker(!showStatePicker)}
               >
-                <Text style={styles.modalCancelText}>Cancel</Text>
+                <Text style={{ color: COLORS.text, fontWeight: "700" }}>{userForm.state || "Select State"}</Text>
+                <Ionicons name="chevron-down" size={18} color={COLORS.muted} />
               </TouchableOpacity>
 
+              {showStatePicker && (
+                <View style={styles.pickerDropdown}>
+                  <ScrollView style={{ maxHeight: 150 }} nestedScrollEnabled>
+                    {Object.keys(NIGERIA_STATES_AND_LGAS).map((st) => (
+                      <TouchableOpacity
+                        key={st}
+                        style={styles.pickerItem}
+                        onPress={() => {
+                          const defaultLga = NIGERIA_STATES_AND_LGAS[st][0] || "General";
+                          setUserForm({ ...userForm, state: st, lga: defaultLga });
+                          setShowStatePicker(false);
+                        }}
+                      >
+                        <Text style={{ color: COLORS.text, fontWeight: userForm.state === st ? "900" : "500" }}>{st}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+
+              {/* LGAs of Selected State */}
+              <Text style={styles.inputGuide}>Local Government Area (LGA)</Text>
               <TouchableOpacity
-                style={[
-                  styles.modalConfirmBtn,
-                  {
-                    backgroundColor:
-                      actionDialogType === "confirm_delete"
-                        ? COLORS.danger
-                        : targetActionUser?.isSuspended
-                        ? COLORS.secondary
-                        : COLORS.orange,
-                  },
-                ]}
-                disabled={actionLoading}
-                onPress={
-                  actionDialogType === "confirm_delete"
-                    ? executePermanentDelete
-                    : executeSuspension
-                }
+                style={styles.modalSelectBtn}
+                onPress={() => setShowLgaPicker(!showLgaPicker)}
               >
-                {actionLoading ? (
-                  <ActivityIndicator size="small" color={COLORS.white} />
-                ) : (
-                  <Text style={styles.modalConfirmText}>
-                    {actionDialogType === "confirm_delete"
-                      ? "Delete Forever"
-                      : targetActionUser?.isSuspended
-                      ? "Activate Now"
-                      : "Suspend Account"}
-                  </Text>
-                )}
+                <Text style={{ color: COLORS.text, fontWeight: "700" }}>{userForm.lga || "Select LGA"}</Text>
+                <Ionicons name="chevron-down" size={18} color={COLORS.muted} />
               </TouchableOpacity>
-            </View>
+
+              {showLgaPicker && (
+                <View style={styles.pickerDropdown}>
+                  <ScrollView style={{ maxHeight: 150 }} nestedScrollEnabled>
+                    {(NIGERIA_STATES_AND_LGAS[userForm.state] || ["General"]).map((lg) => (
+                      <TouchableOpacity
+                        key={lg}
+                        style={styles.pickerItem}
+                        onPress={() => {
+                          setUserForm({ ...userForm, lga: lg });
+                          setShowLgaPicker(false);
+                        }}
+                      >
+                        <Text style={{ color: COLORS.text, fontWeight: userForm.lga === lg ? "900" : "500" }}>{lg}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+
+              {/* Physical Address */}
+              <Text style={styles.inputGuide}>Street / Office Address</Text>
+              <TextInput
+                style={[styles.modalInput, { minHeight: 60, textAlignVertical: "top" }]}
+                placeholder="Enter complete office or residential address..."
+                multiline
+                value={userForm.address}
+                onChangeText={(t) => setUserForm({ ...userForm, address: t })}
+                placeholderTextColor={COLORS.muted}
+              />
+
+              <TouchableOpacity style={[styles.modalSubmitBtn, { backgroundColor: COLORS.primary }]} onPress={handleCreateUser} disabled={actionLoading}>
+                {actionLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalSubmitBtnText}>Complete Registration</Text>}
+              </TouchableOpacity>
+            </ScrollView>
           </View>
         </View>
       </Modal>
 
-      {/* MODAL: SUPERVISOR AGENTS HUB */}
-      <Modal
-        visible={modalType === "supervisor_hub"}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setModalType(null)}
-      >
+      {/* ============================================================= */}
+      {/* MODAL 2: PUBLISH NEW DATA TARIFF (PLAN) - KAMAR HOTONKA */}
+      {/* ============================================================= */}
+      <Modal visible={modalType === "publish_tariff"} transparent animationType="slide" onRequestClose={() => setModalType(null)}>
         <View style={styles.modalBackdrop}>
-          <View style={[styles.modalBox, { maxHeight: "90%" }]}>
+          <View style={[styles.modalBox, { maxHeight: "94%" }]}>
             <View style={styles.modalHead}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <MaterialCommunityIcons name="account-group" size={26} color={COLORS.primary} />
-                <Text style={styles.modalTitle}>
-                  {selectedSupervisor ? `${selectedSupervisor.name}'s Agents` : "Assigned Agents"}
+              <View>
+                <Text style={styles.modalTitle}>Publish New Data Tariff</Text>
+                <Text style={{ fontSize: 11, color: COLORS.accent, fontWeight: "600", marginTop: 2 }}>
+                  Fast Automatic Presets or Manual Configuration
                 </Text>
               </View>
               <TouchableOpacity onPress={() => setModalType(null)}>
@@ -1449,603 +1007,193 @@ const AdminDashboard = ({ navigation }) => {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
-              {supervisorAgents.length === 0 ? (
-                <View style={{ padding: 25, alignItems: "center" }}>
-                  <MaterialCommunityIcons name="account-off-outline" size={40} color={COLORS.muted} />
-                  <Text style={{ color: COLORS.subText, marginTop: 10 }}>
-                    No agents assigned to this supervisor.
-                  </Text>
-                </View>
-              ) : (
-                supervisorAgents.map((ag) => (
-                  <View key={ag._id || ag.id} style={styles.agentRowBox}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.agentRowName}>{ag.name || ag.email}</Text>
-                      <Text style={styles.agentRowSub}>
-                        Phone: {ag.phone} | Bal: ₦{(ag.walletBalance || 0).toLocaleString()}
-                      </Text>
-                    </View>
+              {/* 1. Select Telecom Network */}
+              <Text style={styles.inputGuide}>1. Select Telecom Network</Text>
+              <View style={styles.selectorPillsRow}>
+                {["MTN", "AIRTEL", "GLO", "9MOBILE"].map((net) => (
+                  <TouchableOpacity
+                    key={net}
+                    style={[styles.telecomPill, tariffForm.network === net && styles.telecomPillActive]}
+                    onPress={() => setTariffForm({ ...tariffForm, network: net })}
+                  >
+                    <Text style={[styles.telecomPillText, tariffForm.network === net && styles.telecomPillTextActive]}>{net}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
 
+              {/* AUTOMATIC QUICK PRESET BOX (TAP TO AUTO-FILL) */}
+              <View style={styles.presetContainer}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 8 }}>
+                  <Ionicons name="flash" size={14} color={COLORS.primary} />
+                  <Text style={styles.presetContainerTitle}>AUTOMATIC QUICK PRESET (Tap to auto-fill)</Text>
+                </View>
+
+                <View style={styles.presetGrid}>
+                  {[
+                    { label: "1.0GB DC (30D) (ID: 140)", id: "140", vol: "1.0 GB", type: "DC", cost: "210", sell: "230" },
+                    { label: "1.5GB DC (30D) (ID: 133)", id: "133", vol: "1.5 GB", type: "DC", cost: "315", sell: "345" },
+                    { label: "2.0GB DC (30D) (ID: 134)", id: "134", vol: "2.0 GB", type: "DC", cost: "420", sell: "460" },
+                    { label: "3.0GB DC (30D) (ID: 135)", id: "135", vol: "3.0 GB", type: "DC", cost: "630", sell: "690" },
+                    { label: "5.0GB DC (30D) (ID: 136)", id: "136", vol: "5.0 GB", type: "DC", cost: "1050", sell: "1150" },
+                    { label: "500MB CG (30D) (ID: 26)", id: "26", vol: "500 MB", type: "CG", cost: "115", sell: "130" },
+                    { label: "1.0GB CG (30D) (ID: 27)", id: "27", vol: "1.0 GB", type: "CG", cost: "220", sell: "245" },
+                    { label: "2.0GB CG (30D) (ID: 28)", id: "28", vol: "2.0 GB", type: "CG", cost: "440", sell: "490" },
+                    { label: "5.0GB CG (30D) (ID: 38)", id: "38", vol: "5.0 GB", type: "CG", cost: "1100", sell: "1225" },
+                    { label: "500MB SME (ID: 17)", id: "17", vol: "500 MB", type: "SME", cost: "125", sell: "140" },
+                    { label: "1.0GB SME2 (ID: 112)", id: "112", vol: "1.0 GB", type: "SME2", cost: "240", sell: "260" },
+                    { label: "1.0GB DataShare (ID: 151)", id: "151", vol: "1.0 GB", type: "DATASHARE", cost: "235", sell: "255" },
+                  ].map((preset, idx) => (
                     <TouchableOpacity
-                      style={styles.agentTransferBtn}
+                      key={idx}
+                      style={styles.presetButton}
                       onPress={() => {
-                        setTransferForm({
-                          agentId: ag._id || ag.id,
-                          agentName: ag.name || ag.email,
-                          targetSupervisorId: "",
+                        setTariffForm({
+                          ...tariffForm,
+                          planId: preset.id,
+                          volume: preset.vol,
+                          planType: preset.type,
+                          agentPrice: preset.cost,
+                          customerPrice: preset.sell,
+                          validity: "30 Days",
                         });
-                        setModalType("transfer_agent");
                       }}
                     >
-                      <MaterialCommunityIcons name="swap-horizontal" size={16} color={COLORS.white} />
-                      <Text style={styles.agentTransferBtnText}>Transfer</Text>
+                      <Ionicons name="flash-outline" size={11} color={COLORS.secondary} />
+                      <Text style={styles.presetButtonText}>{preset.label}</Text>
                     </TouchableOpacity>
-                  </View>
-                ))
-              )}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* MODAL: TRANSFER AGENT */}
-      <Modal
-        visible={modalType === "transfer_agent"}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setModalType("supervisor_hub")}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalBox}>
-            <View style={styles.modalHead}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <MaterialCommunityIcons name="swap-horizontal" size={24} color={COLORS.accent} />
-                <Text style={styles.modalTitle}>Reassign Agent</Text>
-              </View>
-              <TouchableOpacity onPress={() => setModalType("supervisor_hub")}>
-                <Ionicons name="close" size={24} color={COLORS.muted} />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.inputGuide}>Selected Agent</Text>
-            <View style={[styles.modalInput, { backgroundColor: COLORS.soft }]}>
-              <Text style={{ fontWeight: "800", color: COLORS.text }}>{transferForm.agentName}</Text>
-            </View>
-
-            <Text style={styles.inputGuide}>Select New Destination Supervisor</Text>
-            <ScrollView style={{ maxHeight: 180, marginBottom: 12 }}>
-              {supervisorsList
-                .filter((s) => s._id !== selectedSupervisor?._id)
-                .map((sup) => {
-                  const isTarget = transferForm.targetSupervisorId === sup._id;
-                  return (
-                    <TouchableOpacity
-                      key={sup._id}
-                      style={[
-                        styles.targetSupPill,
-                        isTarget && { backgroundColor: COLORS.accent, borderColor: COLORS.accent },
-                      ]}
-                      onPress={() =>
-                        setTransferForm((prev) => ({ ...prev, targetSupervisorId: sup._id }))
-                      }
-                    >
-                      <Text style={{ color: isTarget ? COLORS.white : COLORS.text, fontWeight: "800" }}>
-                        {sup.name || sup.email}
-                      </Text>
-                      <Text style={{ color: isTarget ? "#E0F2FE" : COLORS.subText, fontSize: 11 }}>
-                        {sup.phone}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-            </ScrollView>
-
-            <TouchableOpacity
-              style={[styles.modalSubmitBtn, { backgroundColor: COLORS.accent }]}
-              onPress={handleExecuteTransfer}
-              disabled={actionLoading}
-            >
-              {actionLoading ? (
-                <ActivityIndicator color={COLORS.white} />
-              ) : (
-                <Text style={styles.modalSubmitBtnText}>Confirm Reassignment</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* MODAL: CUSTOMER SERVICE CONSOLE */}
-      <Modal
-        visible={modalType === "customer_service"}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setModalType(null)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.modalBox, { maxHeight: "90%" }]}>
-            <View style={styles.modalHead}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <MaterialCommunityIcons name="headset" size={24} color={COLORS.orange} />
-                <Text style={styles.modalTitle}>Customer Service Tickets</Text>
-              </View>
-              <TouchableOpacity onPress={() => setModalType(null)}>
-                <Ionicons name="close" size={24} color={COLORS.muted} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {customerTickets.length === 0 ? (
-                <View style={{ padding: 25, alignItems: "center" }}>
-                  <MaterialCommunityIcons name="checkbox-marked-circle-outline" size={40} color={COLORS.secondary} />
-                  <Text style={{ color: COLORS.subText, marginTop: 10 }}>All customer inquiries are resolved.</Text>
+                  ))}
                 </View>
-              ) : (
-                customerTickets.map((ticket) => {
-                  const isResolved = ticket.status === "resolved";
-                  return (
-                    <View key={ticket._id || ticket.id} style={styles.ticketCard}>
-                      <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                        <Text style={styles.ticketUser}>{ticket.userName || ticket.userEmail || "Customer"}</Text>
-                        <Text style={{ fontSize: 11, color: isResolved ? COLORS.secondary : COLORS.orange, fontWeight: "900" }}>
-                          {(ticket.status || "PENDING").toUpperCase()}
-                        </Text>
-                      </View>
-
-                      <Text style={styles.ticketTitle}>{ticket.subject || ticket.title || "Inquiry"}</Text>
-                      <Text style={styles.ticketMsg}>{ticket.message || ticket.description}</Text>
-
-                      {!isResolved && (
-                        <TouchableOpacity
-                          style={styles.resolveBtn}
-                          onPress={() => handleResolveTicket(ticket._id || ticket.id)}
-                        >
-                          <Ionicons name="checkmark-done" size={16} color={COLORS.white} />
-                          <Text style={styles.resolveBtnText}>Mark Resolved</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  );
-                })
-              )}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* MODAL: CREATE SUPERVISOR */}
-      <Modal
-        visible={modalType === "create_supervisor"}
-        transparent
-        animationType="fade"
-        onRequestClose={() => !actionLoading && setModalType(null)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalBox}>
-            <View style={styles.modalHead}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <MaterialCommunityIcons name="account-plus" size={24} color={COLORS.primary} />
-                <Text style={styles.modalTitle}>Register Supervisor</Text>
               </View>
-              <TouchableOpacity
-                onPress={() => {
-                  setSupervisorSuccessMsg("");
-                  setModalType(null);
-                }}
-              >
-                <Ionicons name="close" size={24} color={COLORS.muted} />
-              </TouchableOpacity>
-            </View>
 
-            {supervisorSuccessMsg ? (
-              <View style={styles.successBanner}>
-                <Ionicons name="checkmark-circle" size={20} color={COLORS.secondary} />
-                <Text style={styles.successBannerText}>{supervisorSuccessMsg}</Text>
-              </View>
-            ) : null}
-
-            <Text style={styles.inputGuide}>First Name</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="e.g. Ibrahim"
-              value={supervisorForm.firstName}
-              onChangeText={(t) => setSupervisorForm({ ...supervisorForm, firstName: t })}
-              placeholderTextColor={COLORS.muted}
-            />
-
-            <Text style={styles.inputGuide}>Surname / Last Name</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="e.g. Musa"
-              value={supervisorForm.surname}
-              onChangeText={(t) => setSupervisorForm({ ...supervisorForm, surname: t })}
-              placeholderTextColor={COLORS.muted}
-            />
-
-            <Text style={styles.inputGuide}>Email Address</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="supervisor@bellajdatahub.online"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={supervisorForm.email}
-              onChangeText={(t) => setSupervisorForm({ ...supervisorForm, email: t })}
-              placeholderTextColor={COLORS.muted}
-            />
-
-            <Text style={styles.inputGuide}>Phone Number</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="08012345678"
-              keyboardType="phone-pad"
-              value={supervisorForm.phone}
-              onChangeText={(t) => setSupervisorForm({ ...supervisorForm, phone: t })}
-              placeholderTextColor={COLORS.muted}
-            />
-
-            <Text style={styles.inputGuide}>Password</Text>
-            <View style={styles.passwordInputContainer}>
-              <TextInput
-                style={styles.passwordInput}
-                placeholder="Minimum 6 characters"
-                secureTextEntry={!showSupervisorPassword}
-                value={supervisorForm.password}
-                onChangeText={(t) => setSupervisorForm({ ...supervisorForm, password: t })}
-                placeholderTextColor={COLORS.muted}
-              />
-              <TouchableOpacity
-                style={styles.eyeButton}
-                onPress={() => setShowSupervisorPassword(!showSupervisorPassword)}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name={showSupervisorPassword ? "eye-off-outline" : "eye-outline"}
-                  size={20}
-                  color={COLORS.muted}
-                />
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              style={[styles.modalSubmitBtn, { backgroundColor: COLORS.primary }]}
-              onPress={handleCreateSupervisor}
-              disabled={actionLoading}
-            >
-              {actionLoading ? (
-                <ActivityIndicator color={COLORS.white} />
-              ) : (
-                <Text style={styles.modalSubmitBtnText}>Create Supervisor Profile</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* MODAL: BROADCAST NOTICE */}
-      <Modal
-        visible={modalType === "broadcast_notification"}
-        transparent
-        animationType="fade"
-        onRequestClose={() => !actionLoading && setModalType(null)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalBox}>
-            <View style={styles.modalHead}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <MaterialCommunityIcons name="bullhorn-outline" size={24} color={COLORS.orange} />
-                <Text style={styles.modalTitle}>Universal Broadcast</Text>
-              </View>
-              <TouchableOpacity onPress={() => setModalType(null)}>
-                <Ionicons name="close" size={24} color={COLORS.muted} />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.inputGuide}>Target Audience</Text>
-            <View style={styles.audienceSelectorRow}>
-              {[
-                { id: "ALL", label: "Everyone" },
-                { id: "AGENTS", label: "Agents" },
-                { id: "SUPERVISORS", label: "Supervisors" },
-                { id: "SUBSCRIBERS", label: "Users" },
-              ].map((aud) => {
-                const isSelected = broadcastForm.targetAudience === aud.id;
-                return (
+              {/* 2. Select Plan Category / Type */}
+              <Text style={styles.inputGuide}>2. Select Plan Category / Type</Text>
+              <View style={styles.selectorPillsRow}>
+                {["DC", "CG", "SME", "SME2", "GIFTING", "AWOOF", "DATASHARE", "CUSTOM"].map((typ) => (
                   <TouchableOpacity
-                    key={aud.id}
-                    style={[styles.audiencePill, isSelected && styles.audiencePillActive]}
-                    onPress={() => setBroadcastForm({ ...broadcastForm, targetAudience: aud.id })}
+                    key={typ}
+                    style={[styles.smallPill, tariffForm.planType === typ && styles.smallPillActive]}
+                    onPress={() => setTariffForm({ ...tariffForm, planType: typ })}
                   >
-                    <Text style={[styles.audiencePillText, isSelected && styles.audiencePillTextActive]}>
-                      {aud.label}
-                    </Text>
+                    <Text style={[styles.smallPillText, tariffForm.planType === typ && styles.smallPillTextActive]}>{typ}</Text>
                   </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            <Text style={styles.inputGuide}>Subject Header</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="e.g. Network Maintenance Alert"
-              value={broadcastForm.title}
-              onChangeText={(t) => setBroadcastForm({ ...broadcastForm, title: t })}
-              placeholderTextColor={COLORS.muted}
-            />
-
-            <Text style={styles.inputGuide}>Message Content</Text>
-            <TextInput
-              style={[styles.modalInput, styles.modalTextArea]}
-              placeholder="Type your announcement..."
-              value={broadcastForm.message}
-              onChangeText={(t) => setBroadcastForm({ ...broadcastForm, message: t })}
-              placeholderTextColor={COLORS.muted}
-              multiline
-              numberOfLines={4}
-            />
-
-            <TouchableOpacity
-              style={[styles.modalSubmitBtn, { backgroundColor: COLORS.orange }]}
-              onPress={handleSendBroadcast}
-              disabled={actionLoading}
-            >
-              {actionLoading ? (
-                <ActivityIndicator color={COLORS.white} />
-              ) : (
-                <Text style={styles.modalSubmitBtnText}>Dispatch Notice</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* MODAL: PRICING MARGIN MATRIX */}
-      <Modal
-        visible={modalType === "pricing"}
-        transparent
-        animationType="slide"
-        onRequestClose={() => !actionLoading && setModalType(null)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.modalBox, { maxHeight: "88%" }]}>
-            <View style={styles.modalHead}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <MaterialCommunityIcons name="cash-cog" size={24} color={COLORS.purple} />
-                <Text style={styles.modalTitle}>Set Service Margin Matrix</Text>
+                ))}
               </View>
-              <TouchableOpacity onPress={() => setModalType(null)}>
-                <Ionicons name="close" size={24} color={COLORS.muted} />
-              </TouchableOpacity>
-            </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={styles.inputGuide}>Service Identifier</Text>
+              {/* 3. Gateway Plan ID */}
+              <Text style={styles.inputGuide}>3. Gateway Plan ID (Al-Ihsan Provider ID) *</Text>
               <TextInput
                 style={styles.modalInput}
-                placeholder="e.g. SME_DATA, MTN_CG, AIRTIME"
-                value={pricingForm.serviceType}
-                onChangeText={(t) => setPricingForm({ ...pricingForm, serviceType: t })}
-                placeholderTextColor={COLORS.muted}
-                autoCapitalize="characters"
-              />
-
-              <Text style={styles.inputGuide}>Base Provider Rate (₦)</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="e.g. 240"
+                placeholder="e.g. 140, 27, 262"
                 keyboardType="numeric"
-                value={pricingForm.unitRate}
-                onChangeText={(t) => setPricingForm({ ...pricingForm, unitRate: t })}
+                value={tariffForm.planId}
+                onChangeText={(t) => setTariffForm({ ...tariffForm, planId: t })}
                 placeholderTextColor={COLORS.muted}
               />
 
-              <Text style={styles.inputGuide}>Company Profit Margin (₦)</Text>
+              {/* 4. Plan Volume (Size) */}
+              <Text style={styles.inputGuide}>4. Plan Volume (Size)</Text>
+              <View style={styles.selectorPillsRow}>
+                {["500 MB", "1.0 GB", "1.5 GB", "2.0 GB", "3.0 GB", "5.0 GB", "10.0 GB", "CUSTOM"].map((vol) => (
+                  <TouchableOpacity
+                    key={vol}
+                    style={[styles.smallPill, tariffForm.volume === vol && styles.smallPillActive]}
+                    onPress={() => setTariffForm({ ...tariffForm, volume: vol })}
+                  >
+                    <Text style={[styles.smallPillText, tariffForm.volume === vol && styles.smallPillTextActive]}>{vol}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* 5. Validity Duration */}
+              <Text style={styles.inputGuide}>5. Validity Duration</Text>
+              <View style={styles.selectorPillsRow}>
+                {["1 Day", "2 Days", "7 Days", "30 Days", "CUSTOM"].map((val) => (
+                  <TouchableOpacity
+                    key={val}
+                    style={[styles.smallPill, tariffForm.validity === val && styles.smallPillActive]}
+                    onPress={() => setTariffForm({ ...tariffForm, validity: val })}
+                  >
+                    <Text style={[styles.smallPillText, tariffForm.validity === val && styles.smallPillTextActive]}>{val}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* 6. Customer Selling Price */}
+              <Text style={styles.inputGuide}>6. Customer Selling Price (₦) *</Text>
               <TextInput
                 style={styles.modalInput}
-                placeholder="e.g. 35"
+                placeholder="e.g. 230"
                 keyboardType="numeric"
-                value={pricingForm.margin}
-                onChangeText={(t) => setPricingForm({ ...pricingForm, margin: t })}
+                value={tariffForm.customerPrice}
+                onChangeText={(t) => setTariffForm({ ...tariffForm, customerPrice: t })}
+                placeholderTextColor={COLORS.muted}
+              />
+
+              {/* 7. Retail Agent Wholesale Price */}
+              <Text style={styles.inputGuide}>7. Retail Agent Wholesale Price (₦) *</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="e.g. 210"
+                keyboardType="numeric"
+                value={tariffForm.agentPrice}
+                onChangeText={(t) => setTariffForm({ ...tariffForm, agentPrice: t })}
                 placeholderTextColor={COLORS.muted}
               />
 
               <TouchableOpacity
-                style={[styles.modalSubmitBtn, { backgroundColor: COLORS.purple }]}
-                onPress={handleUpdatePricing}
+                style={[styles.modalSubmitBtn, { backgroundColor: "#0284C7" }]}
+                onPress={handlePublishTariff}
                 disabled={actionLoading}
               >
-                {actionLoading ? (
-                  <ActivityIndicator color={COLORS.white} />
-                ) : (
-                  <Text style={styles.modalSubmitBtnText}>Save Margin Rules</Text>
-                )}
+                {actionLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalSubmitBtnText}>PUBLISH TARIFF TO DATABASE & APP</Text>}
               </TouchableOpacity>
             </ScrollView>
           </View>
         </View>
       </Modal>
 
-      {/* MODAL: ASSIGN TARGET QUOTAS */}
-      <Modal
-        visible={modalType === "target"}
-        transparent
-        animationType="fade"
-        onRequestClose={() => !actionLoading && setModalType(null)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalBox}>
-            <View style={styles.modalHead}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <MaterialCommunityIcons name="target" size={24} color={COLORS.secondary} />
-                <Text style={styles.modalTitle}>Deploy Targets & Quotas</Text>
-              </View>
-              <TouchableOpacity onPress={() => setModalType(null)}>
-                <Ionicons name="close" size={24} color={COLORS.muted} />
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              style={[styles.globalToggleBtn, targetForm.isGlobal && styles.globalToggleBtnActive]}
-              onPress={() => setTargetForm((prev) => ({ ...prev, isGlobal: !prev.isGlobal }))}
-              activeOpacity={0.85}
-            >
-              <Ionicons
-                name={targetForm.isGlobal ? "checkbox" : "square-outline"}
-                size={20}
-                color={targetForm.isGlobal ? COLORS.white : COLORS.secondary}
-              />
-              <Text style={[styles.globalToggleText, targetForm.isGlobal && styles.globalToggleTextActive]}>
-                Universal Broadcast to All Personnel
-              </Text>
-            </TouchableOpacity>
-
-            {!targetForm.isGlobal && (
-              <>
-                <Text style={styles.inputGuide}>User ID, Email, or Phone</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="e.g. 08012345678 or supervisor email"
-                  value={targetForm.agentRef}
-                  onChangeText={(t) => setTargetForm({ ...targetForm, agentRef: t })}
-                  placeholderTextColor={COLORS.muted}
-                />
-              </>
-            )}
-
-            <View style={{ flexDirection: "row", gap: 8 }}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.inputGuide}>Sales Turnover (₦)</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="e.g. 500000"
-                  keyboardType="numeric"
-                  value={targetForm.amount}
-                  onChangeText={(t) => setTargetForm({ ...targetForm, amount: t })}
-                  placeholderTextColor={COLORS.muted}
-                />
-              </View>
-
-              <View style={{ flex: 1 }}>
-                <Text style={styles.inputGuide}>Data Quota (GB)</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="e.g. 300"
-                  keyboardType="numeric"
-                  value={targetForm.dataGoal}
-                  onChangeText={(t) => setTargetForm({ ...targetForm, dataGoal: t })}
-                  placeholderTextColor={COLORS.muted}
-                />
-              </View>
-            </View>
-
-            <TouchableOpacity
-              style={[styles.modalSubmitBtn, { backgroundColor: COLORS.secondary }]}
-              onPress={handleAssignTarget}
-              disabled={actionLoading}
-            >
-              {actionLoading ? (
-                <ActivityIndicator color={COLORS.white} />
-              ) : (
-                <Text style={styles.modalSubmitBtnText}>Deploy Target Metric</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* MODAL: SYSTEM HEALTH */}
-      <Modal
-        visible={modalType === "system_health"}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setModalType(null)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.modalBox, { maxHeight: "85%" }]}>
-            <View style={styles.modalHead}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <MaterialCommunityIcons name="heart-pulse" size={26} color={COLORS.primary} />
-                <Text style={styles.modalTitle}>System Diagnostics</Text>
-              </View>
-              <TouchableOpacity onPress={() => setModalType(null)}>
-                <Ionicons name="close" size={24} color={COLORS.muted} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <View style={styles.healthStatusCard}>
-                <MaterialCommunityIcons name="check-decagram" size={36} color={COLORS.secondary} />
-                <View style={{ marginLeft: 12, flex: 1 }}>
-                  <Text style={styles.healthStatusTitle}>
-                    {systemHealth?.systemStatus || "OPTIMAL_OPERATIONAL"}
-                  </Text>
-                  <Text style={styles.healthStatusSub}>Database engine connected & server live.</Text>
-                </View>
-              </View>
-
-              <Text style={styles.inputGuide}>Database Engine</Text>
-              <View style={styles.healthDetailBox}>
-                <Text style={styles.healthLabel}>Status:</Text>
-                <Text style={styles.healthVal}>{systemHealth?.database?.status || "CONNECTED"}</Text>
-              </View>
-
-              <Text style={[styles.inputGuide, { marginTop: 12 }]}>Security Cryptography</Text>
-              <View style={styles.healthDetailBox}>
-                <Text style={styles.healthLabel}>JWT Cryptography:</Text>
-                <Text style={[styles.healthVal, { color: COLORS.secondary }]}>ACTIVE</Text>
-              </View>
-              <View style={styles.healthDetailBox}>
-                <Text style={styles.healthLabel}>Payment Gateway:</Text>
-                <Text style={[styles.healthVal, { color: COLORS.secondary }]}>ONLINE</Text>
-              </View>
-            </ScrollView>
-
-            <TouchableOpacity
-              style={[styles.modalSubmitBtn, { backgroundColor: COLORS.primary }]}
-              onPress={() => setModalType(null)}
-            >
-              <Text style={styles.modalSubmitBtnText}>Close Diagnostics</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* MODAL: CONFIRM LOGOUT */}
-      <Modal
-        visible={modalType === "confirm_logout"}
-        transparent
-        animationType="fade"
-        onRequestClose={() => !logoutProcessing && setModalType(null)}
-      >
+      {/* CONFIRMATION DIALOG (SUSPEND / DELETE) */}
+      <Modal visible={Boolean(actionDialogType)} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
           <View style={[styles.modalBox, { maxWidth: 380, alignItems: "center" }]}>
-            <View style={styles.modalLogoutIconWrap}>
-              <Ionicons name="power" size={30} color={COLORS.danger} />
-            </View>
-
-            <Text style={styles.modalHeading}>Terminate Session?</Text>
+            <Ionicons name="alert-circle" size={36} color={actionDialogType === "confirm_delete" ? COLORS.danger : COLORS.orange} />
+            <Text style={styles.modalHeading}>
+              {actionDialogType === "confirm_delete" ? "Delete User Forever?" : targetActionUser?.isSuspended ? "Activate Account?" : "Suspend Account?"}
+            </Text>
             <Text style={styles.modalSubheading}>
-              Your current executive administration workspace will be logged out securely.
+              {actionDialogType === "confirm_delete"
+                ? `Permanently remove ${targetActionUser?.name || targetActionUser?.email} from database? This cannot be undone.`
+                : `Set authority status for ${targetActionUser?.name || targetActionUser?.email} to ${targetActionUser?.isSuspended ? "ACTIVE" : "SUSPENDED"}?`}
             </Text>
 
             <View style={styles.modalActionRow}>
-              <TouchableOpacity
-                style={styles.modalCancelBtn}
-                disabled={logoutProcessing}
-                onPress={() => setModalType(null)}
-              >
+              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setActionDialogType(null)}>
                 <Text style={styles.modalCancelText}>Cancel</Text>
               </TouchableOpacity>
-
               <TouchableOpacity
-                style={styles.modalConfirmBtn}
-                disabled={logoutProcessing}
-                onPress={performLogout}
+                style={[styles.modalConfirmBtn, { backgroundColor: actionDialogType === "confirm_delete" ? COLORS.danger : COLORS.primary }]}
+                onPress={actionDialogType === "confirm_delete" ? executePermanentDelete : executeSuspension}
               >
-                {logoutProcessing ? (
-                  <ActivityIndicator size="small" color={COLORS.white} />
-                ) : (
-                  <Text style={styles.modalConfirmText}>Log Out</Text>
-                )}
+                <Text style={styles.modalConfirmText}>{actionDialogType === "confirm_delete" ? "Delete Forever" : "Confirm"}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL: LOGOUT */}
+      <Modal visible={modalType === "confirm_logout"} transparent animationType="fade">
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalBox, { maxWidth: 360, alignItems: "center" }]}>
+            <Ionicons name="power" size={32} color={COLORS.danger} />
+            <Text style={styles.modalHeading}>Log Out of Terminal?</Text>
+            <Text style={styles.modalSubheading}>Your session will be closed safely.</Text>
+            <View style={styles.modalActionRow}>
+              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setModalType(null)}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalConfirmBtn, { backgroundColor: COLORS.danger }]} onPress={performLogout}>
+                <Text style={styles.modalConfirmText}>Log Out</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -2059,98 +1207,7 @@ const getStyles = (COLORS) =>
   StyleSheet.create({
     screen: { flex: 1, backgroundColor: COLORS.light },
     bodyWrapper: { flex: 1, flexDirection: "row" },
-    desktopSidebar: {
-      width: 280,
-      backgroundColor: COLORS.sidebarBg,
-      borderRightWidth: 1,
-      borderRightColor: COLORS.sidebarBorder,
-    },
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: "rgba(15, 23, 42, 0.7)",
-      flexDirection: "row",
-    },
-    modalBackdropTap: { flex: 1 },
-    mobileSidebarContainer: {
-      width: 310,
-      maxWidth: "85%",
-      backgroundColor: COLORS.sidebarBg,
-      height: "100%",
-    },
-    sidebarInner: { flex: 1, display: "flex", flexDirection: "column" },
-    sidebarHeader: {
-      paddingHorizontal: 16,
-      paddingTop: Platform.OS === "android" ? 48 : 26,
-      paddingBottom: 20,
-      borderBottomWidth: 1,
-      borderBottomColor: COLORS.sidebarBorder,
-      flexDirection: "row",
-      alignItems: "center",
-    },
-    sidebarBadgeBox: {
-      width: 42,
-      height: 42,
-      borderRadius: 12,
-      backgroundColor: COLORS.secondary,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    sidebarBrandTitle: { color: COLORS.white, fontSize: 16, fontWeight: "900" },
-    sidebarBrandTag: { color: "#86EFAC", fontSize: 11, fontWeight: "600", marginTop: 2 },
-    sidebarCloseBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: "rgba(255,255,255,0.12)",
-    },
-    sidebarScroll: { flex: 1, paddingHorizontal: 14, paddingTop: 14 },
-    sidebarSection: { marginTop: 18 },
-    sidebarSectionTitle: {
-      color: "#64748B",
-      fontSize: 10,
-      fontWeight: "900",
-      letterSpacing: 1,
-      marginBottom: 8,
-      textTransform: "uppercase",
-      paddingHorizontal: 8,
-    },
-    sidebarMenuItem: {
-      flexDirection: "row",
-      alignItems: "center",
-      paddingVertical: 11,
-      paddingHorizontal: 10,
-      borderRadius: 10,
-      marginBottom: 4,
-    },
-    sidebarMenuItemActive: {
-      backgroundColor: COLORS.sidebarActive,
-    },
-    sidebarMenuText: {
-      flex: 1,
-      color: "#CBD5E1",
-      fontSize: 13,
-      fontWeight: "700",
-      marginLeft: 10,
-    },
-    sidebarMenuTextActive: { color: COLORS.white, fontWeight: "900" },
-    sidebarFooter: {
-      padding: 14,
-      borderTopWidth: 1,
-      borderTopColor: COLORS.sidebarBorder,
-      backgroundColor: "rgba(0,0,0,0.2)",
-    },
-    sidebarLogoutBtn: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      paddingVertical: 12,
-      borderRadius: 10,
-      backgroundColor: "rgba(220, 38, 38, 0.16)",
-    },
-    sidebarLogoutText: { color: "#FCA5A5", fontSize: 12, fontWeight: "800", marginLeft: 8 },
-    mainCanvas: { flex: 1, display: "flex", flexDirection: "column" },
+    mainCanvas: { flex: 1 },
     header: {
       backgroundColor: COLORS.primary,
       paddingTop: Platform.OS === "android" ? 44 : 20,
@@ -2169,17 +1226,8 @@ const getStyles = (COLORS) =>
       marginRight: 10,
     },
     headerTextBox: { flex: 1 },
-    headerTitle: {
-      color: COLORS.white,
-      fontSize: 17,
-      fontWeight: "900",
-    },
-    headerSubtitle: {
-      color: "#DCFCE7",
-      marginTop: 2,
-      fontSize: 11,
-      fontWeight: "600",
-    },
+    headerTitle: { color: COLORS.white, fontSize: 17, fontWeight: "900" },
+    headerSubtitle: { color: "#DCFCE7", marginTop: 2, fontSize: 11, fontWeight: "600" },
     logoutBtn: {
       width: 40,
       height: 40,
@@ -2189,25 +1237,9 @@ const getStyles = (COLORS) =>
       justifyContent: "center",
     },
     container: { flex: 1 },
-    content: {
-      padding: 16,
-      paddingBottom: 90,
-      flexGrow: 1,
-      maxWidth: 1200,
-      width: "100%",
-      alignSelf: "center",
-    },
-    loaderContainer: {
-      flex: 1,
-      justifyContent: "center",
-      alignItems: "center",
-      backgroundColor: COLORS.light,
-    },
-    loaderText: {
-      color: COLORS.primary,
-      fontWeight: "800",
-      marginTop: 14,
-    },
+    content: { padding: 16, paddingBottom: 90 },
+    loaderContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
+    loaderText: { color: COLORS.primary, fontWeight: "800", marginTop: 14 },
     heroCard: {
       backgroundColor: COLORS.card,
       borderRadius: 18,
@@ -2229,18 +1261,8 @@ const getStyles = (COLORS) =>
       justifyContent: "center",
       marginRight: 12,
     },
-    heroTitle: {
-      fontSize: 17,
-      fontWeight: "900",
-      color: COLORS.text,
-    },
-    heroText: {
-      color: COLORS.subText,
-      marginTop: 4,
-      fontWeight: "600",
-      lineHeight: 18,
-      fontSize: 12,
-    },
+    heroTitle: { fontSize: 16, fontWeight: "900", color: COLORS.text },
+    heroText: { color: COLORS.subText, marginTop: 4, fontWeight: "600", fontSize: 12 },
     refreshButton: {
       width: 40,
       height: 40,
@@ -2249,11 +1271,7 @@ const getStyles = (COLORS) =>
       alignItems: "center",
       justifyContent: "center",
     },
-    quickDeckRow: {
-      flexDirection: "row",
-      gap: 8,
-      marginBottom: 16,
-    },
+    quickDeckRow: { flexDirection: "row", gap: 8, marginBottom: 16 },
     quickDeckBtn: {
       flex: 1,
       borderRadius: 12,
@@ -2264,11 +1282,7 @@ const getStyles = (COLORS) =>
       justifyContent: "center",
       gap: 6,
     },
-    quickDeckBtnText: {
-      color: COLORS.white,
-      fontWeight: "900",
-      fontSize: 12,
-    },
+    quickDeckBtnText: { color: COLORS.white, fontWeight: "900", fontSize: 12 },
     statGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
@@ -2287,10 +1301,7 @@ const getStyles = (COLORS) =>
       alignItems: "center",
       justifyContent: "center",
     },
-    webStatBox: {
-      width: "23.5%",
-      minHeight: 124,
-    },
+    webStatBox: { width: "23.5%" },
     statIconBox: {
       width: 42,
       height: 42,
@@ -2299,28 +1310,14 @@ const getStyles = (COLORS) =>
       justifyContent: "center",
       marginBottom: 8,
     },
-    statTitle: {
-      fontSize: 10,
-      color: COLORS.subText,
-      fontWeight: "900",
-      textAlign: "center",
-      textTransform: "uppercase",
-    },
-    statValue: {
-      fontSize: 13,
-      fontWeight: "900",
-      color: COLORS.text,
-      marginTop: 4,
-      textAlign: "center",
-    },
-
+    statTitle: { fontSize: 10, color: COLORS.subText, fontWeight: "900", textAlign: "center" },
+    statValue: { fontSize: 13, fontWeight: "900", color: COLORS.text, marginTop: 4 },
     directorySection: {
       backgroundColor: COLORS.card,
       borderRadius: 20,
       padding: 16,
       borderWidth: 1,
       borderColor: COLORS.border,
-      marginBottom: 20,
     },
     directoryTabsHeader: {
       flexDirection: "row",
@@ -2330,26 +1327,14 @@ const getStyles = (COLORS) =>
     },
     dirTabBtn: {
       flex: 1,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
       paddingVertical: 12,
+      alignItems: "center",
       borderBottomWidth: 2,
       borderBottomColor: "transparent",
-      gap: 6,
     },
-    dirTabBtnActive: {
-      borderBottomColor: COLORS.primary,
-    },
-    dirTabBtnText: {
-      color: COLORS.muted,
-      fontSize: 12.5,
-      fontWeight: "700",
-    },
-    dirTabBtnTextActive: {
-      color: COLORS.primary,
-      fontWeight: "900",
-    },
+    dirTabBtnActive: { borderBottomColor: COLORS.primary },
+    dirTabBtnText: { color: COLORS.muted, fontSize: 12.5, fontWeight: "700" },
+    dirTabBtnTextActive: { color: COLORS.primary, fontWeight: "900" },
     searchBarBox: {
       flexDirection: "row",
       alignItems: "center",
@@ -2361,39 +1346,7 @@ const getStyles = (COLORS) =>
       borderColor: COLORS.border,
       marginBottom: 14,
     },
-    searchInput: {
-      flex: 1,
-      color: COLORS.text,
-      fontSize: 13,
-      marginLeft: 8,
-      ...(Platform.OS === "web" ? { outlineStyle: "none" } : {}),
-    },
-    listSubHeader: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      marginBottom: 12,
-    },
-    listSubHeaderTitle: {
-      fontSize: 11,
-      fontWeight: "900",
-      color: COLORS.subText,
-      letterSpacing: 0.8,
-    },
-    addNewSupervisorBtn: {
-      flexDirection: "row",
-      alignItems: "center",
-      backgroundColor: COLORS.primary,
-      paddingHorizontal: 10,
-      paddingVertical: 5,
-      borderRadius: 8,
-      gap: 4,
-    },
-    addNewSupervisorBtnText: {
-      color: COLORS.white,
-      fontSize: 11,
-      fontWeight: "800",
-    },
+    searchInput: { flex: 1, color: COLORS.text, fontSize: 13, marginLeft: 8 },
     userCard: {
       backgroundColor: COLORS.soft,
       borderRadius: 14,
@@ -2402,11 +1355,7 @@ const getStyles = (COLORS) =>
       borderWidth: 1,
       borderColor: COLORS.border,
     },
-    userCardHeader: {
-      flexDirection: "row",
-      alignItems: "flex-start",
-      justifyContent: "space-between",
-    },
+    userCardHeader: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
     userAvatarBox: {
       width: 42,
       height: 42,
@@ -2415,48 +1364,15 @@ const getStyles = (COLORS) =>
       alignItems: "center",
       justifyContent: "center",
     },
-    userAvatarText: {
-      fontSize: 16,
-      fontWeight: "900",
-      color: COLORS.primary,
-    },
-    userNameText: {
-      fontSize: 14,
-      fontWeight: "900",
-      color: COLORS.text,
-    },
-    userContactText: {
-      fontSize: 11,
-      color: COLORS.subText,
-      marginTop: 2,
-    },
-    userRoleTag: {
-      fontSize: 10,
-      fontWeight: "800",
-      color: COLORS.primary,
-      marginTop: 2,
-    },
-    statusBadge: {
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: 6,
-    },
-    roleTagBox: {
-      backgroundColor: "#DCFCE7",
-      paddingHorizontal: 6,
-      paddingVertical: 2,
-      borderRadius: 4,
-    },
-    roleTagBoxText: {
-      color: COLORS.primary,
-      fontSize: 9,
-      fontWeight: "900",
-    },
-
+    userAvatarText: { fontSize: 16, fontWeight: "900", color: COLORS.primary },
+    userNameText: { fontSize: 14, fontWeight: "900", color: COLORS.text },
+    userContactText: { fontSize: 11, color: COLORS.subText, marginTop: 2 },
+    statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+    roleTagBox: { backgroundColor: "#DCFCE7", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+    roleTagBoxText: { color: COLORS.primary, fontSize: 9, fontWeight: "900" },
     cardActionsContainer: {
       flexDirection: "row",
       justifyContent: "flex-end",
-      flexWrap: "wrap",
       gap: 8,
       marginTop: 12,
       paddingTop: 10,
@@ -2471,23 +1387,7 @@ const getStyles = (COLORS) =>
       paddingVertical: 6,
       borderRadius: 8,
     },
-    cardActionBtnText: {
-      color: COLORS.white,
-      fontSize: 11,
-      fontWeight: "800",
-    },
-    emptyFeed: {
-      padding: 24,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    emptyFeedText: {
-      color: COLORS.subText,
-      fontSize: 12,
-      marginTop: 8,
-      textAlign: "center",
-    },
-
+    cardActionBtnText: { color: COLORS.white, fontSize: 11, fontWeight: "800" },
     modalBackdrop: {
       flex: 1,
       backgroundColor: "rgba(15, 23, 42, 0.7)",
@@ -2497,7 +1397,7 @@ const getStyles = (COLORS) =>
     },
     modalBox: {
       width: "100%",
-      maxWidth: 480,
+      maxWidth: 520,
       backgroundColor: COLORS.card,
       borderRadius: 20,
       padding: 20,
@@ -2511,7 +1411,7 @@ const getStyles = (COLORS) =>
       marginBottom: 16,
     },
     modalTitle: { color: COLORS.text, fontSize: 17, fontWeight: "900" },
-    inputGuide: { color: COLORS.subText, fontSize: 11, fontWeight: "700", marginBottom: 4 },
+    inputGuide: { color: COLORS.subText, fontSize: 11, fontWeight: "700", marginBottom: 4, marginTop: 8 },
     modalInput: {
       backgroundColor: COLORS.soft,
       borderWidth: 1,
@@ -2521,7 +1421,7 @@ const getStyles = (COLORS) =>
       paddingVertical: 10,
       fontSize: 14,
       color: COLORS.text,
-      marginBottom: 10,
+      marginBottom: 6,
     },
     passwordInputContainer: {
       flexDirection: "row",
@@ -2530,17 +1430,51 @@ const getStyles = (COLORS) =>
       borderWidth: 1,
       borderColor: COLORS.border,
       borderRadius: 10,
-      marginBottom: 10,
+      marginBottom: 6,
       paddingRight: 10,
     },
-    passwordInput: {
-      flex: 1,
-      paddingHorizontal: 12,
-      paddingVertical: 10,
-      fontSize: 14,
-      color: COLORS.text,
+    passwordInput: { flex: 1, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: COLORS.text },
+    roleSelectionRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 8 },
+    rolePill: {
+      backgroundColor: COLORS.soft,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      borderRadius: 8,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
     },
-    eyeButton: { padding: 6 },
+    rolePillActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+    rolePillText: { fontSize: 11, fontWeight: "700", color: COLORS.text },
+    rolePillTextActive: { color: COLORS.white },
+    modalSelectBtn: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      backgroundColor: COLORS.soft,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+      marginBottom: 6,
+    },
+    pickerDropdown: {
+      backgroundColor: COLORS.soft,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      marginBottom: 8,
+    },
+    pickerItem: { padding: 10, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+    modalSubmitBtn: {
+      borderRadius: 12,
+      paddingVertical: 14,
+      alignItems: "center",
+      justifyContent: "center",
+      marginTop: 14,
+      marginBottom: 10,
+    },
+    modalSubmitBtnText: { color: COLORS.white, fontWeight: "900", fontSize: 14 },
     successBanner: {
       flexDirection: "row",
       alignItems: "center",
@@ -2552,221 +1486,64 @@ const getStyles = (COLORS) =>
       marginBottom: 12,
       gap: 8,
     },
-    successBannerText: {
-      color: "#15803D",
-      fontSize: 13,
-      fontWeight: "800",
-      flex: 1,
-    },
-    modalTextArea: {
-      minHeight: 80,
-      textAlignVertical: "top",
-    },
-    modalSubmitBtn: {
-      borderRadius: 12,
-      paddingVertical: 14,
-      alignItems: "center",
-      justifyContent: "center",
-      marginTop: 6,
-    },
-    modalSubmitBtnText: { color: COLORS.white, fontWeight: "900", fontSize: 14 },
-    audienceSelectorRow: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: 6,
-      marginBottom: 12,
-    },
-    audiencePill: {
+    successBannerText: { color: "#15803D", fontSize: 13, fontWeight: "800", flex: 1 },
+
+    // PRESET TARIFF STYLES (NA JIKIN HOTONKA)
+    selectorPillsRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 8 },
+    telecomPill: {
       backgroundColor: COLORS.soft,
-      borderWidth: 1,
-      borderColor: COLORS.border,
-      borderRadius: 8,
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-    },
-    audiencePillActive: {
-      backgroundColor: COLORS.orange,
-      borderColor: COLORS.orange,
-    },
-    audiencePillText: {
-      color: COLORS.text,
-      fontSize: 12,
-      fontWeight: "700",
-    },
-    audiencePillTextActive: {
-      color: COLORS.white,
-      fontWeight: "800",
-    },
-    globalToggleBtn: {
-      flexDirection: "row",
-      alignItems: "center",
-      backgroundColor: COLORS.soft,
-      borderWidth: 1,
-      borderColor: COLORS.secondary,
-      borderRadius: 10,
-      paddingVertical: 10,
-      paddingHorizontal: 12,
-      marginBottom: 12,
-      gap: 8,
-    },
-    globalToggleBtnActive: {
-      backgroundColor: COLORS.secondary,
-      borderColor: COLORS.secondary,
-    },
-    globalToggleText: {
-      color: COLORS.secondary,
-      fontSize: 12,
-      fontWeight: "800",
-    },
-    globalToggleTextActive: { color: COLORS.white },
-    agentRowBox: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      backgroundColor: COLORS.soft,
-      padding: 10,
-      borderRadius: 10,
-      marginBottom: 8,
-      borderWidth: 1,
-      borderColor: COLORS.border,
-    },
-    agentRowName: { fontSize: 13, fontWeight: "900", color: COLORS.text },
-    agentRowSub: { fontSize: 11, color: COLORS.subText, marginTop: 2 },
-    agentTransferBtn: {
-      backgroundColor: COLORS.accent,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 4,
-      paddingHorizontal: 8,
-      paddingVertical: 5,
-      borderRadius: 6,
-    },
-    agentTransferBtnText: { color: COLORS.white, fontSize: 11, fontWeight: "800" },
-    targetSupPill: {
-      backgroundColor: COLORS.soft,
-      padding: 10,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: COLORS.border,
-      marginBottom: 6,
     },
-    ticketCard: {
-      backgroundColor: COLORS.soft,
+    telecomPillActive: { backgroundColor: "#0284C7", borderColor: "#0284C7" },
+    telecomPillText: { fontSize: 12, fontWeight: "800", color: COLORS.text },
+    telecomPillTextActive: { color: COLORS.white },
+
+    presetContainer: {
+      backgroundColor: "#F0FDF4",
       borderRadius: 12,
       padding: 12,
-      marginBottom: 10,
       borderWidth: 1,
-      borderColor: COLORS.border,
+      borderColor: "#BBF7D0",
+      marginVertical: 10,
     },
-    ticketUser: { fontSize: 13, fontWeight: "900", color: COLORS.text },
-    ticketTitle: { fontSize: 13, fontWeight: "800", color: COLORS.primary, marginTop: 4 },
-    ticketMsg: { fontSize: 12, color: COLORS.subText, marginTop: 2, lineHeight: 16 },
-    resolveBtn: {
-      backgroundColor: COLORS.secondary,
-      alignSelf: "flex-start",
+    presetContainerTitle: { fontSize: 11, fontWeight: "900", color: "#15803D", letterSpacing: 0.5 },
+    presetGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+    presetButton: {
+      backgroundColor: "#DCFCE7",
+      borderWidth: 1,
+      borderColor: "#86EFAC",
+      borderRadius: 8,
+      paddingHorizontal: 8,
+      paddingVertical: 6,
       flexDirection: "row",
       alignItems: "center",
       gap: 4,
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-      borderRadius: 8,
-      marginTop: 8,
     },
-    resolveBtnText: { color: COLORS.white, fontSize: 11, fontWeight: "800" },
-    healthStatusCard: {
-      flexDirection: "row",
-      alignItems: "center",
-      backgroundColor: COLORS.soft,
-      borderRadius: 14,
-      padding: 14,
-      marginBottom: 14,
-      borderLeftWidth: 4,
-      borderLeftColor: COLORS.secondary,
-    },
-    healthStatusTitle: {
-      fontSize: 15,
-      fontWeight: "900",
-      color: COLORS.text,
-    },
-    healthStatusSub: {
-      fontSize: 12,
-      color: COLORS.subText,
-      marginTop: 2,
-    },
-    healthDetailBox: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      backgroundColor: COLORS.soft,
-      padding: 10,
-      borderRadius: 8,
-      marginBottom: 6,
-    },
-    healthLabel: {
-      fontSize: 12,
-      fontWeight: "700",
-      color: COLORS.subText,
-    },
-    healthVal: {
-      fontSize: 12,
-      fontWeight: "800",
-      color: COLORS.text,
-    },
-    modalLogoutIconWrap: {
-      width: 56,
-      height: 56,
-      borderRadius: 28,
-      backgroundColor: "#FEE2E2",
-      alignItems: "center",
-      justifyContent: "center",
-      marginBottom: 14,
-    },
-    modalHeading: {
-      fontSize: 18,
-      fontWeight: "900",
-      color: COLORS.text,
-      marginBottom: 6,
-      textAlign: "center",
-    },
-    modalSubheading: {
-      fontSize: 13,
-      color: COLORS.subText,
-      textAlign: "center",
-      marginBottom: 20,
-      lineHeight: 18,
-    },
-    modalActionRow: {
-      flexDirection: "row",
-      width: "100%",
-      gap: 10,
-    },
-    modalCancelBtn: {
-      flex: 1,
+    presetButtonText: { fontSize: 10.5, fontWeight: "800", color: "#166534" },
+
+    smallPill: {
       backgroundColor: COLORS.soft,
       borderWidth: 1,
       borderColor: COLORS.border,
-      borderRadius: 12,
-      paddingVertical: 12,
-      alignItems: "center",
-      justifyContent: "center",
+      borderRadius: 8,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
     },
-    modalCancelText: {
-      color: COLORS.text,
-      fontWeight: "800",
-      fontSize: 14,
-    },
-    modalConfirmBtn: {
-      flex: 1,
-      backgroundColor: COLORS.primary,
-      borderRadius: 12,
-      paddingVertical: 12,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    modalConfirmText: {
-      color: COLORS.white,
-      fontWeight: "900",
-      fontSize: 14,
-    },
+    smallPillActive: { backgroundColor: "#0284C7", borderColor: "#0284C7" },
+    smallPillText: { fontSize: 11, fontWeight: "800", color: COLORS.text },
+    smallPillTextActive: { color: COLORS.white },
+
+    modalHeading: { fontSize: 18, fontWeight: "900", color: COLORS.text, marginTop: 10 },
+    modalSubheading: { fontSize: 13, color: COLORS.subText, textAlign: "center", marginVertical: 12 },
+    modalActionRow: { flexDirection: "row", width: "100%", gap: 10 },
+    modalCancelBtn: { flex: 1, backgroundColor: COLORS.soft, paddingVertical: 12, alignItems: "center", borderRadius: 10 },
+    modalCancelText: { fontWeight: "800", color: COLORS.text },
+    modalConfirmBtn: { flex: 1, paddingVertical: 12, alignItems: "center", borderRadius: 10 },
+    modalConfirmText: { color: COLORS.white, fontWeight: "900" },
   });
 
 export default AdminDashboard;
