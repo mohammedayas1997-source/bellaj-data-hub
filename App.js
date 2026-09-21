@@ -26,7 +26,7 @@ import SuccessScreen from "./src/screens/SuccessScreen";
 import AirtimeScreen from "./src/screens/AirtimeScreen";
 import FundWalletScreen from "./src/screens/FundWalletScreen";
 import ContactScreen from "./src/screens/ContactScreen";
-
+import SetupPinScreen from "./screens/SetupPinScreen";
 import SupervisorDashboard from "./src/screens/SupervisorDashboard";
 import AdminControlScreen from "./src/screens/AdminControlScreen";
 import AssignTargetScreen from "./src/screens/AssignTargetScreen";
@@ -99,6 +99,11 @@ function AppContent() {
           headerTintColor: "#ffffff",
         }}
       >
+        <Stack.Screen 
+          name="SetupPin" 
+          component={SetupPinScreen} 
+          options={{ headerShown: false, gestureEnabled: false }} 
+        />
         <Stack.Screen name="Onboarding" component={OnboardingScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Signup" component={SignupScreen} options={{ headerShown: false }} />
@@ -117,6 +122,7 @@ function AppContent() {
         <Stack.Screen name="Cable" component={CableScreen} />
         <Stack.Screen name="Profile" component={ProfileScreen} />
         <Stack.Screen name="Contact" component={ContactScreen} />
+        
 
         <Stack.Screen name="AdminDashboard" component={AdminDashboard} />
         <Stack.Screen name="AgentDashboard" component={AgentDashboard} />

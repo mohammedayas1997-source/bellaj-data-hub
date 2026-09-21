@@ -21,20 +21,17 @@ import axios from "axios";
 import BASE_URL from "../config/api";
 
 const COLORS = {
-  primary: "#E60000",
-  secondary: "#0B5E3C",
+  primary: "#0B5E3C",
+  secondary: "#16A34A",
   dark: "#0F172A",
   white: "#FFFFFF",
   light: "#F8FAFC",
   muted: "#64748B",
   border: "#E2E8F0",
-  softRed: "#FFF1F1",
-  softGreen: "#EAF7F1",
-};
-
-const API_ENDPOINTS = {
-  profile: `${BASE_URL}/user/profile`,
-  wallet: `${BASE_URL}/wallet/details`,
+  softGreen: "#DCFCE7",
+  softRed: "#FEE2E2",
+  danger: "#DC2626",
+  warning: "#D97706",
 };
 
 const ProfileScreen = ({ navigation }) => {
@@ -114,10 +111,12 @@ const ProfileScreen = ({ navigation }) => {
   const fetchProfile = async () => {
     try {
       setLoading(true);
+      const token =
+        (await AsyncStorage.getItem("userToken")) ||
+        (await AsyncStorage.getItem("token")) ||
+        (await AsyncStorage.getItem("adminToken"));
 
-      const headers = await getAuthHeaders();
-
-      if (!headers) {
+      if (!token) {
         navigation.dispatch(
           CommonActions.reset({
             index: 0,
@@ -127,30 +126,63 @@ const ProfileScreen = ({ navigation }) => {
         return;
       }
 
+      const headers = { Authorization: `Bearer ${token}` };
+
       const storedUser = await AsyncStorage.getItem("userData");
       if (storedUser) {
-        setUserData(JSON.parse(storedUser));
+        try {
+          setUserData(JSON.parse(storedUser));
+        } catch {}
       }
 
-      const [profileRes, walletRes] = await Promise.allSettled([
-        axios.get(API_ENDPOINTS.profile, { headers }),
-        axios.get(API_ENDPOINTS.wallet, { headers }),
-      ]);
+      // Gwada hanyoyi daban-daban na API
+      const profileEndpoints = [
+        `${BASE_URL}/users/profile`,
+        `${BASE_URL}/api/v1/users/me`,
+        `${BASE_URL}/user/profile`,
+        `${BASE_URL}/api/v1/user/profile`,
+      ];
 
-      if (profileRes.status === "fulfilled") {
-        const profile = normalizeUser(profileRes.value.data);
-        setUserData(profile);
-        await AsyncStorage.setItem("userData", JSON.stringify(profile));
+      const walletEndpoints = [
+        `${BASE_URL}/wallet/details`,
+        `${BASE_URL}/api/v1/wallet`,
+        `${BASE_URL}/wallet`,
+      ];
+
+      let profileResolved = null;
+      for (const url of profileEndpoints) {
+        try {
+          const res = await axios.get(url, { headers, timeout: 15000 });
+          const userObj = normalizeUser(res.data);
+          if (userObj) {
+            profileResolved = userObj;
+            break;
+          }
+        } catch {}
       }
 
-      if (walletRes.status === "fulfilled") {
-        setWalletData(normalizeUser(walletRes.value.data));
+      if (profileResolved) {
+        setUserData(profileResolved);
+        await AsyncStorage.setItem("userData", JSON.stringify(profileResolved));
+      }
+
+      let walletResolved = null;
+      for (const url of walletEndpoints) {
+        try {
+          const res = await axios.get(url, { headers, timeout: 15000 });
+          const wObj = normalizeUser(res.data);
+          if (wObj) {
+            walletResolved = wObj;
+            break;
+          }
+        } catch {}
+      }
+
+      if (walletResolved) {
+        setWalletData(walletResolved);
       }
     } catch (error) {
-      Alert.alert(
-        "Connection Error",
-        error?.response?.data?.message || "Unable to load profile data."
-      );
+      console.log("Error loading profile:", error?.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -163,36 +195,19 @@ const ProfileScreen = ({ navigation }) => {
     checkBiometricSettings();
   };
 
-  const openMenu = () => {
-    const parent = navigation?.getParent?.();
-
-    if (navigation?.openDrawer) {
-      navigation.openDrawer();
-      return;
-    }
-
-    if (parent?.openDrawer) {
-      parent.openDrawer();
-      return;
-    }
-
-    navigation?.navigate?.("Main");
-  };
-
   const goBack = () => {
     if (navigation?.canGoBack?.()) {
       navigation.goBack();
       return;
     }
-
-    navigation?.navigate?.("Main");
+    navigation?.navigate?.("Dashboard");
   };
 
   const logout = async () => {
-    Alert.alert("Logout", "Are you sure you want to logout?", [
-      { text: "Cancel", style: "cancel" },
+    Alert.alert("Fita Daga Asusu", "Shin ka tabbata kana son fita daga asusunka?", [
+      { text: "A'a (Cancel)", style: "cancel" },
       {
-        text: "Logout",
+        text: "Fita (Logout)",
         style: "destructive",
         onPress: async () => {
           await AsyncStorage.multiRemove([
@@ -203,6 +218,7 @@ const ProfileScreen = ({ navigation }) => {
             "userRole",
             "overrideRole",
             "isSuperAdminOverride",
+            "transactionPin",
           ]);
 
           navigation.dispatch(
@@ -221,7 +237,7 @@ const ProfileScreen = ({ navigation }) => {
       userData?.name ||
       userData?.fullName ||
       `${userData?.firstName || ""} ${userData?.surname || ""}`.trim() ||
-      "Bellaj User"
+      "Bellaj Subscriber"
     );
   }, [userData]);
 
@@ -249,19 +265,20 @@ const ProfileScreen = ({ navigation }) => {
     [];
 
   const bankName =
-    walletData?.bankName || accounts?.[0]?.bankName || userData?.bankName || "Not Generated";
+    walletData?.bankName || accounts?.[0]?.bankName || userData?.bankName || "Moniepoint / Wema";
 
   const accountNumber =
     walletData?.accountNumber ||
     accounts?.[0]?.accountNumber ||
     userData?.accountNumber ||
-    "Not Generated";
+    "Not Assigned";
 
   if (loading && !userData) {
     return (
       <View style={styles.loaderContainer}>
+        <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loaderText}>Loading Profile...</Text>
+        <Text style={styles.loaderText}>Ana loda bayanan asusu...</Text>
       </View>
     );
   }
@@ -270,30 +287,26 @@ const ProfileScreen = ({ navigation }) => {
     <View style={styles.screen}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
 
+      {/* HEADER */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerIconBtn} onPress={goBack}>
-          <Ionicons name="arrow-back" size={23} color={COLORS.white} />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.headerIconBtn} onPress={openMenu}>
-          <Ionicons name="menu" size={25} color={COLORS.white} />
+          <Ionicons name="arrow-back" size={22} color={COLORS.white} />
         </TouchableOpacity>
 
         <View style={styles.headerTextBox}>
-          <Text style={styles.headerTitle}>Profile</Text>
-          <Text style={styles.headerSubtitle}>Bellaj account information</Text>
+          <Text style={styles.headerTitle}>Account Profile</Text>
+          <Text style={styles.headerSubtitle}>Bayanan asusunka na Bellaj Data Hub</Text>
         </View>
 
         <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
-          <Ionicons name="log-out-outline" size={21} color={COLORS.white} />
+          <Ionicons name="power" size={20} color={COLORS.white} />
         </TouchableOpacity>
       </View>
 
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator
-        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -302,6 +315,7 @@ const ProfileScreen = ({ navigation }) => {
           />
         }
       >
+        {/* PROFILE CARD */}
         <View style={styles.profileHeader}>
           <View style={styles.avatar}>
             {userData?.profileImage || userData?.avatar ? (
@@ -315,55 +329,53 @@ const ProfileScreen = ({ navigation }) => {
           </View>
 
           <Text style={styles.name}>{userName}</Text>
-
-          <Text style={styles.email}>
-            {userData?.email || "user@bellajdatahub.online"}
-          </Text>
+          <Text style={styles.email}>{userData?.email || "user@bellajdatahub.online"}</Text>
 
           <View style={styles.roleBadge}>
             <MaterialCommunityIcons
-              name="shield-account-outline"
-              size={17}
+              name="shield-check"
+              size={16}
               color={COLORS.secondary}
             />
             <Text style={styles.roleText}>{String(role).toUpperCase()}</Text>
           </View>
         </View>
 
+        {/* BALANCE & STATS */}
         <View style={styles.statsRow}>
           <View style={[styles.statCard, { borderLeftColor: COLORS.primary }]}>
-            <Text style={styles.statLabel}>Wallet Balance</Text>
+            <Text style={styles.statLabel}>Kudin Wallet</Text>
             <Text style={styles.statValue}>₦{balance.toLocaleString()}</Text>
           </View>
 
           <View style={[styles.statCard, { borderLeftColor: COLORS.secondary }]}>
-            <Text style={styles.statLabel}>Transactions</Text>
+            <Text style={styles.statLabel}>Ayyukan da Aka Yi</Text>
             <Text style={styles.statValue}>
               {userData?.totalTransactions || walletData?.totalTransactions || 0}
             </Text>
           </View>
         </View>
 
-        {/* Sashin Tsaro & Fingerprint */}
+        {/* FINGERPRINT / BIOMETRICS */}
         <View style={styles.infoSection}>
-          <Text style={styles.sectionLabel}>Security & Biometrics</Text>
+          <Text style={styles.sectionLabel}>Tsaro & Biometrics</Text>
 
           <View style={styles.infoBox}>
             <View style={styles.switchRow}>
               <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
                 <MaterialCommunityIcons
                   name="fingerprint"
-                  size={24}
-                  color={isBiometricActive ? COLORS.secondary : COLORS.primary}
+                  size={26}
+                  color={isBiometricActive ? COLORS.secondary : COLORS.muted}
                 />
                 <View style={{ marginLeft: 14, flex: 1 }}>
                   <Text style={styles.switchTitle}>Fingerprint Login</Text>
                   <Text style={styles.switchSubtitle}>
                     {isBiometricSupported
                       ? isBiometricActive
-                        ? "Instant login activated"
-                        : "Enable Touch ID / Face ID"
-                      : "Not supported on this device"}
+                        ? "An kunna shiga da yatsa (Active)"
+                        : "Danna don kunna Fingerprint"
+                      : "Wayar ba ta da Fingerprint"}
                   </Text>
                 </View>
               </View>
@@ -379,39 +391,41 @@ const ProfileScreen = ({ navigation }) => {
           </View>
         </View>
 
+        {/* PROFILE DETAILS */}
         <View style={styles.infoSection}>
-          <Text style={styles.sectionLabel}>Profile Data</Text>
+          <Text style={styles.sectionLabel}>Bayanan Mai Asusu</Text>
 
           <View style={styles.infoBox}>
             <InfoItem
               icon="call-outline"
-              title="Primary Contact"
-              value={userData?.phone || userData?.phoneNumber || "Not Configured"}
+              title="Lambar Waya"
+              value={userData?.phone || userData?.phoneNumber || "Babu"}
             />
 
             <InfoItem
               icon="mail-outline"
               title="Email Address"
-              value={userData?.email || "Not Provided"}
-            />
-
-            <InfoItem
-              icon="calendar-outline"
-              title="Date of Birth"
-              value={userData?.dob || userData?.dateOfBirth || "Not Provided"}
+              value={userData?.email || "Babu"}
             />
 
             <InfoItem
               icon="location-outline"
-              title="Registered Address"
-              value={userData?.address || "Location data not synchronized"}
+              title="Jiha & Karamar Hukuma"
+              value={`${userData?.lga || "LGA"}, ${userData?.state || "State"}`}
+            />
+
+            <InfoItem
+              icon="home-outline"
+              title="Adireshi"
+              value={userData?.address || "Address not provided"}
               last
             />
           </View>
         </View>
 
+        {/* DEDICATED VIRTUAL ACCOUNT */}
         <View style={styles.infoSection}>
-          <Text style={styles.sectionLabel}>Wallet Account</Text>
+          <Text style={styles.sectionLabel}>Asusun Ajiya na Musamman (Virtual Account)</Text>
 
           <View style={styles.infoBox}>
             <InfoItem
@@ -435,26 +449,27 @@ const ProfileScreen = ({ navigation }) => {
           </View>
         </View>
 
-        <TouchableOpacity
-          style={styles.editBtn}
-          onPress={() => navigation.navigate("EditProfile")}
-          activeOpacity={0.86}
-        >
-          <Ionicons name="create-outline" size={20} color={COLORS.white} />
-          <Text style={styles.editBtnText}>MODIFY PROFILE CREDENTIALS</Text>
-        </TouchableOpacity>
-
+        {/* SECURITY & PIN BUTTONS */}
         <TouchableOpacity
           style={styles.pinBtn}
           onPress={() => navigation.navigate("UpdatePin")}
-          activeOpacity={0.86}
+          activeOpacity={0.85}
         >
-          <Ionicons name="key-outline" size={20} color={COLORS.primary} />
-          <Text style={styles.pinBtnText}>Update Transaction PIN</Text>
+          <Ionicons name="key-outline" size={20} color={COLORS.white} />
+          <Text style={styles.pinBtnText}>SAITA / CANZA TRANSACTION PIN</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.historyBtn}
+          onPress={() => navigation.navigate("SalesHistory")}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="receipt-outline" size={19} color={COLORS.primary} />
+          <Text style={styles.historyBtnText}>Duba Tarihin Hada-Hadar Kudi</Text>
         </TouchableOpacity>
 
         <View style={styles.footerNote}>
-          <Text style={styles.footerText}>Bellaj Data Hub Terminal v2.0</Text>
+          <Text style={styles.footerText}>Bellaj Data Hub Platform • v2.6</Text>
         </View>
       </ScrollView>
     </View>
@@ -463,8 +478,7 @@ const ProfileScreen = ({ navigation }) => {
 
 const InfoItem = ({ icon, title, value, last }) => (
   <View style={[styles.infoItem, last && { borderBottomWidth: 0 }]}>
-    <Ionicons name={icon} size={21} color={COLORS.primary} />
-
+    <Ionicons name={icon} size={20} color={COLORS.primary} />
     <View style={styles.infoText}>
       <Text style={styles.infoTitle}>{title}</Text>
       <Text style={styles.infoValue}>{value}</Text>
@@ -476,46 +490,45 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.light },
   header: {
     backgroundColor: COLORS.primary,
-    paddingTop: Platform.OS === "android" ? 42 : 22,
+    paddingTop: Platform.OS === "android" ? 44 : 22,
     paddingBottom: 16,
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
   },
   headerIconBtn: {
     width: 38,
     height: 38,
-    borderRadius: 13,
-    backgroundColor: "rgba(255,255,255,0.16)",
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.18)",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 8,
+    marginRight: 10,
   },
   headerTextBox: { flex: 1 },
   headerTitle: {
     color: COLORS.white,
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "900",
   },
   headerSubtitle: {
-    color: "#FFE4E4",
-    fontSize: 12,
+    color: "#DCFCE7",
+    fontSize: 11,
     fontWeight: "600",
-    marginTop: 3,
+    marginTop: 2,
   },
   logoutBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    backgroundColor: COLORS.dark,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: COLORS.danger,
     alignItems: "center",
     justifyContent: "center",
   },
   container: { flex: 1 },
   content: {
     padding: 16,
-    paddingBottom: 80,
-    flexGrow: 1,
+    paddingBottom: 90,
   },
   loaderContainer: {
     flex: 1,
@@ -530,25 +543,25 @@ const styles = StyleSheet.create({
   },
   profileHeader: {
     alignItems: "center",
-    paddingVertical: 28,
+    paddingVertical: 24,
     backgroundColor: COLORS.white,
-    borderRadius: 24,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderLeftWidth: 5,
     borderLeftColor: COLORS.primary,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   avatar: {
-    width: 112,
-    height: 112,
-    borderRadius: 56,
+    width: 96,
+    height: 96,
+    borderRadius: 48,
     backgroundColor: COLORS.primary,
     justifyContent: "center",
     alignItems: "center",
     overflow: "hidden",
-    borderWidth: 4,
-    borderColor: COLORS.softRed,
+    borderWidth: 3,
+    borderColor: COLORS.softGreen,
   },
   profileImg: {
     width: "100%",
@@ -556,30 +569,30 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     color: COLORS.white,
-    fontSize: 38,
+    fontSize: 34,
     fontWeight: "900",
   },
   name: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: "900",
-    marginTop: 15,
+    marginTop: 12,
     color: COLORS.dark,
     textAlign: "center",
   },
   email: {
     color: COLORS.muted,
-    fontSize: 14,
-    fontWeight: "700",
-    marginTop: 3,
+    fontSize: 13,
+    fontWeight: "600",
+    marginTop: 2,
   },
   roleBadge: {
-    marginTop: 12,
+    marginTop: 10,
     backgroundColor: COLORS.softGreen,
     borderWidth: 1,
-    borderColor: COLORS.secondary,
+    borderColor: "#86EFAC",
     borderRadius: 999,
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 5,
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
@@ -592,62 +605,60 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: "row",
     gap: 10,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   statCard: {
     flex: 1,
     backgroundColor: COLORS.white,
-    borderRadius: 18,
-    padding: 15,
+    borderRadius: 16,
+    padding: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderLeftWidth: 5,
+    borderLeftWidth: 4,
   },
   statLabel: {
     color: COLORS.muted,
-    fontSize: 11,
-    fontWeight: "900",
+    fontSize: 10.5,
+    fontWeight: "800",
     textTransform: "uppercase",
   },
   statValue: {
     color: COLORS.dark,
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "900",
-    marginTop: 6,
+    marginTop: 4,
   },
   infoSection: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
   sectionLabel: {
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: "900",
     color: COLORS.secondary,
-    marginBottom: 10,
+    marginBottom: 8,
     textTransform: "uppercase",
-    letterSpacing: 1.2,
+    letterSpacing: 0.8,
   },
   infoBox: {
     backgroundColor: COLORS.white,
-    borderRadius: 20,
-    paddingHorizontal: 18,
+    borderRadius: 18,
+    paddingHorizontal: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderLeftWidth: 5,
-    borderLeftColor: COLORS.primary,
   },
   switchRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 18,
+    paddingVertical: 16,
   },
   switchTitle: {
-    fontSize: 14,
-    fontWeight: "900",
+    fontSize: 13.5,
+    fontWeight: "800",
     color: COLORS.dark,
   },
   switchSubtitle: {
-    fontSize: 12,
+    fontSize: 11.5,
     color: COLORS.muted,
     marginTop: 2,
     fontWeight: "600",
@@ -655,61 +666,63 @@ const styles = StyleSheet.create({
   infoItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 18,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
   infoText: {
-    marginLeft: 16,
+    marginLeft: 14,
     flex: 1,
   },
   infoTitle: {
-    fontSize: 11,
-    color: "#94A3B8",
+    fontSize: 10.5,
+    color: COLORS.muted,
     textTransform: "uppercase",
-    fontWeight: "900",
+    fontWeight: "800",
   },
   infoValue: {
-    fontSize: 15,
+    fontSize: 13.5,
     fontWeight: "800",
     color: COLORS.dark,
-    marginTop: 3,
-  },
-  editBtn: {
-    backgroundColor: COLORS.primary,
-    minHeight: 58,
-    borderRadius: 16,
-    justifyContent: "center",
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 8,
-    marginTop: 4,
-  },
-  editBtnText: {
-    color: COLORS.white,
-    fontWeight: "900",
-    fontSize: 14,
+    marginTop: 2,
   },
   pinBtn: {
-    backgroundColor: COLORS.white,
-    minHeight: 56,
-    borderRadius: 16,
+    backgroundColor: COLORS.primary,
+    minHeight: 52,
+    borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
     flexDirection: "row",
     gap: 8,
-    marginTop: 12,
+    marginTop: 6,
+  },
+  pinBtnText: {
+    color: COLORS.white,
+    fontWeight: "900",
+    fontSize: 13.5,
+    letterSpacing: 0.5,
+  },
+  historyBtn: {
+    backgroundColor: COLORS.white,
+    minHeight: 50,
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 10,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  pinBtnText: {
+  historyBtnText: {
     color: COLORS.primary,
-    fontWeight: "900",
-    fontSize: 14,
+    fontWeight: "800",
+    fontSize: 13,
   },
   footerNote: {
     alignItems: "center",
-    marginVertical: 20,
+    marginTop: 20,
+    marginBottom: 10,
   },
   footerText: {
     color: "#CBD5E1",
