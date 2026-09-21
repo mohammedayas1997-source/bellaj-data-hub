@@ -37,18 +37,6 @@ const COLORS = {
   danger: "#DC2626",
 };
 
-// Safe image resolution fallback to prevent blank bundle crashes
-let appLogoSource = null;
-try {
-  appLogoSource = require("../../assets/Logo.png");
-} catch {
-  try {
-    appLogoSource = require("../assets/Logo.png");
-  } catch {
-    appLogoSource = null;
-  }
-}
-
 const LoginScreen = ({ navigation }) => {
   const { width } = useWindowDimensions();
   const isWeb = width >= 768;
@@ -59,10 +47,21 @@ const LoginScreen = ({ navigation }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [isBiometricSupported, setIsBiometricSupported] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    checkLoginStatus();
-    setupBiometrics();
+    // Prevent blank screen by mounting UI cleanly first
+    const init = async () => {
+      try {
+        await checkLoginStatus();
+        await setupBiometrics();
+      } catch (err) {
+        console.log("Initialization error:", err.message);
+      } finally {
+        setIsReady(true);
+      }
+    };
+    init();
   }, []);
 
   const normalizeEmail = (value) => String(value || "").trim().toLowerCase();
@@ -89,13 +88,11 @@ const LoginScreen = ({ navigation }) => {
   const getUserPayload = (data) =>
     data?.user || data?.data?.user || data?.data || {};
 
-  // Check if role requires transaction PIN setup (Customers and Agents only)
   const isPinRequiredRole = (role) => {
     const cleanRole = String(role || "user").trim().toLowerCase();
     return cleanRole === "user" || cleanRole === "customer" || cleanRole === "agent";
   };
 
-  // Inspect user object for transaction PIN status
   const checkHasPin = (userObj) => {
     if (!userObj) return false;
 
@@ -139,25 +136,13 @@ const LoginScreen = ({ navigation }) => {
           routes: [{ name: targetScreen }],
         })
       );
-      return;
-    } catch {}
-
-    try {
-      navigation.dispatch(
-        CommonActions.reset({
-          index: 0,
-          routes: [
-            {
-              name: "Main",
-              params: { screen: targetScreen },
-            },
-          ],
-        })
-      );
-      return;
-    } catch {}
-
-    navigation.navigate("Main", { screen: targetScreen });
+    } catch {
+      try {
+        navigation.navigate(targetScreen);
+      } catch (e) {
+        console.log("Navigation dispatch failed:", e.message);
+      }
+    }
   };
 
   const routeToSetupPin = () => {
@@ -173,7 +158,6 @@ const LoginScreen = ({ navigation }) => {
     }
   };
 
-  // Safe startup session check: Never blocks with PIN checks on launch
   const checkLoginStatus = async () => {
     try {
       const token =
@@ -192,11 +176,9 @@ const LoginScreen = ({ navigation }) => {
       }
 
       const activeRole = storedRole || detectRole(userObj) || "user";
-
-      // If active session exists, redirect straight to user's dashboard
       redirectUser(activeRole);
     } catch (e) {
-      console.log("Startup auth check error:", e.message);
+      console.log("Startup auth check warning:", e.message);
     }
   };
 
@@ -209,7 +191,7 @@ const LoginScreen = ({ navigation }) => {
         setIsBiometricSupported(true);
       }
     } catch (e) {
-      console.log("Biometric setup error:", e.message);
+      console.log("Biometric setup warning:", e.message);
     }
   };
 
@@ -242,9 +224,9 @@ const LoginScreen = ({ navigation }) => {
           const res = await axios.post(
             url,
             { email: cleanEmail, password: String(password).trim() },
-            { 
+            {
               headers: { "Content-Type": "application/json" },
-              timeout: 15000 
+              timeout: 15000,
             }
           );
           if (res?.data?.token || res?.data?.success) {
@@ -306,7 +288,7 @@ const LoginScreen = ({ navigation }) => {
         await AsyncStorage.setItem("adminToken", token);
       }
 
-      // Check PIN setup strictly for Customer and Agent roles
+      // Enforce PIN setup ONLY for Customers and Agents
       if (isPinRequiredRole(verifiedRole)) {
         const hasPinAlready = checkHasPin(finalUserData);
         const cachedPin = await AsyncStorage.getItem("transactionPin");
@@ -317,7 +299,6 @@ const LoginScreen = ({ navigation }) => {
         }
       }
 
-      // If biometrics supported, offer prompt if not enabled yet
       if (isBiometricSupported) {
         const biometricSetting = await AsyncStorage.getItem("useBiometricLogin");
         if (biometricSetting !== "true") {
@@ -345,7 +326,7 @@ const LoginScreen = ({ navigation }) => {
 
       redirectUser(verifiedRole);
     } catch (error) {
-      console.error("Login process error:", error);
+      console.error("Login error:", error);
       const status = error?.response?.status;
       const serverMessage =
         error?.response?.data?.message || error?.response?.data?.error;
@@ -399,7 +380,6 @@ const LoginScreen = ({ navigation }) => {
 
       const activeRole = storedRole || detectRole(userObj) || "user";
 
-      // Verify PIN strictly for Customer and Agent roles
       if (isPinRequiredRole(activeRole)) {
         const hasPinAlready = checkHasPin(userObj);
         const cachedPin = await AsyncStorage.getItem("transactionPin");
@@ -416,19 +396,13 @@ const LoginScreen = ({ navigation }) => {
     }
   };
 
-  const openWhatsApp = () => {
-    Linking.openURL(
-      "https://wa.me/2349075207281?text=Hello%20Bellaj%20Data%20Hub%20Support"
+  if (!isReady) {
+    return (
+      <View style={styles.centerLoader}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
     );
-  };
-
-  const openEmail = () => {
-    Linking.openURL("mailto:support@bellajdatahub.online");
-  };
-
-  const makeCall = () => {
-    Linking.openURL("tel:+2349075207281");
-  };
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -448,15 +422,7 @@ const LoginScreen = ({ navigation }) => {
           <View style={[styles.card, isWeb && styles.webCard]}>
             <View style={styles.headerSection}>
               <View style={styles.logoCircle}>
-                {appLogoSource ? (
-                  <Image
-                    source={appLogoSource}
-                    style={styles.logoImg}
-                    resizeMode="contain"
-                  />
-                ) : (
-                  <Ionicons name="shield-checkmark" size={54} color={COLORS.primary} />
-                )}
+                <Ionicons name="shield-checkmark" size={48} color={COLORS.primary} />
               </View>
 
               <Text style={styles.appName}>Bellaj Data Hub</Text>
@@ -531,7 +497,7 @@ const LoginScreen = ({ navigation }) => {
                 >
                   <MaterialCommunityIcons
                     name="fingerprint"
-                    size={32}
+                    size={28}
                     color={COLORS.primary}
                   />
                   <Text style={styles.biometricText}>Touch ID</Text>
@@ -552,7 +518,7 @@ const LoginScreen = ({ navigation }) => {
               style={[styles.loginBtn, loading && styles.loginBtnDisabled]}
               onPress={handleLogin}
               disabled={loading}
-              activeOpacity={0.9}
+              activeOpacity={0.88}
             >
               {loading ? (
                 <ActivityIndicator color={COLORS.white} />
@@ -560,26 +526,6 @@ const LoginScreen = ({ navigation }) => {
                 <Text style={styles.loginBtnText}>Login to Dashboard</Text>
               )}
             </TouchableOpacity>
-
-            <View style={styles.footerLinks}>
-              <TouchableOpacity onPress={() => navigation.navigate("About")}>
-                <Text style={styles.linkText}>About Us</Text>
-              </TouchableOpacity>
-
-              <View style={styles.divider} />
-
-              <TouchableOpacity
-                onPress={() => navigation.navigate("PrivacyPolicy")}
-              >
-                <Text style={styles.linkText}>Privacy Policy</Text>
-              </TouchableOpacity>
-
-              <View style={styles.divider} />
-
-              <TouchableOpacity onPress={() => navigation.navigate("Terms")}>
-                <Text style={styles.linkText}>Terms</Text>
-              </TouchableOpacity>
-            </View>
 
             <View style={styles.signupContainer}>
               <Text style={styles.noAccountText}>Don't have an account? </Text>
@@ -590,30 +536,28 @@ const LoginScreen = ({ navigation }) => {
 
             <View style={styles.contactContainer}>
               <Text style={styles.contactTitle}>QUICK SUPPORT</Text>
-
               <View style={styles.iconRow}>
                 <TouchableOpacity
                   style={styles.contactIconCircle}
-                  onPress={openWhatsApp}
+                  onPress={() => Linking.openURL("https://wa.me/2349075207281?text=Hello%20Bellaj%20Support")}
                 >
-                  <FontAwesome name="whatsapp" size={24} color="#25D366" />
+                  <FontAwesome name="whatsapp" size={22} color="#25D366" />
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.contactIconCircle, { marginHorizontal: 20 }]}
-                  onPress={makeCall}
+                  style={[styles.contactIconCircle, { marginHorizontal: 16 }]}
+                  onPress={() => Linking.openURL("tel:+2349075207281")}
                 >
-                  <Ionicons name="call" size={24} color={COLORS.secondary} />
+                  <Ionicons name="call" size={22} color={COLORS.secondary} />
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={styles.contactIconCircle}
-                  onPress={openEmail}
+                  onPress={() => Linking.openURL("mailto:support@bellajdatahub.online")}
                 >
-                  <Ionicons name="mail" size={24} color={COLORS.primary} />
+                  <Ionicons name="mail" size={22} color={COLORS.primary} />
                 </TouchableOpacity>
               </View>
-
               <Text style={styles.phoneNumber}>+234 9075207281</Text>
             </View>
           </View>
@@ -627,115 +571,119 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.light,
-    ...(Platform.OS === "web" ? { minHeight: "100vh", height: "100%" } : {}),
+  },
+  centerLoader: {
+    flex: 1,
+    backgroundColor: COLORS.light,
+    justifyContent: "center",
+    alignItems: "center",
   },
   keyboardView: {
     flex: 1,
     backgroundColor: COLORS.light,
-    ...(Platform.OS === "web" ? { minHeight: "100vh", height: "100%" } : {}),
   },
-  scrollView: { flex: 1, backgroundColor: COLORS.light },
+  scrollView: {
+    flex: 1,
+    backgroundColor: COLORS.light,
+  },
   scrollContent: {
     flexGrow: 1,
     width: "100%",
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === "android" ? 35 : 20,
-    paddingBottom: 80,
+    paddingTop: Platform.OS === "android" ? 30 : 16,
+    paddingBottom: 60,
     backgroundColor: COLORS.light,
   },
   webScrollContent: {
     alignItems: "center",
     paddingTop: 35,
-    paddingBottom: 90,
+    paddingBottom: 70,
   },
   card: {
     width: "100%",
-    maxWidth: 520,
+    maxWidth: 480,
     alignSelf: "center",
     backgroundColor: COLORS.white,
-    borderRadius: 22,
+    borderRadius: 20,
     paddingHorizontal: 20,
     paddingVertical: 24,
-    marginBottom: 30,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   webCard: {
-    padding: 30,
-    elevation: 8,
+    padding: 28,
     shadowColor: COLORS.dark,
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
   },
   headerSection: {
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: 20,
   },
   logoCircle: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: COLORS.white,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: COLORS.light,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 14,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  logoImg: { width: 72, height: 72 },
   appName: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: "900",
     color: COLORS.primary,
     textAlign: "center",
   },
   tagline: {
-    fontSize: 14,
+    fontSize: 13,
     color: COLORS.secondary,
-    marginTop: 6,
+    marginTop: 4,
     textAlign: "center",
     fontWeight: "600",
   },
   label: {
     color: "#475569",
-    fontSize: 14,
-    marginBottom: 8,
+    fontSize: 13,
+    marginBottom: 6,
     fontWeight: "700",
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#F8FAFC",
-    borderRadius: 13,
-    paddingHorizontal: 15,
-    marginBottom: 18,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
-    minHeight: 52,
+    minHeight: 50,
   },
   inputIcon: { marginRight: 10 },
   input: {
     flex: 1,
-    minHeight: 52,
+    minHeight: 50,
     color: COLORS.dark,
-    fontSize: 16,
-    ...(Platform.OS === "web" ? { outlineStyle: "none" } : {}),
+    fontSize: 15,
   },
   errorBanner: {
     flexDirection: "row",
     backgroundColor: "#FEF2F2",
     borderColor: "#FECACA",
     borderWidth: 1,
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 18,
+    padding: 10,
+    borderRadius: 10,
+    marginBottom: 14,
     alignItems: "center",
     gap: 8,
   },
   errorBannerText: {
     color: "#991B1B",
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
     flex: 1,
   },
@@ -743,7 +691,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 22,
+    marginBottom: 18,
   },
   biometricBtn: {
     flexDirection: "row",
@@ -764,74 +712,53 @@ const styles = StyleSheet.create({
   forgotBtn: { alignSelf: "center" },
   forgotText: {
     color: COLORS.primary,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "700",
   },
   loginBtn: {
     backgroundColor: COLORS.primary,
-    minHeight: 56,
-    borderRadius: 14,
+    minHeight: 52,
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
   },
   loginBtnDisabled: { opacity: 0.7 },
   loginBtnText: {
     color: COLORS.white,
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "900",
-  },
-  footerLinks: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 22,
-    width: "100%",
-    flexWrap: "wrap",
-  },
-  linkText: {
-    color: COLORS.muted,
-    fontSize: 12,
-    fontWeight: "700",
-    textDecorationLine: "underline",
-    paddingHorizontal: 4,
-  },
-  divider: {
-    width: 1,
-    height: 14,
-    backgroundColor: "#CBD5E1",
-    marginHorizontal: 8,
   },
   signupContainer: {
     flexDirection: "row",
     justifyContent: "center",
-    marginTop: 22,
+    marginTop: 18,
     flexWrap: "wrap",
   },
-  noAccountText: { color: COLORS.muted, fontSize: 14 },
+  noAccountText: { color: COLORS.muted, fontSize: 13.5 },
   signupText: {
     color: COLORS.secondary,
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: "900",
   },
   contactContainer: {
-    marginTop: 28,
+    marginTop: 22,
     alignItems: "center",
     borderTopWidth: 1,
     borderTopColor: "#F1F5F9",
-    paddingTop: 18,
+    paddingTop: 14,
   },
   contactTitle: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "800",
     color: "#94A3B8",
-    marginBottom: 15,
+    marginBottom: 12,
     letterSpacing: 1,
   },
   iconRow: { flexDirection: "row", alignItems: "center" },
   contactIconCircle: {
-    width: 45,
-    height: 45,
-    borderRadius: 22.5,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: "#F8FAFC",
     justifyContent: "center",
     alignItems: "center",
@@ -839,9 +766,9 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
   phoneNumber: {
-    marginTop: 15,
-    fontSize: 16,
-    fontWeight: "900",
+    marginTop: 12,
+    fontSize: 14,
+    fontWeight: "800",
     color: COLORS.secondary,
     textAlign: "center",
   },
